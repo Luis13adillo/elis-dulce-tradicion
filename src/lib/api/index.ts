@@ -27,6 +27,7 @@ class ApiClient extends BaseApiClient {
     transitionOrderStatus = this.ordersModule.transitionOrderStatus.bind(this.ordersModule);
     getTransitionHistory = this.ordersModule.getTransitionHistory.bind(this.ordersModule);
     searchOrders = this.ordersModule.searchOrders.bind(this.ordersModule);
+    verifyPayment = this.ordersModule.verifyPayment.bind(this.ordersModule);
 
     // Products
     getProducts = this.productsModule.getProducts.bind(this.productsModule);
@@ -92,6 +93,17 @@ class ApiClient extends BaseApiClient {
         const { data, error } = await sb.from('order_notes').insert({ order_id: orderId, created_by: user.id, content: content.trim() }).select().single();
         if (error) throw error;
         return { success: true, data };
+    }
+
+    async getStaffMembers(): Promise<{ id: string; full_name: string; role: string }[]> {
+        const sb = this.ensureSupabase();
+        if (!sb) return [];
+        const { data, error } = await sb
+            .from('user_profiles')
+            .select('user_id, full_name, role')
+            .in('role', ['owner', 'baker']);
+        if (error) throw error;
+        return (data || []).map(p => ({ id: p.user_id, full_name: p.full_name, role: p.role }));
     }
 
     async createPaymentIntent(amount: number, metadata?: any) {
