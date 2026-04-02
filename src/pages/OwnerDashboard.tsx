@@ -55,15 +55,39 @@ import MenuManager from '@/components/dashboard/MenuManager';
 import InventoryManager from '@/components/dashboard/InventoryManager';
 import ReportsManager from '@/components/dashboard/ReportsManager';
 import TodayScheduleSummary from '@/components/dashboard/TodayScheduleSummary';
+import { BusinessSettingsManager } from '@/components/admin/BusinessSettingsManager';
+import { BusinessHoursManager } from '@/components/admin/BusinessHoursManager';
+import ContactSubmissionsManager from '@/components/admin/ContactSubmissionsManager';
+import OrderIssuesManager from '@/components/admin/OrderIssuesManager';
+import { FAQManager } from '@/components/admin/FAQManager';
+import { GalleryManager } from '@/components/admin/GalleryManager';
+import { AnnouncementManager } from '@/components/admin/AnnouncementManager';
+import { useBusinessSettings, useBusinessHours } from '@/lib/hooks/useCMS';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 const OwnerDashboard = () => {
   const { t } = useLanguage();
   const { user, isLoading: authLoading } = useAuth();
+  const { data: businessSettings } = useBusinessSettings();
+  const { data: businessHours } = useBusinessHours();
+
+  // Derive earliest open and latest close from business hours
+  const calendarHours = useMemo(() => {
+    if (!businessHours || !Array.isArray(businessHours) || businessHours.length === 0) {
+      return { start: undefined, end: undefined };
+    }
+    const openDays = businessHours.filter((h: any) => h.is_open && h.open_time && h.close_time);
+    if (openDays.length === 0) return { start: undefined, end: undefined };
+
+    const starts = openDays.map((h: any) => parseInt(h.open_time.split(':')[0]));
+    const ends = openDays.map((h: any) => parseInt(h.close_time.split(':')[0]));
+    return { start: Math.min(...starts), end: Math.max(...ends) };
+  }, [businessHours]);
 
   // --- STATE ---
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [printOrder, setPrintOrder] = useState<any | null>(null);
   const [cancelOrderId, setCancelOrderId] = useState<number | null>(null);
@@ -79,12 +103,38 @@ const OwnerDashboard = () => {
   const [statusBreakdown, setStatusBreakdown] = useState<OrderStatusBreakdown[]>([]);
 
   const [revenuePeriod, setRevenuePeriod] = useState<'today' | 'week' | 'month'>('today');
+  const [settingsSubTab, setSettingsSubTab] = useState<'business' | 'hours' | 'contacts' | 'issues'>('business');
+  const [websiteSubTab, setWebsiteSubTab] = useState<'gallery' | 'faq' | 'announcements'>('gallery');
+
+  // Compute revenue trend: compare today vs yesterday
+  const revenueTrend = useMemo(() => {
+    if (allOrders.length === 0) return null;
+
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+
+    let todayRev = 0;
+    let yesterdayRev = 0;
+
+    allOrders.forEach(o => {
+      if (!o.created_at) return;
+      const d = o.created_at.split('T')[0];
+      const amount = Number(o.total_amount) || 0;
+      if (d === today) todayRev += amount;
+      if (d === yesterday) yesterdayRev += amount;
+    });
+
+    if (yesterdayRev === 0) return todayRev > 0 ? { pct: 100, direction: 'up' as const } : null;
+
+    const pct = Math.round(((todayRev - yesterdayRev) / yesterdayRev) * 100);
+    return { pct: Math.abs(pct), direction: pct >= 0 ? 'up' as const : 'down' as const };
+  }, [allOrders]);
 
 
   // --- 1. DATA LOADING (The "Brain") ---
   const loadDashboardData = async () => {
     try {
-      console.log('🔄 OwnerDashboard: Fetching fresh data...');
+      setLoadError(null);
 
       // 1. Fetch Metrics (Optimized RPC)
       const freshMetrics = await api.getDashboardMetrics(revenuePeriod);
@@ -102,9 +152,24 @@ const OwnerDashboard = () => {
       const stock = await api.getLowStockItems();
       setLowStockItems(Array.isArray(stock) ? stock : []);
 
+      // 5. Fetch Popular Items
+      try {
+        const popular = await api.getPopularItems();
+        if (Array.isArray(popular) && popular.length > 0) {
+          setPopularItems(popular.map((item: any) => ({
+            itemType: 'size' as const,
+            itemName: item.name || 'Unknown',
+            orderCount: item.count || 0,
+            totalRevenue: item.revenue || 0,
+          })));
+        }
+      } catch {
+        // Non-critical — overview still works without popular items
+      }
+
     } catch (error) {
-      console.error('❌ Error loading dashboard:', error);
-      toast.error('Error syncing dashboard data. Please refresh.');
+      setLoadError(t('Error al cargar datos. Intenta de nuevo.', 'Failed to load dashboard data. Please try again.'));
+      toast.error(t('Error al sincronizar datos.', 'Error syncing dashboard data.'));
     } finally {
       setIsLoading(false);
     }
@@ -257,6 +322,24 @@ const OwnerDashboard = () => {
     );
   }
 
+  if (loadError && allOrders.length === 0 && !metrics) {
+    return (
+      <div className="min-h-screen bg-[#F8F9FC] flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <AlertTriangle className="h-12 w-12 text-orange-400 mx-auto" />
+          <p className="text-gray-600 font-medium">{loadError}</p>
+          <Button
+            onClick={() => { setIsLoading(true); loadDashboardData(); }}
+            className="bg-[#C6A649] hover:bg-[#b0933f] text-white gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            {t('Reintentar', 'Retry')}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   // --- RENDER ---
   return (
     <div className="flex h-screen w-full bg-[#F5F6FA] overflow-hidden">
@@ -291,7 +374,7 @@ const OwnerDashboard = () => {
                 {/* METRIC CARDS */}
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
                   {[
-                    { label: t('Ingresos Hoy', 'Revenue Today'), value: formatPrice(metrics?.todayRevenue || 0), sub: 'Live Data', icon: DollarSign, color: 'text-orange-600', bg: 'bg-orange-100', trend: '↑ 12%' },
+                    { label: t('Ingresos Hoy', 'Revenue Today'), value: formatPrice(metrics?.todayRevenue || 0), sub: 'Live Data', icon: DollarSign, color: 'text-orange-600', bg: 'bg-orange-100', trend: revenueTrend ? `${revenueTrend.direction === 'up' ? '↑' : '↓'} ${revenueTrend.pct}%` : null, trendUp: revenueTrend?.direction === 'up' },
                     { label: t('Pedidos Hoy', 'Orders Today'), value: metrics?.todayOrders || 0, sub: `${metrics?.pendingOrders} pend`, icon: Package, color: 'text-blue-600', bg: 'bg-blue-100' },
                     { label: t('Ticket Promedio', 'Avg Ticket'), value: formatPrice(metrics?.averageOrderValue || 0), sub: t('por pedido', 'per order'), icon: BarChart3, color: 'text-indigo-600', bg: 'bg-indigo-100' },
                     { label: t('Entregas Hoy', "Today's Deliveries"), value: metrics?.todayDeliveries || 0, sub: `${metrics?.totalCustomers || 0} cli`, icon: Truck, color: 'text-emerald-600', bg: 'bg-emerald-100' }
@@ -313,7 +396,12 @@ const OwnerDashboard = () => {
                         <CardContent>
                           <h3 className="text-3xl font-black text-gray-900 tracking-tighter">{card.value}</h3>
                           <div className="flex items-center gap-2 mt-2">
-                            {card.trend && <span className="text-[10px] font-black text-green-500 bg-green-500/10 px-2 py-0.5 rounded-full">{card.trend}</span>}
+                            {card.trend && (
+                              <span className={cn(
+                                "text-[10px] font-black px-2 py-0.5 rounded-full",
+                                card.trendUp !== false ? "text-green-500 bg-green-500/10" : "text-red-500 bg-red-500/10"
+                              )}>{card.trend}</span>
+                            )}
                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{card.sub}</p>
                           </div>
                         </CardContent>
@@ -324,7 +412,7 @@ const OwnerDashboard = () => {
               </motion.div>
 
               {/* TODAY'S SCHEDULE SUMMARY */}
-              <TodayScheduleSummary orders={allOrders} />
+              <TodayScheduleSummary orders={allOrders} maxDailyCapacity={businessSettings?.max_daily_capacity || 20} />
 
               {/* CHARTS ROW */}
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -498,8 +586,10 @@ const OwnerDashboard = () => {
             <TabsContent value="calendar">
               <div className="h-[calc(100vh-140px)]">
                 <OwnerCalendar
-                  orders={allOrders} // Passing raw data down
+                  orders={allOrders}
                   onOrderClick={(order) => setPrintOrder(order)}
+                  businessStartHour={calendarHours.start}
+                  businessEndHour={calendarHours.end}
                 />
               </div>
             </TabsContent>
@@ -517,6 +607,78 @@ const OwnerDashboard = () => {
             {/* --- TAB: REPORTS --- */}
             <TabsContent value="reports" className="animate-in fade-in slide-in-from-bottom-5 duration-500">
               <ReportsManager />
+            </TabsContent>
+
+            {/* --- TAB: SETTINGS --- */}
+            <TabsContent value="settings" className="animate-in fade-in slide-in-from-bottom-5 duration-500">
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">{t('Configuración', 'Settings')}</h2>
+                  <p className="text-sm text-gray-500 mt-1">{t('Administra tu negocio', 'Manage your business')}</p>
+                </div>
+                <div className="flex gap-2 border-b border-gray-200 pb-1">
+                  {([
+                    { id: 'business' as const, label: t('Negocio', 'Business') },
+                    { id: 'hours' as const, label: t('Horarios', 'Hours') },
+                    { id: 'contacts' as const, label: t('Contactos', 'Contacts') },
+                    { id: 'issues' as const, label: t('Problemas', 'Issues') },
+                  ]).map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setSettingsSubTab(tab.id)}
+                      className={cn(
+                        "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors",
+                        settingsSubTab === tab.id
+                          ? "bg-white text-gray-900 border border-b-white border-gray-200 -mb-[1px]"
+                          : "text-gray-500 hover:text-gray-700"
+                      )}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                  {settingsSubTab === 'business' && <BusinessSettingsManager />}
+                  {settingsSubTab === 'hours' && <BusinessHoursManager />}
+                  {settingsSubTab === 'contacts' && <ContactSubmissionsManager />}
+                  {settingsSubTab === 'issues' && <OrderIssuesManager />}
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* --- TAB: WEBSITE CONTENT --- */}
+            <TabsContent value="website" className="animate-in fade-in slide-in-from-bottom-5 duration-500">
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">{t('Contenido del Sitio', 'Website Content')}</h2>
+                  <p className="text-sm text-gray-500 mt-1">{t('Gestiona el contenido público', 'Manage public-facing content')}</p>
+                </div>
+                <div className="flex gap-2 border-b border-gray-200 pb-1">
+                  {([
+                    { id: 'gallery' as const, label: t('Galería', 'Gallery') },
+                    { id: 'faq' as const, label: t('Preguntas Frecuentes', 'FAQ') },
+                    { id: 'announcements' as const, label: t('Anuncios', 'Announcements') },
+                  ]).map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setWebsiteSubTab(tab.id)}
+                      className={cn(
+                        "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors",
+                        websiteSubTab === tab.id
+                          ? "bg-white text-gray-900 border border-b-white border-gray-200 -mb-[1px]"
+                          : "text-gray-500 hover:text-gray-700"
+                      )}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                  {websiteSubTab === 'gallery' && <GalleryManager />}
+                  {websiteSubTab === 'faq' && <FAQManager />}
+                  {websiteSubTab === 'announcements' && <AnnouncementManager />}
+                </div>
+              </div>
             </TabsContent>
           </Tabs>
         </main>

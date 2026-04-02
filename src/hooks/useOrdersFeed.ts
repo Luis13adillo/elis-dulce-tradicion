@@ -35,7 +35,6 @@ export const useOrdersFeed = (role?: UserRole, options?: { soundEnabled?: boolea
         ordersMapRef.current = new Map(data.map((o: Order) => [o.id, o]));
       }
     } catch (error) {
-      console.error('Error loading orders in useOrdersFeed:', error);
       toast.error(`Error loading orders: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       if (showLoading) setIsRefreshing(false);
@@ -51,7 +50,7 @@ export const useOrdersFeed = (role?: UserRole, options?: { soundEnabled?: boolea
   // Real-time subscription
   const isAdmin = role === 'owner' || role === 'baker' || user?.profile?.role === 'owner' || user?.profile?.role === 'baker';
 
-  useRealtimeOrders({
+  const { isConnected, connectionError, reconnect } = useRealtimeOrders({
     filterByUserId: !isAdmin, // Customers only see their orders, admins see all
     onOrderInsert: (newOrder) => {
       setOrders((prev) => {
@@ -72,7 +71,7 @@ export const useOrdersFeed = (role?: UserRole, options?: { soundEnabled?: boolea
           // Play sound (unless muted)
           if (audioRef.current && options?.soundEnabled !== false) {
             audioRef.current.currentTime = 0;
-            audioRef.current.play().catch(() => console.log('Audio autoplay blocked'));
+            audioRef.current.play().catch(() => { /* autoplay blocked by browser policy */ });
           }
 
           // Browser Notification
@@ -144,7 +143,10 @@ export const useOrdersFeed = (role?: UserRole, options?: { soundEnabled?: boolea
     refreshOrders: () => loadOrders(true),
     newOrderAlert,
     latestOrder,
-    dismissAlert
+    dismissAlert,
+    isConnected,
+    connectionError,
+    reconnect
   };
 };
 

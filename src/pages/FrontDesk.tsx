@@ -25,7 +25,7 @@ import { DeliveryManagementPanel } from '@/components/kitchen/DeliveryManagement
 import ReportsManager from '@/components/dashboard/ReportsManager';
 import { QuickStatsWidget } from '@/components/dashboard/QuickStatsWidget';
 import { UrgentOrdersBanner } from '@/components/kitchen/UrgentOrdersBanner';
-import { Package, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Package, AlertTriangle, ChevronLeft, ChevronRight, WifiOff, Wifi, RefreshCw } from 'lucide-react';
 
 const FrontDesk = () => {
   const { t } = useLanguage();
@@ -42,7 +42,10 @@ const FrontDesk = () => {
     refreshOrders,
     newOrderAlert,
     latestOrder,
-    dismissAlert
+    dismissAlert,
+    isConnected,
+    connectionError,
+    reconnect
   } = useOrdersFeed(undefined, { soundEnabled: isSoundEnabled });
 
   // Notification State
@@ -124,28 +127,27 @@ const FrontDesk = () => {
       // Send Email Notifications
       if (action === 'confirm') {
         toast.info(t('Enviando correo...', 'Sending email...'));
-        api.sendOrderConfirmation(targetOrder).then(({ success, error }) => {
+        api.sendOrderConfirmation(targetOrder).then(({ success }) => {
           if (success) toast.success(t('Correo enviado', 'Email sent'));
-          else console.error("Email failed", error);
+          else toast.error(t('Error al enviar correo', 'Failed to send email'));
         });
       } else if (action === 'ready') {
         toast.info(t('Enviando correo...', 'Sending email...'));
-        api.sendReadyNotification(targetOrder).then(({ success, error }) => {
+        api.sendReadyNotification(targetOrder).then(({ success }) => {
           if (success) toast.success(t('Correo enviado', 'Email sent'));
-          else console.error("Email failed", error);
+          else toast.error(t('Error al enviar correo', 'Failed to send email'));
         });
       } else if (action === 'delivery' || action === 'complete') {
         const finalStatus = action === 'delivery' ? 'delivered' : 'completed';
         toast.info(t('Enviando correo...', 'Sending email...'));
-        api.sendStatusUpdate(targetOrder, oldStatus, finalStatus).then(({ success, error }) => {
+        api.sendStatusUpdate(targetOrder, oldStatus, finalStatus).then(({ success }) => {
           if (success) toast.success(t('Correo enviado', 'Email sent'));
-          else console.error("Email failed", error);
+          else toast.error(t('Error al enviar correo', 'Failed to send email'));
         });
       }
 
       refreshOrders();
-    } catch (error) {
-      console.error(error);
+    } catch {
       toast.error(t('Error al actualizar', 'Error updating status'));
     }
   };
@@ -154,8 +156,8 @@ const FrontDesk = () => {
     try {
       await signOut();
       navigate('/login');
-    } catch (error) {
-      console.error('Logout error', error);
+    } catch {
+      toast.error(t('Error al cerrar sesión', 'Error signing out'));
     }
   };
 
@@ -383,7 +385,34 @@ const FrontDesk = () => {
         <div className="flex-1 overflow-y-auto min-h-0 pb-4 pr-1">
           {/* Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-4">
-            {totalOrders === 0 ? (
+            {totalOrders === 0 && connectionError ? (
+              <div className={cn(
+                "col-span-full flex flex-col items-center justify-center py-20 rounded-xl border",
+                isDarkMode
+                  ? "bg-red-900/10 border-red-500/20 text-red-400"
+                  : "bg-red-50 border-red-200 text-red-600"
+              )}>
+                <WifiOff className="h-16 w-16 mb-4 opacity-50" />
+                <p className="text-lg font-medium mb-2">
+                  {t('No se pudieron cargar las ordenes', 'Could not load orders')}
+                </p>
+                <p className={cn("text-sm mb-4", isDarkMode ? "text-red-400/70" : "text-red-500/70")}>
+                  {connectionError}
+                </p>
+                <button
+                  onClick={() => refreshOrders()}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-colors",
+                    isDarkMode
+                      ? "bg-red-500/20 hover:bg-red-500/30 text-red-300"
+                      : "bg-red-100 hover:bg-red-200 text-red-700"
+                  )}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  {t('Intentar de nuevo', 'Try Again')}
+                </button>
+              </div>
+            ) : totalOrders === 0 ? (
               <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-400">
                 <Package className="h-16 w-16 mb-4 opacity-50" />
                 <p className="text-lg font-medium">{t('Sin ordenes en esta vista', 'No orders in this view')}</p>
@@ -562,6 +591,46 @@ const FrontDesk = () => {
       onToggleSound={() => setIsSoundEnabled(!isSoundEnabled)}
       userName={user?.profile?.full_name || user?.email?.split('@')[0] || 'Staff'}
     >
+      {/* Connection Status Banner */}
+      {!isConnected && !feedLoading && (
+        <div className={cn(
+          "flex items-center gap-3 px-4 py-3 rounded-xl border mb-4",
+          isDarkMode
+            ? "bg-amber-900/20 border-amber-500/30 text-amber-400"
+            : "bg-amber-50 border-amber-200 text-amber-700"
+        )}>
+          <WifiOff className="h-5 w-5 flex-shrink-0" />
+          <span className="text-sm font-medium flex-1">
+            {t(
+              'Conexion en tiempo real perdida — puedes perder nuevas ordenes',
+              'Real-time feed disconnected — you may miss new orders'
+            )}
+          </span>
+          <button
+            onClick={reconnect}
+            className={cn(
+              "px-3 py-1.5 rounded-lg text-xs font-bold transition-colors",
+              isDarkMode
+                ? "bg-amber-500/20 hover:bg-amber-500/30 text-amber-300"
+                : "bg-amber-100 hover:bg-amber-200 text-amber-800"
+            )}
+          >
+            {t('Reconectar', 'Reconnect')}
+          </button>
+          <button
+            onClick={() => refreshOrders()}
+            className={cn(
+              "px-3 py-1.5 rounded-lg text-xs font-bold transition-colors",
+              isDarkMode
+                ? "bg-amber-500/20 hover:bg-amber-500/30 text-amber-300"
+                : "bg-amber-100 hover:bg-amber-200 text-amber-800"
+            )}
+          >
+            {t('Actualizar', 'Refresh')}
+          </button>
+        </div>
+      )}
+
       <PrintPreviewModal
         isOpen={!!selectedOrder}
         order={selectedOrder}
