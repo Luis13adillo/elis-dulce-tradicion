@@ -5,6 +5,7 @@ import { InventoryApi } from './modules/inventory';
 import { AnalyticsApi } from './modules/analytics';
 import { NotificationsApi } from './modules/notifications';
 import { supabase, STORAGE_BUCKET } from '../supabase';
+import { getBusinessHours as cmsGetBusinessHours, type BusinessHours } from '../cms';
 
 // Apply Mixins or Composition to rebuild the monolith interface
 class ApiClient extends BaseApiClient {
@@ -93,6 +94,10 @@ class ApiClient extends BaseApiClient {
         const { data, error } = await sb.from('order_notes').insert({ order_id: orderId, created_by: user.id, content: content.trim() }).select().single();
         if (error) throw error;
         return { success: true, data };
+    }
+
+    async getBusinessHours(): Promise<BusinessHours[]> {
+        return cmsGetBusinessHours();
     }
 
     async getStaffMembers(): Promise<{ id: string; full_name: string; role: string }[]> {
