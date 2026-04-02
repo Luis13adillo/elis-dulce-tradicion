@@ -2,34 +2,40 @@
 
 **Project:** Eli's Bakery - Notification Fixes
 **Milestone:** v1.1
-**Updated:** 2026-02-02
+**Updated:** 2026-04-02
 
 ## Current Status
 
 | Metric | Value |
 |--------|-------|
-| Current Phase | Phase 3 - Dashboard Verification |
-| Phases Complete | 1/4 |
-| Requirements Complete | 5/21 |
-| Overall Progress | 40% |
+| Current Phase | Phase 4 - UI/UX Verification (Plan 1 of 2 complete) |
+| Phases Complete | 3/10 |
+| Requirements Complete | 11/53 |
+| Overall Progress | 21% by req count (but ~60% feature-complete) |
 
-Progress: [========------------] 40%
+Progress: [==------------------] 10% (requirements)
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2025-02-01)
 
 **Core value:** Customers receive email confirmations at each stage; staff are alerted instantly when orders come in.
-**Current focus:** Phase 3 - Dashboard Verification
+**Current focus:** Phase 2 - Stripe Backend Integration (CRITICAL: Stripe webhook handler missing — orders not created on payment)
 
 ## Phase Status
 
 | Phase | Name | Status | Plans | Progress |
 |-------|------|--------|-------|----------|
 | 1 | Contact Form Emails | Complete | 1/1 | 100% |
-| 2 | Verify Order Emails | Pending | 0/0 | 0% |
-| 3 | Dashboard Verification | In Progress | 2/3 | 67% |
-| 4 | UI/UX Verification | Pending | 0/0 | 0% |
+| 2 | Stripe Backend Integration & Order Emails | Complete ⚠️ (3 gaps in Phase 3) | 1/1 | 100% |
+| 3 | Dashboard Verification | In Progress | 2/3 | 50% |
+| 4 | UI/UX Verification | In Progress | 1/2 | 50% |
+| 5 | Dashboard & Front Desk Fixes | Pending | 0/0 | 0% |
+| 6 | Walk-In Order Creation | Pending | 0/0 | 0% |
+| 7 | Recipe Management | Pending | 0/0 | 0% |
+| 8 | Menu DB Migration & Price Security | Pending | 0/0 | 0% |
+| 9 | Security Hardening & Code Quality | Pending | 0/0 | 0% |
+| 10 | Post-Launch Polish | Pending | 0/0 | 0% |
 
 ## Accumulated Decisions
 
@@ -43,6 +49,13 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 | Products and Inventory accessible as tabs in Owner Dashboard | 03-02 | Single unified interface for owner management |
 | Menu items ordered: Overview, Orders, Calendar, Products, Inventory, Reports | 03-02 | Management functions grouped together logically |
 | Use Package icon for Products, Boxes icon for Inventory | 03-02 | Visual consistency in sidebar navigation |
+| FIX-01 (revenue trend) removed from Phase 5 | audit | Revenue trend calculation is ALREADY DYNAMIC in OwnerDashboard.tsx lines 109-131 |
+| FIX-09 (navigate import) removed from Phase 5 | audit | useNavigate IS already imported in OrderTracking.tsx line 3 |
+| Default capacity is 10 (not 20 as previously noted) | audit | Verified in capacity-inventory-schema.sql line 10 and capacity.js line 102 |
+| Stripe webhook is Supabase Edge Function (not Express) | Phase 2 | stripe-webhook edge function handles payment events; Express does not need a duplicate handler |
+| backend/db/ files are reference library only | audit | 24 files in backend/db/ are NOT applied migrations — verify production DB state in Phase 8 |
+| Use toast.error instead of console.error for dashboard errors | 04-01 | User-visible feedback preferred over browser console noise in production |
+| Audio autoplay browser policy failures silenced with comment | 04-01 | Not a code bug — browser policy constraint, not worth alerting user |
 
 ## Recent Activity
 
@@ -54,17 +67,46 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 - 2026-02-01: Completed 01-01-PLAN.md (Wire edge function + fix content)
 - 2026-02-02: Completed 03-01-PLAN.md (Code cleanup - removed 7 unused files)
 - 2026-02-02: Completed 03-02-PLAN.md (Dashboard Integration - MenuManager and InventoryManager tabs)
+- 2026-02-13: Gap analysis completed — cross-referenced system analysis docs against codebase
+- 2026-02-13: Found 10/21 fixes already resolved, 11 still needed
+- 2026-02-13: Added Phase 5 (Dashboard & Front Desk Fixes), Phase 6 (Walk-In Orders), Phase 7 (Recipe Management)
+- 2026-02-13: Added Phase 8 (Menu DB Migration & Price Security), Phase 9 (Security Hardening & Code Quality)
+- 2026-02-13: Full roadmap now covers path to 100% production-ready (10 phases, 45 requirements)
+- 2026-02-13: Documented live site status — elisbakery.com is live, not yet accepting orders (Stripe test keys)
+- 2026-02-13: Updated PROJECT.md — corrected Square→Stripe, updated requirements, added deployment status
+- 2026-04-02: Deep codebase audit (3 parallel agents) — found CRITICAL missing Stripe webhook handler
+- 2026-04-02: Corrected GSD inaccuracies: FIX-01 (revenue trend already dynamic), FIX-09 (navigate already imported)
+- 2026-04-02: Added STRIPE-01 through STRIPE-04 to Phase 2 (Stripe Backend Integration)
+- 2026-04-02: Added MISS-04 (capacity.js profiles bug), MISS-05 (analytics-views used_at bug), MISS-08 (CMS RLS) to Phase 5
+- 2026-04-02: Added DB-VERIFY to Phase 8 (backend/db/ files are reference library, not applied migrations)
+- 2026-04-02: Total requirements updated from 45 to 50. Current focus is Phase 2.
+- 2026-04-02: Phase 2 complete — STRIPE-01 through STRIPE-04 + EMAIL-03 + EMAIL-04 all resolved
+- 2026-04-02: Added verifyPayment() to API client; wired confirmation email in PaymentCheckout; fixed stripe-webhook column bugs; replaced Square refund with Stripe in cancellation.js; installed stripe SDK in backend
+- 2026-04-02: Readiness audit against actual code found 3 Phase 2 gaps. Added STRIPE-05 (verifyPayment race condition — queries DB only, not Stripe API), STRIPE-06 (webhook missing order status pending→confirmed transition), DB-MIGRATE-01 (payment_disputes table missing from Supabase migrations) into Phase 3 as verification gate. Total requirements: 50 → 53.
+- 2026-04-02: Completed 04-01-PLAN.md — deleted 7 dead code files from disk; removed all debug console statements from OwnerDashboard, FrontDesk, useOrdersFeed; build verified green
 
 ## Roadmap Evolution
 
 - Phase 3 added: Dashboard Verification - analyze Owner and Front Desk dashboards, verify components, graphs, order handling
 - Phase 4 added: UI/UX Verification - ensure all UI/UX is polished, responsive, bilingual, and working properly
+- Phase 5 added: Dashboard & Front Desk Fixes - fix 9 remaining bugs (hardcoded trend %, empty popular items, month calendar, stub buttons, orphaned CMS tools, hardcoded capacity/hours, error states, navigate import)
+- Phase 6 added: Walk-In Order Creation - build walk-in order form for Front Desk staff
+- Phase 7 added: Recipe Management - build recipe management UI with ingredient linking and cost calculation
+- Phase 8 added: Menu DB Migration & Price Security - move hardcoded pricing to database, add server-side price validation, remove Square dead code, password complexity
+- Phase 9 added: Security Hardening & Code Quality - CSRF protection, enable delivery option, split Order.tsx (1004 LOC) and ReportsManager.tsx (854 LOC)
+- Phase 10 added: Post-Launch Polish - unit/integration tests, 2FA/MFA for admin, session timeout, JSON-LD structured data
 
 ## Blockers
 
 None currently.
 
 ## Notes
+
+**Live Site Status:**
+- Site is live at [elisbakery.com](https://elisbakery.com) (Vercel, auto-deploys from `main`)
+- **NOT yet accepting orders** — Stripe uses test keys (`pk_test_...`)
+- Orders will go live after Phases 2-5 complete (emails + dashboards + UI verified)
+- No customer orders have been placed yet
 
 **Codebase context available:**
 - `.planning/codebase/` contains 7 documents mapping the existing system
@@ -77,17 +119,31 @@ None currently.
 - Placeholder addresses replaced with 324 W Marshall St, Norristown, PA 19401
 - See: `.planning/phases/01-contact-form-emails/01-01-SUMMARY.md`
 
-**Phase 3 In Progress:**
+**Phase 3 Complete (pending Phase 3 plan 3 for STRIPE-05/06/DB-MIGRATE-01):**
 - Code cleanup complete (03-01): Removed 7 unused files including BakerStation page, dev utilities, test data generation
 - Dashboard integration complete (03-02): MenuManager and InventoryManager now accessible as Products and Inventory tabs
 - Owner Dashboard now has 6 tabs: Overview, Orders, Calendar, Products, Inventory, Reports
 - See: `.planning/phases/03-dashboard-verification/03-01-SUMMARY.md` and `.planning/phases/03-dashboard-verification/03-02-SUMMARY.md`
+- ⚠️ Phase 3 also covers 3 payment gaps from Phase 2: STRIPE-05, STRIPE-06, DB-MIGRATE-01 (see ROADMAP.md Phase 3)
+
+**Phase 4 In Progress:**
+- Code cleanup complete (04-01): Deleted 7 dead code files from disk; removed all console statements from OwnerDashboard, FrontDesk, and useOrdersFeed
+- Build verified green after cleanup
+- See: `.planning/phases/04-ui-ux-verification/04-01-SUMMARY.md`
 
 ## Session Continuity
 
-Last session: 2026-02-02T14:56:15Z
-Stopped at: Completed 03-02-PLAN.md (Dashboard Integration)
+Last session: 2026-04-02
+Stopped at: Completed 04-01-PLAN.md — code cleanup and console statement removal
 Resume file: None
+Next action: Execute 04-02-PLAN.md (next UI/UX verification plan)
+
+**Manual steps still required (Stripe dashboard):**
+- Register the Supabase edge function URL as the Stripe webhook endpoint
+  URL format: `https://<project-ref>.supabase.co/functions/v1/stripe-webhook`
+  Events to subscribe: payment_intent.succeeded, payment_intent.payment_failed, charge.refunded, charge.dispute.created
+- Set STRIPE_WEBHOOK_SECRET in Supabase secrets (after registering the endpoint)
+- Set RESEND_API_KEY in Supabase secrets (for emails to work)
 
 ---
 *State tracking initialized: 2025-02-01*
