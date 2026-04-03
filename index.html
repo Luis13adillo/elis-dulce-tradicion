@@ -34,6 +34,17 @@
   <meta name="twitter:site" content="@elisbakerycafe" />
   <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
 
+  <!-- SW update: reload page when new service worker takes control (runs before React) -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      var _swRefreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (_swRefreshing) return;
+        _swRefreshing = true;
+        window.location.reload();
+      });
+    }
+  </script>
 
 </head>
 
