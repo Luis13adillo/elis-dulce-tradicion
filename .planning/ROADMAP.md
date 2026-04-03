@@ -16,7 +16,7 @@
 | 6 | Walk-In Order Creation | Build walk-in order form so Front Desk staff can create orders for phone/in-person customers | FEAT-01 | Pending |
 | 7 | Recipe Management | Build recipe management UI connecting inventory to cake production | FEAT-02 | Pending |
 | 8 | 4/4 | Complete   | 2026-04-03 | Pending |
-| 9 | 1/5 | In Progress|  | Pending |
+| 9 | 2/5 | In Progress|  | Pending |
 | 10 | Post-Launch Polish | Unit tests, 2FA for admin, session timeout, and JSON-LD SEO | TEST-01, AUTH-01, AUTH-02, SEO-01 | Pending |
 
 ---
@@ -316,7 +316,7 @@ Plans:
 
 **Goal:** Add CSRF protection, enable the delivery option for customers, and refactor the two largest components for maintainability.
 
-**Plans:** 1/5 plans executed
+**Plans:** 2/5 plans executed
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 9 to break down)

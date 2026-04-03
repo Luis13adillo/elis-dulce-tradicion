@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
 status: unknown
-last_updated: "2026-04-03T11:23:08.777Z"
+last_updated: "2026-04-03T12:40:59.647Z"
 progress:
   total_phases: 10
   completed_phases: 4
-  total_plans: 15
-  completed_plans: 13
+  total_plans: 20
+  completed_plans: 15
 ---
 
 # Project State
@@ -93,6 +93,10 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 - [Phase 09-01]: CSRF is defense-in-depth only — auth uses Bearer JWT, not cookies — graceful degradation on fetch failure (returns empty string, not error)
 - [Phase 09-01]: sameSite=lax in dev, sameSite=none+secure in production — cross-origin Vercel/Express requires none for cookies to be sent
 - [Phase 09-01]: Webhook routes excluded from CSRF by path prefix check in inline wrapper middleware
+- [Phase 09-02a]: exportRevenueSummary and exportOrderVolume accept filteredOrders + dateRange as parameters (not closures) so parent QuickExport can call them directly
+- [Phase 09-02a]: dateRange prop added to OrderVolumeReport beyond plan spec — enables consistent CSV filename generation, no behavior change
+- [Phase 09-02a]: exportRevenueSummary and exportOrderVolume accept filteredOrders + dateRange as parameters (not closures) so parent QuickExport can call them directly
+- [Phase 09-02a]: dateRange prop added to OrderVolumeReport beyond plan spec — enables consistent CSV filename generation, no behavior change
 
 ## Recent Activity
 
@@ -132,6 +136,7 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 - 2026-04-03: Completed 08-03-PLAN.md — applied 4 pricing tables migration to production Supabase via psql (cake_sizes 8 rows, bread_types 3 rows, cake_fillings 14 rows, premium_filling_upcharges 2 rows); wired OrderOptionsApi into api singleton; build verified green (DB-VERIFY + SEC-01)
 - 2026-04-03: Completed 08-04-PLAN.md — wired Order.tsx to fetch pricing options from DB with FALLBACK_ arrays; added server-side price validation (PRICE_MISMATCH_DETECTED) to backend/routes/orders.js; build verified green (SEC-01 + SEC-02). Phase 8 fully complete.
 - 2026-04-03: Completed 09-01-PLAN.md — CSRF defense-in-depth using csrf-csrf double-submit cookie pattern; removed squarecdn.com/squareup.com from CSP (replaced with maps.googleapis.com); created backend/middleware/csrf.js and src/lib/csrf.ts; wired X-CSRF-Token injection + credentials:include into api-client.ts; build verified green (SEC-05 complete).
+- 2026-04-03: Completed 09-02a-PLAN.md — created src/components/dashboard/reports/ with reportUtils.ts (generateCSV, downloadCSV, getDateRange, DatePreset), RevenueReport.tsx (revenueSummary useMemo + exportRevenueSummary), and OrderVolumeReport.tsx (orderVolume useMemo + exportOrderVolume); first half of ReportsManager refactor; build verified green (REFACTOR-02 partial).
 
 ## Roadmap Evolution
 
@@ -192,9 +197,9 @@ None currently.
 ## Session Continuity
 
 Last session: 2026-04-03
-Stopped at: Completed 09-01-PLAN.md — CSRF defense-in-depth via csrf-csrf double-submit cookie pattern; squarecdn.com/squareup.com removed from CSP; X-CSRF-Token injection added to api-client.ts (SEC-05 complete).
+Stopped at: Completed 09-02a-PLAN.md — created reportUtils.ts, RevenueReport.tsx, OrderVolumeReport.tsx in src/components/dashboard/reports/; first half of ReportsManager refactor (REFACTOR-02 partial).
 Resume file: None
-Next action: Execute Phase 9 Plan 2
+Next action: Execute Phase 9 Plan 02b (CustomerReport + InventoryReport + slim ReportsManager)
 
 **Manual steps still required (Stripe dashboard):**
 - Register the Supabase edge function URL as the Stripe webhook endpoint
