@@ -13,6 +13,7 @@ import {
   Search,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 
 interface Ingredient {
   id: number;
@@ -36,15 +37,13 @@ export function FrontDeskInventory({ darkMode }: FrontDeskInventoryProps) {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [lowStockItems, setLowStockItems] = useState<Ingredient[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
 
-  useEffect(() => {
-    loadInventory();
-  }, []);
-
   const loadInventory = async () => {
     setIsLoading(true);
+    setIsError(false);
     try {
       const [allItems, lowStock] = await Promise.all([
         api.getInventory(),
@@ -53,12 +52,57 @@ export function FrontDeskInventory({ darkMode }: FrontDeskInventoryProps) {
       setIngredients(Array.isArray(allItems) ? allItems : []);
       setLowStockItems(Array.isArray(lowStock) ? lowStock : []);
     } catch (error) {
-      console.error('Error loading inventory:', error);
-      toast.error(t('Error al cargar inventario', 'Error loading inventory'));
+      setIsError(true);
+      toast.error(t('Error al cargar inventario', 'Error loading inventory'), {
+        action: {
+          label: t('Reintentar', 'Retry'),
+          onClick: () => loadInventory(),
+        },
+      });
     } finally {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadInventory();
+
+    // FIX-08: Monitor realtime channel for disconnects
+    // Inventory itself is fetch-only (no realtime rows), but the channel health
+    // indicates overall Supabase connectivity. CHANNEL_ERROR means the connection dropped.
+    if (supabase) {
+      const channel = supabase.channel('inventory-health-monitor');
+      channel
+        .on('system', { event: 'disconnect' }, () => {
+          setIsError(true);
+          toast.error(t('Conexión perdida', 'Connection lost'), {
+            action: {
+              label: t('Reintentar', 'Retry'),
+              onClick: () => {
+                channel.unsubscribe();
+                loadInventory();
+              },
+            },
+          });
+        })
+        .subscribe((status) => {
+          if (status === 'CHANNEL_ERROR') {
+            setIsError(true);
+            toast.error(t('Error de conexión en tiempo real', 'Real-time connection error'), {
+              action: {
+                label: t('Reintentar', 'Retry'),
+                onClick: () => loadInventory(),
+              },
+            });
+          }
+        });
+
+      return () => {
+        channel.unsubscribe();
+      };
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const isLowStock = (ingredient: Ingredient) =>
     ingredient.quantity <= ingredient.low_stock_threshold;
@@ -79,11 +123,16 @@ export function FrontDeskInventory({ darkMode }: FrontDeskInventoryProps) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <RefreshCw className={cn(
-          "h-8 w-8 animate-spin",
-          darkMode ? "text-green-400" : "text-green-600"
-        )} />
+      <div className="flex flex-col gap-4 p-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div
+            key={i}
+            className={cn(
+              "h-16 rounded-lg animate-pulse",
+              darkMode ? "bg-slate-700" : "bg-gray-200"
+            )}
+          />
+        ))}
       </div>
     );
   }
@@ -121,6 +170,29 @@ export function FrontDeskInventory({ darkMode }: FrontDeskInventoryProps) {
           {t('Actualizar', 'Refresh')}
         </Button>
       </div>
+
+      {/* Error Banner */}
+      {isError && (
+        <div className={cn(
+          "flex items-center justify-between p-3 rounded-lg mb-4 text-sm",
+          darkMode ? "bg-red-900/20 text-red-400 border border-red-500/30" : "bg-red-50 text-red-600 border border-red-200"
+        )}>
+          <span className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" />
+            {t('No se pudo cargar el inventario', 'Could not load inventory')}
+          </span>
+          <button
+            onClick={() => loadInventory()}
+            className={cn(
+              "flex items-center gap-1 px-3 py-1 rounded text-xs font-bold",
+              darkMode ? "bg-red-500/20 hover:bg-red-500/30" : "bg-red-100 hover:bg-red-200"
+            )}
+          >
+            <RefreshCw className="h-3 w-3" />
+            {t('Reintentar', 'Retry')}
+          </button>
+        </div>
+      )}
 
       {/* Low Stock Alert Banner */}
       {lowStockItems.length > 0 && (

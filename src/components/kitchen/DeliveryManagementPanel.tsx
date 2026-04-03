@@ -24,21 +24,32 @@ export function DeliveryManagementPanel({
   const { t } = useLanguage();
   const [staffMembers, setStaffMembers] = useState<{ id: string; full_name: string; role: string }[]>([]);
   const [loadingStaff, setLoadingStaff] = useState(true);
+  const [staffError, setStaffError] = useState(false);
   const [actionLoading, setActionLoading] = useState<Record<number, boolean>>({});
+
+  const fetchStaff = async () => {
+    setLoadingStaff(true);
+    setStaffError(false);
+    try {
+      const members = await api.getStaffMembers();
+      setStaffMembers(members);
+    } catch (err) {
+      setStaffError(true);
+      toast.error(t('Error al cargar personal', 'Error loading staff'), {
+        action: {
+          label: t('Reintentar', 'Retry'),
+          onClick: () => fetchStaff(),
+        },
+      });
+    } finally {
+      setLoadingStaff(false);
+    }
+  };
 
   // Fetch staff members on mount
   useEffect(() => {
-    const fetchStaff = async () => {
-      try {
-        const members = await api.getStaffMembers();
-        setStaffMembers(members);
-      } catch (err) {
-        console.error('Error fetching staff:', err);
-      } finally {
-        setLoadingStaff(false);
-      }
-    };
     fetchStaff();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Filter to today's delivery orders
@@ -203,6 +214,23 @@ export function DeliveryManagementPanel({
           </div>
         ))}
       </div>
+
+      {/* Staff data error indicator */}
+      {staffError && (
+        <p className={cn(
+          "text-xs flex items-center gap-1 mb-4",
+          darkMode ? "text-red-400" : "text-red-500"
+        )}>
+          <AlertTriangle className="h-3 w-3" />
+          {t('Sin datos de personal', 'Staff data unavailable')}
+          <button
+            className="underline ml-1"
+            onClick={() => fetchStaff()}
+          >
+            {t('Reintentar', 'Retry')}
+          </button>
+        </p>
+      )}
 
       {/* Failed deliveries alert */}
       {stats.failed > 0 && (
