@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Save, Loader2 } from 'lucide-react';
 import type { BusinessSettings } from '@/lib/cms';
+import { supabase } from '@/lib/supabase';
 
 export function BusinessSettingsManager() {
   const { t, language } = useLanguage();
@@ -32,12 +33,38 @@ export function BusinessSettingsManager() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    // FIX-06: If new capacity value is set, warn if it's below today's order count
+    if (formData.max_daily_capacity !== undefined && supabase) {
+      const today = new Date().toISOString().split('T')[0]; // 'YYYY-MM-DD'
+      const { count } = await supabase
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('date_needed', today)
+        .neq('status', 'cancelled');
+
+      if (count !== null && formData.max_daily_capacity < count) {
+        // Non-blocking warning — show toast but continue with save
+        toast.warning(
+          isSpanish
+            ? `Advertencia: Hay ${count} pedidos para hoy. La nueva capacidad (${formData.max_daily_capacity}) es menor que los pedidos actuales.`
+            : `Warning: There are ${count} orders for today. New capacity (${formData.max_daily_capacity}) is below current order count.`
+        );
+        // Do NOT return — allow save to proceed
+      }
+    }
+
     try {
       await updateMutation.mutateAsync(formData);
-      toast.success(
-        isSpanish ? 'Configuración guardada exitosamente' : 'Settings saved successfully'
-      );
+      // Show targeted "Daily capacity updated" message if capacity field changed
+      const capacityChanged = settings?.max_daily_capacity !== formData.max_daily_capacity;
+      if (capacityChanged) {
+        toast.success('Daily capacity updated');
+      } else {
+        toast.success(
+          isSpanish ? 'Configuración guardada exitosamente' : 'Settings saved successfully'
+        );
+      }
     } catch (error) {
       toast.error(
         isSpanish ? 'Error al guardar configuración' : 'Error saving settings'
@@ -365,6 +392,45 @@ export function BusinessSettingsManager() {
                     })
                   }
                 />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{isSpanish ? 'Capacidad Diaria' : 'Daily Capacity'}</CardTitle>
+              <CardDescription>
+                {isSpanish
+                  ? 'Número máximo de pedidos de pasteles aceptados por día'
+                  : 'Maximum number of cake orders accepted per day'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="max_daily_capacity">
+                  {isSpanish ? 'Máximo de Pedidos Por Día' : 'Max Orders Per Day'}
+                </Label>
+                <div className="flex items-center gap-3">
+                  <Input
+                    id="max_daily_capacity"
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={formData.max_daily_capacity ?? 10}
+                    onChange={(e) =>
+                      setFormData({ ...formData, max_daily_capacity: parseInt(e.target.value, 10) || 10 })
+                    }
+                    className="w-24"
+                  />
+                  <span className="text-sm text-gray-500">
+                    {isSpanish ? 'pedidos/día' : 'orders/day'}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-400">
+                  {isSpanish
+                    ? 'El valor predeterminado es 10. El personal ve este límite en las vistas de calendario y agenda.'
+                    : 'Default is 10. Staff see this limit in the calendar and schedule views.'}
+                </p>
               </div>
             </CardContent>
           </Card>
