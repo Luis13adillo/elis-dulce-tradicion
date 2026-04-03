@@ -47,7 +47,7 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 | 6 | Walk-In Order Creation | Deferred ⏸️ | 0/0 | — |
 | 7 | Recipe Management | Deferred ⏸️ | 0/0 | — |
 | 8 | Menu DB Migration & Price Security | Complete | 4/4 | 100% |
-| 9 | Security Hardening & Code Quality | Pending | 0/0 | 0% |
+| 9 | Security Hardening & Code Quality | In Progress | 1/0 | — |
 | 10 | Post-Launch Polish | Pending | 0/0 | 0% |
 
 ## Accumulated Decisions
@@ -90,6 +90,9 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 - [Phase 08-04]: activeCakeSizes/activeFillings/etc. derived in render (not useMemo) — arrays are small (8 sizes, 14 fillings); no measurable performance benefit from memoization
 - [Phase 08-04]: Price validation errors are non-blocking in backend — log and proceed to avoid disrupting legitimate orders if validation DB query fails
 - [Phase 08-04]: Generic error message on price mismatch ("Something went wrong") — does not reveal manipulation was detected (per SEC-02 spec)
+- [Phase 09-01]: CSRF is defense-in-depth only — auth uses Bearer JWT, not cookies — graceful degradation on fetch failure (returns empty string, not error)
+- [Phase 09-01]: sameSite=lax in dev, sameSite=none+secure in production — cross-origin Vercel/Express requires none for cookies to be sent
+- [Phase 09-01]: Webhook routes excluded from CSRF by path prefix check in inline wrapper middleware
 
 ## Recent Activity
 
@@ -128,6 +131,7 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 - 2026-04-03: Completed 08-01-PLAN.md — deleted Square source files (square.ts, SquarePaymentForm.tsx) and stripped 540 lines of Square code from backend/routes/payments.js; build verified green (SEC-03)
 - 2026-04-03: Completed 08-03-PLAN.md — applied 4 pricing tables migration to production Supabase via psql (cake_sizes 8 rows, bread_types 3 rows, cake_fillings 14 rows, premium_filling_upcharges 2 rows); wired OrderOptionsApi into api singleton; build verified green (DB-VERIFY + SEC-01)
 - 2026-04-03: Completed 08-04-PLAN.md — wired Order.tsx to fetch pricing options from DB with FALLBACK_ arrays; added server-side price validation (PRICE_MISMATCH_DETECTED) to backend/routes/orders.js; build verified green (SEC-01 + SEC-02). Phase 8 fully complete.
+- 2026-04-03: Completed 09-01-PLAN.md — CSRF defense-in-depth using csrf-csrf double-submit cookie pattern; removed squarecdn.com/squareup.com from CSP (replaced with maps.googleapis.com); created backend/middleware/csrf.js and src/lib/csrf.ts; wired X-CSRF-Token injection + credentials:include into api-client.ts; build verified green (SEC-05 complete).
 
 ## Roadmap Evolution
 
@@ -188,9 +192,9 @@ None currently.
 ## Session Continuity
 
 Last session: 2026-04-03
-Stopped at: Completed 08-04-PLAN.md — Order.tsx wired to DB-fetched pricing options with FALLBACK_ arrays; server-side price validation added to backend/routes/orders.js (SEC-01 + SEC-02 complete). Phase 8 fully complete.
+Stopped at: Completed 09-01-PLAN.md — CSRF defense-in-depth via csrf-csrf double-submit cookie pattern; squarecdn.com/squareup.com removed from CSP; X-CSRF-Token injection added to api-client.ts (SEC-05 complete).
 Resume file: None
-Next action: Execute Phase 9 (Security Hardening & Code Quality)
+Next action: Execute Phase 9 Plan 2
 
 **Manual steps still required (Stripe dashboard):**
 - Register the Supabase edge function URL as the Stripe webhook endpoint

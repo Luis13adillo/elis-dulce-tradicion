@@ -149,7 +149,7 @@ app.use('/api/orders', orderTransitionsRouter);
 app.use('/api/orders', orderSearchRouter);
 // Legacy routes (for backward compatibility - deprecated)
 app.use('/api/payments', paymentsRouter);
-app.use('/api/webhooks', webhooksRouter); // Webhooks don't need rate limiting (they're from Square)
+app.use('/api/webhooks', webhooksRouter); // Webhooks don't need rate limiting (they're from Stripe)
 app.use('/api/upload', uploadRouter);
 app.use('/api/products', productsRouter);
 app.use('/api/configurator', configuratorRouter);
