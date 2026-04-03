@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
 status: unknown
-last_updated: "2026-04-03T14:26:46.459Z"
+last_updated: "2026-04-03T14:41:22.854Z"
 progress:
   total_phases: 10
   completed_phases: 5
   total_plans: 25
-  completed_plans: 19
+  completed_plans: 20
 ---
 
 # Project State
@@ -107,6 +107,9 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 - [Phase 10-01]: Mock @/lib/api in pricing tests to prevent Supabase WebSocket connections during module import
 - [Phase 10-01]: orderStateMachine backwards check moved before permission check; cancelled excluded from backwards check (toIndex >= 0 guard)
 - [Phase 10-01]: calculateTax: try county-specific rate first, then fall back to state-wide rate — previous logic returned state rate even when county-specific existed
+- [Phase 10-03]: Supabase does not support backup codes — second TOTP factor on another device is the documented recovery mechanism; EnrollMFA includes second-device enrollment section
+- [Phase 10-03]: AuthenticatorAssuranceCheck fails open on AAL API error — transient errors should not lock out admins
+- [Phase 10-03]: Owner MFA enforcement requires Supabase project setting (Require MFA for user) — AAL check alone is insufficient without that config; noted in comment in OwnerDashboard.tsx
 
 ## Recent Activity
 
@@ -151,6 +154,7 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 - 2026-04-03: Completed 09-03-PLAN.md — added calculateDeliveryFee to ApiClient; enabled delivery button, wired AddressAutocomplete with out-of-zone auto-revert, delivery fee in getTotal() and order payload; SEC-06 complete.
 - 2026-04-03: Completed 09-04-PLAN.md — extracted 5 step components (DateTimeStep, SizeStep, FlavorStep, DetailsStep, ContactStep) from Order.tsx monolith into src/components/order/steps/; replaced decorative progress bars with clickable step indicator; delivery UI migrated to ContactStep; build verified green (REFACTOR-01 complete).
 - 2026-04-03: Completed 10-01-PLAN.md — installed vitest + testing-library ecosystem (missing from package.json); created pricing.ts unit test suite (23 cases covering calculateCakePrice, calculateFillingCost, calculateThemeCost, calculateTax, formatPrice); fixed 2 pre-existing bugs in orderStateMachine.ts and pricing.ts; all 39 tests pass (TEST-01 complete).
+- 2026-04-03: Completed 10-03-PLAN.md — created EnrollMFA.tsx (QR code, OTP input, challenge+verify, second-device recovery), MFAChallengeScreen.tsx (listFactors on mount, auto-submit challenge), AuthenticatorAssuranceCheck.tsx (AAL gate); wired OwnerDashboard (owner, required MFA) and FrontDesk (baker, optional MFA); build verified green (AUTH-01 complete).
 
 ## Roadmap Evolution
 
@@ -211,9 +215,9 @@ None currently.
 ## Session Continuity
 
 Last session: 2026-04-03
-Stopped at: Completed 10-01-PLAN.md — pricing.ts unit tests + vitest infrastructure; TEST-01 done.
+Stopped at: Completed 10-03-PLAN.md — TOTP MFA for admin accounts (AUTH-01 complete).
 Resume file: None
-Next action: Continue Phase 10 — 10-02 (2FA/MFA for admin accounts).
+Next action: Continue Phase 10 — next plan (session timeout or JSON-LD structured data).
 
 **Manual steps still required (Stripe dashboard):**
 - Register the Supabase edge function URL as the Stripe webhook endpoint
