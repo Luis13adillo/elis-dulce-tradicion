@@ -45,7 +45,7 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 | 4 | UI/UX Verification | In Progress | 1/2 | 50% |
 | 5 | Dashboard & Front Desk Fixes | Complete | 4/4 | 100% |
 | 6 | Walk-In Order Creation | Deferred ⏸️ | 0/0 | — |
-| 7 | Recipe Management | Pending | 0/0 | 0% |
+| 7 | Recipe Management | Deferred ⏸️ | 0/0 | — |
 | 8 | Menu DB Migration & Price Security | Pending | 0/0 | 0% |
 | 9 | Security Hardening & Code Quality | Pending | 0/0 | 0% |
 | 10 | Post-Launch Polish | Pending | 0/0 | 0% |
@@ -110,7 +110,8 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 - 2026-04-03: Completed 05-02-PLAN.md — fixed analytics getPopularItems to use v_popular_items view (FIX-02), removed stub New Order button from OrderScheduler (FIX-04), made Order.tsx time slots dynamic from business hours (FIX-07), confirmed FIX-05 already implemented
 - 2026-04-03: Completed 05-03-PLAN.md — added maxDailyCapacity prop + traffic light fill bars + past-day dimming + expandable day panel to OwnerCalendar month view; wired FrontDesk calendar case to OwnerCalendar (FIX-03)
 - 2026-04-03: Completed 05-04-PLAN.md — added max daily capacity number input to BusinessSettings Orders tab (FIX-06), added skeleton loading + isError state + CHANNEL_ERROR health monitor to FrontDeskInventory, added staffError state + toast.error retry to DeliveryManagementPanel (FIX-08). Phase 5 fully complete.
-- 2026-04-03: Deferred Phase 6 (Walk-In Order Creation) — owner already has a POS system that handles walk-in and phone orders. Building a duplicate form would create redundancy. Next phase is 7 (Recipe Management).
+- 2026-04-03: Deferred Phase 6 (Walk-In Order Creation) — owner already has a POS system that handles walk-in and phone orders. Building a duplicate form would create redundancy.
+- 2026-04-03: Deferred Phase 7 (Recipe Management) — inventory tracking is not in use. Recipe-cost calculations require active inventory to have value. Potential future upsell once core system is live. Next phase is 8 (Menu DB Migration & Price Security).
 
 ## Roadmap Evolution
 
@@ -173,7 +174,7 @@ None currently.
 Last session: 2026-04-03
 Stopped at: Completed 05-04-PLAN.md — BusinessSettings capacity input, FrontDeskInventory error/retry states, DeliveryManagementPanel staff error state (FIX-06, FIX-08). Phase 5 complete.
 Resume file: None
-Next action: Execute Phase 7 (Recipe Management) — Phase 6 deferred (owner has existing POS system)
+Next action: Execute Phase 8 (Menu DB Migration & Price Security) — Phases 6 & 7 deferred (POS handles walk-ins; inventory not in use)
 
 **Manual steps still required (Stripe dashboard):**
 - Register the Supabase edge function URL as the Stripe webhook endpoint

@@ -245,7 +245,9 @@ Plans:
 
 ---
 
-## Phase 7: Recipe Management
+## Phase 7: Recipe Management ⏸️ DEFERRED
+
+> **Status: Deferred** — Inventory tracking is not in use. Recipe-cost calculations require active inventory unit costs to have value. Revisit as a paid add-on if the owner wants ingredient cost tracking in the future.
 
 **Goal:** Build a recipe management UI that connects the existing inventory system to cake production, so the owner can see ingredient costs per recipe and track usage.
 
