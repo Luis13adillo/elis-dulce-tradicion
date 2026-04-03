@@ -113,15 +113,8 @@ export function validateTransition(
   order: OrderData,
   context: TransitionContext
 ): { valid: boolean; error?: string } {
-  // Check permission
-  if (!canTransition(from, to, context.userRole)) {
-    return {
-      valid: false,
-      error: `User role '${context.userRole}' cannot transition from '${from}' to '${to}'`,
-    };
-  }
-
-  // Business rule: Cannot go backwards (except admin override)
+  // Business rule: Cannot go backwards (except admin/owner override)
+  // cancelled is not a "backward" step — it is always valid directionally
   const forwardOrder: OrderStatus[] = [
     'pending',
     'confirmed',
@@ -133,6 +126,7 @@ export function validateTransition(
   const toIndex = forwardOrder.indexOf(to);
 
   if (
+    toIndex >= 0 &&
     toIndex < fromIndex &&
     context.userRole !== 'owner' &&
     context.userRole !== 'admin'
@@ -140,6 +134,14 @@ export function validateTransition(
     return {
       valid: false,
       error: 'Cannot transition backwards in workflow',
+    };
+  }
+
+  // Check permission
+  if (!canTransition(from, to, context.userRole)) {
+    return {
+      valid: false,
+      error: `User role '${context.userRole}' cannot transition from '${from}' to '${to}'`,
     };
   }
 

@@ -194,14 +194,22 @@ export function calculateTax(
   county?: string,
   pricing: PricingData
 ): number {
-  // Find tax rate for state/county
-  const taxRate = pricing.taxRates.find((r) => {
-    if (r.state !== state) return false;
-    if (county && r.county) {
-      return r.county.toLowerCase() === county.toLowerCase();
-    }
-    return r.county === null; // Default state rate
-  });
+  // Find the most specific tax rate: county-level first, then state-level fallback
+  let taxRate = undefined;
+
+  if (county) {
+    // Try county-specific rate first
+    taxRate = pricing.taxRates.find(
+      (r) => r.state === state && r.county !== null && r.county.toLowerCase() === county.toLowerCase()
+    );
+  }
+
+  if (!taxRate) {
+    // Fall back to state-level rate (county === null)
+    taxRate = pricing.taxRates.find(
+      (r) => r.state === state && r.county === null
+    );
+  }
   
   if (!taxRate) {
     // Default to 8% if no rate found
