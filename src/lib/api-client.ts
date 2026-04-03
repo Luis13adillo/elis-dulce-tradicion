@@ -3,6 +3,8 @@
  * Provides typed interfaces for all API endpoints with automatic error handling
  */
 
+import { getCsrfToken, clearCsrfToken } from '@/lib/csrf';
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -85,9 +87,20 @@ class ApiClient {
     const url = `${this.baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
     const token = this.getAuthToken();
 
+    // Inject CSRF token for state-changing requests
+    let csrfHeader: string | null = null;
+    if (method !== 'GET' && method !== 'HEAD') {
+      try {
+        csrfHeader = await getCsrfToken();
+      } catch {
+        // Non-blocking — CSRF is defense-in-depth, not auth
+      }
+    }
+
     const requestHeaders: HeadersInit = {
       'Content-Type': 'application/json',
       ...headers,
+      ...(csrfHeader ? { 'X-CSRF-Token': csrfHeader } : {}),
     };
 
     if (token) {
@@ -98,6 +111,7 @@ class ApiClient {
       method,
       headers: requestHeaders,
       signal: AbortSignal.timeout(timeout),
+      credentials: 'include', // Required for CSRF cookie
     };
 
     if (body && method !== 'GET') {
@@ -129,6 +143,20 @@ class ApiClient {
             details: data.error?.details,
             status: response.status,
           };
+
+          // Auto-retry once with fresh CSRF token on 403 CSRF failures
+          if (response.status === 403 && attempt === 0) {
+            const errorCode = data?.error?.code || '';
+            if (errorCode === 'CSRF_INVALID' || errorCode.includes('CSRF') || data?.message?.includes('csrf')) {
+              clearCsrfToken();
+              csrfHeader = await getCsrfToken().catch(() => '');
+              if (csrfHeader) {
+                (requestHeaders as Record<string, string>)['X-CSRF-Token'] = csrfHeader;
+                requestConfig.headers = requestHeaders;
+              }
+              continue; // retry this attempt
+            }
+          }
 
           // Don't retry on client errors (4xx)
           if (response.status >= 400 && response.status < 500) {
