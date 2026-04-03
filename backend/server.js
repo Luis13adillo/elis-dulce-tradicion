@@ -24,6 +24,7 @@ import healthRouter from './routes/health.js';
 
 // Security middleware
 import { corsMiddleware, corsOptions } from './middleware/cors.js';
+import { cookieParser, generateToken, doubleCsrfProtection } from './middleware/csrf.js';
 import { validateInput } from './middleware/validateInput.js';
 import { generalLimiter, orderCreationLimiter } from './middleware/rateLimit.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
@@ -49,8 +50,8 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
-      scriptSrc: ["'self'", "https://sandbox.web.squarecdn.com", "https://web.squarecdn.com"],
-      connectSrc: ["'self'", process.env.SUPABASE_URL, "https://api.squareup.com"].filter(Boolean),
+      scriptSrc: ["'self'", "https://maps.googleapis.com"],
+      connectSrc: ["'self'", process.env.SUPABASE_URL, "https://maps.googleapis.com", "https://maps.gstatic.com"].filter(Boolean),
       frameSrc: ["'self'"],
     },
   },
@@ -59,11 +60,14 @@ app.use(helmet({
     includeSubDomains: true,
     preload: true,
   },
-  crossOriginEmbedderPolicy: false, // Allow Square SDK
+  crossOriginEmbedderPolicy: false, // Allow Google Maps
 }));
 
 // CORS
 app.use(corsMiddleware);
+
+// Cookie parsing (required for CSRF double-submit cookie pattern)
+app.use(cookieParser());
 
 // Body parsing with size limits
 app.use(express.json({ limit: '10mb' }));
