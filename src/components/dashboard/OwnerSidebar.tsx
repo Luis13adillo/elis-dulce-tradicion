@@ -6,13 +6,11 @@ import {
     Package,
     FileText,
     Settings,
-    MessageSquare,
     LogOut,
-    ChefHat,
     Calendar,
     Boxes,
+    Globe,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -29,13 +27,35 @@ export const OwnerSidebar = ({ activeTab, setActiveTab, className }: OwnerSideba
     const { signOut } = useAuth();
     const navigate = useNavigate();
 
-    const menuItems = [
-        { id: 'overview', label: t('Resumen', 'Overview'), icon: LayoutDashboard },
-        { id: 'orders', label: t('Pedidos', 'Orders'), icon: ShoppingBag },
-        { id: 'calendar', label: t('Calendario', 'Calendar'), icon: Calendar },
-        { id: 'products', label: t('Productos', 'Products'), icon: Package },
-        { id: 'inventory', label: t('Inventario', 'Inventory'), icon: Boxes },
-        { id: 'reports', label: t('Reportes', 'Reports'), icon: FileText },
+    const menuSections = [
+        {
+            label: t('Operaciones', 'Operations'),
+            items: [
+                { id: 'overview', label: t('Resumen', 'Overview'), icon: LayoutDashboard },
+                { id: 'orders', label: t('Pedidos', 'Orders'), icon: ShoppingBag },
+                { id: 'calendar', label: t('Calendario', 'Calendar'), icon: Calendar },
+            ],
+        },
+        {
+            label: t('Gestión', 'Management'),
+            items: [
+                { id: 'products', label: t('Productos', 'Products'), icon: Package },
+                { id: 'inventory', label: t('Inventario', 'Inventory'), icon: Boxes },
+            ],
+        },
+        {
+            label: t('Informes', 'Insights'),
+            items: [
+                { id: 'reports', label: t('Reportes', 'Reports'), icon: FileText },
+            ],
+        },
+        {
+            label: t('Sistema', 'System'),
+            items: [
+                { id: 'settings', label: t('Configuración', 'Settings'), icon: Settings },
+                { id: 'website', label: t('Sitio Web', 'Website'), icon: Globe },
+            ],
+        },
     ];
 
     return (
@@ -50,29 +70,36 @@ export const OwnerSidebar = ({ activeTab, setActiveTab, className }: OwnerSideba
             </div>
 
             {/* Navigation Menu */}
-            <nav className="flex w-full flex-1 flex-col gap-2">
-                {menuItems.map((item) => {
-                    const isActive = activeTab === item.id;
-                    const Icon = item.icon;
+            <nav className="flex w-full flex-1 flex-col gap-1 overflow-y-auto">
+                {menuSections.map((section) => (
+                    <div key={section.label} className="mb-2">
+                        <p className="hidden md:block px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-white/30">
+                            {section.label}
+                        </p>
+                        {section.items.map((item) => {
+                            const isActive = activeTab === item.id;
+                            const Icon = item.icon;
 
-                    return (
-                        <button
-                            key={item.id}
-                            onClick={() => setActiveTab(item.id)}
-                            className={cn(
-                                "group flex w-full items-center gap-3 rounded-2xl px-3 py-3 transition-all duration-300",
-                                isActive
-                                    ? "bg-[#C6A649] text-white shadow-lg shadow-[#C6A649]/20"
-                                    : "text-white/60 hover:bg-white/10 hover:text-white"
-                            )}
-                        >
-                            <Icon className={cn("h-6 w-6 transition-transform group-hover:scale-110", isActive && "animate-pulse-subtle")} />
-                            <span className={cn("hidden font-medium md:block", isActive ? "font-bold" : "")}>
-                                {item.label}
-                            </span>
-                        </button>
-                    );
-                })}
+                            return (
+                                <button
+                                    key={item.id}
+                                    onClick={() => setActiveTab(item.id)}
+                                    className={cn(
+                                        "group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 transition-all duration-300",
+                                        isActive
+                                            ? "bg-[#C6A649] text-white shadow-lg shadow-[#C6A649]/20"
+                                            : "text-white/60 hover:bg-white/10 hover:text-white"
+                                    )}
+                                >
+                                    <Icon className={cn("h-5 w-5 transition-transform group-hover:scale-110", isActive && "animate-pulse-subtle")} />
+                                    <span className={cn("hidden font-medium text-sm md:block", isActive ? "font-bold" : "")}>
+                                        {item.label}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                ))}
             </nav>
 
             {/* Logout Button */}

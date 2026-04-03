@@ -15,6 +15,8 @@ export const StripeCheckoutForm = ({ amount, onSuccess, isProcessing: externalPr
     const elements = useElements();
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [localProcessing, setLocalProcessing] = useState(false);
+    const [elementReady, setElementReady] = useState(false);
+    const [elementError, setElementError] = useState<string | null>(null);
 
     const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
@@ -30,9 +32,9 @@ export const StripeCheckoutForm = ({ amount, onSuccess, isProcessing: externalPr
         const { error, paymentIntent } = await stripe.confirmPayment({
             elements,
             confirmParams: {
-                return_url: `${window.location.origin}/order-confirmation`, // We handle success manually usually, but this is required fallback
+                return_url: `${window.location.origin}/order-confirmation`,
             },
-            redirect: "if_required", // Important: prevents redirect if not needed (e.g. card params correct)
+            redirect: "if_required",
         });
 
         if (error) {
@@ -41,7 +43,6 @@ export const StripeCheckoutForm = ({ amount, onSuccess, isProcessing: externalPr
             setLocalProcessing(false);
         } else if (paymentIntent && paymentIntent.status === 'succeeded') {
             onSuccess(paymentIntent.id);
-            // Don't turn off processing, parent will handle redirect
         } else {
             setLocalProcessing(false);
         }
@@ -51,19 +52,35 @@ export const StripeCheckoutForm = ({ amount, onSuccess, isProcessing: externalPr
 
     return (
         <form onSubmit={handleSubmit} className="w-full space-y-6">
-            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                <PaymentElement />
+            <div className="p-1 rounded-xl">
+                {!elementReady && !elementError && (
+                    <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-[#C6A649]" />
+                        <span className="ml-2 text-sm text-gray-400">Loading payment form...</span>
+                    </div>
+                )}
+                {elementError && (
+                    <div className="p-4 text-sm text-red-400 bg-red-500/10 rounded-lg border border-red-500/20">
+                        {elementError}. Please refresh the page.
+                    </div>
+                )}
+                <div className={!elementReady && !elementError ? 'sr-only' : ''}>
+                    <PaymentElement
+                        onReady={() => setElementReady(true)}
+                        onLoadError={(e) => setElementError(e.error.message || 'Failed to load payment form')}
+                    />
+                </div>
             </div>
 
             {errorMessage && (
-                <div className="p-3 text-sm text-red-600 bg-red-50 rounded-lg border border-red-100">
+                <div className="p-3 text-sm text-red-400 bg-red-500/10 rounded-lg border border-red-500/20">
                     {errorMessage}
                 </div>
             )}
 
             <Button
                 type="submit"
-                disabled={!stripe || isBusy}
+                disabled={!stripe || !elementReady || isBusy}
                 className="w-full h-12 text-base font-semibold bg-[#2a2a2a] hover:bg-black text-white rounded-xl shadow-lg hover:shadow-xl transition-all"
             >
                 {isBusy ? (

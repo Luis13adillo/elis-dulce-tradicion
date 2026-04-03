@@ -91,8 +91,8 @@ ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins can view audit logs" ON audit_logs
     FOR SELECT USING (
         EXISTS (
-            SELECT 1 FROM profiles
-            WHERE profiles.id = auth.uid()
-            AND profiles.role IN ('owner', 'baker')
+            SELECT 1 FROM user_profiles
+            WHERE user_profiles.user_id = auth.uid()
+            AND user_profiles.role IN ('owner', 'baker')
         )
     );

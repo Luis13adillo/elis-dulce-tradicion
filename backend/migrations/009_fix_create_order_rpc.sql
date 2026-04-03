@@ -4,6 +4,7 @@ CREATE OR REPLACE FUNCTION create_new_order(payload jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   new_order orders;
@@ -50,10 +51,7 @@ BEGIN
     COALESCE((payload->>'consent_given')::boolean, true),
     COALESCE((payload->>'consent_timestamp')::timestamptz, now()),
     payload->>'stripe_payment_id',
-    CASE WHEN payload->>'user_id' IS NOT NULL AND payload->>'user_id' != ''
-         THEN (payload->>'user_id')::uuid
-         ELSE NULL
-    END,
+    auth.uid(),
     COALESCE((payload->>'premium_filling_upcharge')::numeric, 0),
     COALESCE(payload->>'order_number', 'ORD-' || floor(random() * 100000)::text)
   )

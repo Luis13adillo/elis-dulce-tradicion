@@ -245,6 +245,20 @@ export class OrdersApi extends BaseApiClient {
         }
     }
 
+    async verifyPayment(paymentId: string): Promise<{ verified: boolean; orderNumber: string }> {
+        const sb = this.ensureSupabase();
+        if (!sb) return { verified: false, orderNumber: '' };
+
+        const { data, error } = await sb
+            .from('orders')
+            .select('order_number')
+            .eq('stripe_payment_id', paymentId)
+            .single();
+
+        if (error || !data) return { verified: false, orderNumber: '' };
+        return { verified: true, orderNumber: data.order_number };
+    }
+
     async searchOrders(query: string) {
         const sb = this.ensureSupabase();
         if (!sb) return { success: false, error: 'Database connection not available.' };

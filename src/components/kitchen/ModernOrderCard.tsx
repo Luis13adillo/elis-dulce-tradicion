@@ -4,6 +4,7 @@ import { Order } from "@/types/order";
 import { Clock, MapPin, Calendar } from "lucide-react";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface ModernOrderCardProps {
     order: Order;
@@ -24,6 +25,7 @@ export function ModernOrderCard({
     isFrontDesk,
     variant = 'default'
 }: ModernOrderCardProps) {
+    const { t } = useLanguage();
 
     // Calculate urgency / elapsed time
     const getUrgency = () => {
@@ -55,12 +57,12 @@ export function ModernOrderCard({
 
     const getStatusLabel = (status: string) => {
         switch (status) {
-            case 'pending': return 'New';
-            case 'confirmed': return 'Confirmed';
-            case 'in_progress': return 'Preparing';
-            case 'ready': return order.delivery_option === 'delivery' ? 'Delivery' : 'Pickup';
-            case 'out_for_delivery': return 'On Way';
-            case 'delivered': return 'Done';
+            case 'pending': return t('Nueva', 'New');
+            case 'confirmed': return t('Confirmada', 'Confirmed');
+            case 'in_progress': return t('Preparando', 'Preparing');
+            case 'ready': return order.delivery_option === 'delivery' ? t('Entrega', 'Delivery') : t('Recoger', 'Pickup');
+            case 'out_for_delivery': return t('En Camino', 'On Way');
+            case 'delivered': return t('Completada', 'Done');
             default: return status;
         }
     };
@@ -75,7 +77,7 @@ export function ModernOrderCard({
                 onClick={() => onShowDetails?.(order)}
                 className="flex-1 bg-white text-black border-gray-200 hover:bg-gray-50 rounded-xl h-10"
             >
-                View Order
+                {t('Ver Orden', 'View Order')}
             </Button>
         );
 
@@ -84,25 +86,25 @@ export function ModernOrderCard({
         if (order.status === 'pending') {
             actionButton = (
                 <Button onClick={() => onAction(order.id, 'confirm')} className="flex-1 bg-red-600 text-white hover:bg-red-700 rounded-xl h-10">
-                    Accept Order
+                    {t('Aceptar Orden', 'Accept Order')}
                 </Button>
             );
         } else if (order.status === 'confirmed') {
             actionButton = (
                 <Button onClick={() => onAction(order.id, 'start')} className="flex-1 bg-yellow-500 text-white hover:bg-yellow-600 rounded-xl h-10">
-                    Start Preparing
+                    {t('Comenzar Preparación', 'Start Preparing')}
                 </Button>
             );
         } else if (order.status === 'in_progress') {
             actionButton = (
                 <Button onClick={() => onAction(order.id, 'ready')} className="flex-1 bg-green-600 text-white hover:bg-green-700 rounded-xl h-10">
-                    Mark Ready
+                    {t('Marcar Lista', 'Mark Ready')}
                 </Button>
             );
         } else if (order.status === 'ready') {
             actionButton = (
                 <Button onClick={() => onAction(order.id, order.delivery_option === 'delivery' ? 'delivery' : 'complete')} className="flex-1 bg-orange-500 text-white hover:bg-orange-600 rounded-xl h-10">
-                    {order.delivery_option === 'delivery' ? 'Dispatch Driver' : 'Complete Pickup'}
+                    {order.delivery_option === 'delivery' ? t('Enviar Repartidor', 'Dispatch Driver') : t('Completar Recoger', 'Complete Pickup')}
                 </Button>
             );
         }
@@ -298,7 +300,7 @@ export function ModernOrderCard({
                                 : "text-red-400 hover:text-red-500 hover:bg-red-500/10"
                         )}
                     >
-                        Cancel Order
+                        {t('Cancelar Orden', 'Cancel Order')}
                     </Button>
                 )}
             </div>

@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
                         .from("orders")
                         .update({
                             payment_status: "paid",
-                            payment_intent_id: paymentIntent.id,
+                            stripe_payment_id: paymentIntent.id,
                             updated_at: new Date().toISOString(),
                         })
                         .eq("order_number", orderNumber);
@@ -152,7 +152,7 @@ Deno.serve(async (req) => {
                             refund_amount: charge.amount_refunded / 100, // Convert from cents
                             updated_at: new Date().toISOString(),
                         })
-                        .eq("payment_intent_id", paymentIntentId);
+                        .eq("stripe_payment_id", paymentIntentId);
 
                     if (error) {
                         console.error("Failed to update order refund status:", error);

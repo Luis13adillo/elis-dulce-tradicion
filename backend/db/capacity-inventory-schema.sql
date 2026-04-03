@@ -192,27 +192,27 @@ CREATE POLICY "Anyone can view holidays" ON holidays
 CREATE POLICY "Admins can manage daily capacity" ON daily_capacity
   FOR ALL USING (
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role IN ('owner', 'baker')
+      SELECT 1 FROM user_profiles
+      WHERE user_profiles.user_id = auth.uid()
+      AND user_profiles.role IN ('owner', 'baker')
     )
   );
 
 CREATE POLICY "Admins can manage business hours" ON business_hours
   FOR ALL USING (
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role IN ('owner', 'baker')
+      SELECT 1 FROM user_profiles
+      WHERE user_profiles.user_id = auth.uid()
+      AND user_profiles.role IN ('owner', 'baker')
     )
   );
 
 CREATE POLICY "Admins can manage holidays" ON holidays
   FOR ALL USING (
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role IN ('owner', 'baker')
+      SELECT 1 FROM user_profiles
+      WHERE user_profiles.user_id = auth.uid()
+      AND user_profiles.role IN ('owner', 'baker')
     )
   );
 
@@ -220,36 +220,36 @@ CREATE POLICY "Admins can manage holidays" ON holidays
 CREATE POLICY "Admins can view ingredients" ON ingredients
   FOR SELECT USING (
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role IN ('owner', 'baker')
+      SELECT 1 FROM user_profiles
+      WHERE user_profiles.user_id = auth.uid()
+      AND user_profiles.role IN ('owner', 'baker')
     )
   );
 
 CREATE POLICY "Admins can manage ingredients" ON ingredients
   FOR ALL USING (
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role IN ('owner', 'baker')
+      SELECT 1 FROM user_profiles
+      WHERE user_profiles.user_id = auth.uid()
+      AND user_profiles.role IN ('owner', 'baker')
     )
   );
 
 CREATE POLICY "Admins can view ingredient usage" ON ingredient_usage
   FOR SELECT USING (
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role IN ('owner', 'baker')
+      SELECT 1 FROM user_profiles
+      WHERE user_profiles.user_id = auth.uid()
+      AND user_profiles.role IN ('owner', 'baker')
     )
   );
 
 CREATE POLICY "Admins can log ingredient usage" ON ingredient_usage
   FOR INSERT WITH CHECK (
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role IN ('owner', 'baker')
+      SELECT 1 FROM user_profiles
+      WHERE user_profiles.user_id = auth.uid()
+      AND user_profiles.role IN ('owner', 'baker')
     )
   );
 

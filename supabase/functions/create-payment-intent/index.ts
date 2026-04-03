@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
             {
                 amount: Math.round(amount * 100), // Convert to cents
                 currency: currency || "usd",
-                payment_method_types: ["card"],
+                automatic_payment_methods: { enabled: true },
                 metadata: metadata || {},
             },
             {

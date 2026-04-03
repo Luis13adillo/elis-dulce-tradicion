@@ -137,9 +137,9 @@ CREATE POLICY "Anyone can view active cancellation policies" ON cancellation_pol
 CREATE POLICY "Admins can manage cancellation policies" ON cancellation_policies
   FOR ALL USING (
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role IN ('owner', 'baker')
+      SELECT 1 FROM user_profiles
+      WHERE user_profiles.user_id = auth.uid()
+      AND user_profiles.role IN ('owner', 'baker')
     )
   );
 
@@ -160,9 +160,9 @@ CREATE POLICY "Customers can view their own refunds" ON refunds
 CREATE POLICY "Admins can view all refunds" ON refunds
   FOR SELECT USING (
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role IN ('owner', 'baker')
+      SELECT 1 FROM user_profiles
+      WHERE user_profiles.user_id = auth.uid()
+      AND user_profiles.role IN ('owner', 'baker')
     )
   );
 
@@ -170,9 +170,9 @@ CREATE POLICY "Admins can view all refunds" ON refunds
 CREATE POLICY "Admins can manage refunds" ON refunds
   FOR ALL USING (
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role IN ('owner', 'baker')
+      SELECT 1 FROM user_profiles
+      WHERE user_profiles.user_id = auth.uid()
+      AND user_profiles.role IN ('owner', 'baker')
     )
   );
 

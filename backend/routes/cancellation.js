@@ -1,14 +1,13 @@
 import express from 'express';
 import pool from '../db/connection.js';
 import { requireAuth } from '../middleware/auth.js';
-import { SquareClient, SquareEnvironment } from 'square';
+import Stripe from 'stripe';
 
 const router = express.Router();
 
-// Initialize Square client
-const squareClient = new SquareClient({
-  token: process.env.SQUARE_ACCESS_TOKEN,
-  environment: process.env.SQUARE_ENVIRONMENT === 'production' ? SquareEnvironment.Production : SquareEnvironment.Sandbox,
+// Initialize Stripe client
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+  apiVersion: '2023-10-16',
 });
 
 /**
@@ -143,7 +142,7 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
 
     // Create refund record if applicable
     let refundId = null;
-    if (refundAmount > 0 && order.square_payment_id) {
+    if (refundAmount > 0 && order.stripe_payment_id) {
       const refundInsert = await client.query(
         `INSERT INTO refunds (
           order_id, payment_id, square_payment_id, refund_amount, 
@@ -153,7 +152,7 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
         [
           id,
           order.payment_id,
-          order.square_payment_id,
+          order.stripe_payment_id,
           refundAmount,
           policy?.refund_percentage || 0,
           reason,
@@ -180,9 +179,9 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
     await client.query('COMMIT');
 
     // Process refund if applicable
-    if (refundAmount > 0 && order.square_payment_id && refundId) {
+    if (refundAmount > 0 && order.stripe_payment_id && refundId) {
       try {
-        await processSquareRefund(order.square_payment_id, refundAmount, reason, refundId, client);
+        await processStripeRefund(order.stripe_payment_id, refundAmount, reason, refundId, client);
       } catch (refundError) {
         console.error('Error processing refund:', refundError);
         // Don't fail the cancellation if refund fails
@@ -323,7 +322,7 @@ router.post('/:id/admin-cancel', requireAuth, async (req, res) => {
 
     // Create refund record if applicable
     let refundId = null;
-    if (refundAmount > 0 && order.square_payment_id) {
+    if (refundAmount > 0 && order.stripe_payment_id) {
       const refundInsert = await client.query(
         `INSERT INTO refunds (
           order_id, payment_id, square_payment_id, refund_amount, 
@@ -333,7 +332,7 @@ router.post('/:id/admin-cancel', requireAuth, async (req, res) => {
         [
           id,
           order.payment_id,
-          order.square_payment_id,
+          order.stripe_payment_id,
           refundAmount,
           refundPercentage,
           reason,
@@ -361,9 +360,9 @@ router.post('/:id/admin-cancel', requireAuth, async (req, res) => {
     await client.query('COMMIT');
 
     // Process refund if applicable
-    if (refundAmount > 0 && order.square_payment_id && refundId) {
+    if (refundAmount > 0 && order.stripe_payment_id && refundId) {
       try {
-        await processSquareRefund(order.square_payment_id, refundAmount, reason, refundId, client);
+        await processStripeRefund(order.stripe_payment_id, refundAmount, reason, refundId, client);
       } catch (refundError) {
         console.error('Error processing refund:', refundError);
         // Don't fail the cancellation if refund fails
@@ -424,69 +423,54 @@ function calculateHoursUntilNeeded(order) {
 }
 
 /**
- * Process Square refund
+ * Process Stripe refund
  */
-async function processSquareRefund(squarePaymentId, amount, reason, refundId, dbClient) {
+async function processStripeRefund(stripePaymentId, amount, reason, refundId, dbClient) {
   try {
-    const refundsApi = squareClient.refundsApi;
-    
-    const refundRequest = {
-      idempotencyKey: `refund-${refundId}-${Date.now()}`,
-      paymentId: squarePaymentId,
-      amountMoney: {
-        amount: Math.round(amount * 100), // Convert to cents
-        currency: 'USD',
-      },
-      reason: reason.substring(0, 192), // Square limit
+    const refund = await stripe.refunds.create({
+      payment_intent: stripePaymentId,
+      amount: Math.round(amount * 100), // Convert to cents
+      reason: 'requested_by_customer',
+      metadata: { refund_id: String(refundId), cancellation_reason: reason },
+    });
+
+    // Update refund record
+    await dbClient.query(
+      `UPDATE refunds
+       SET stripe_refund_id = $1,
+           refund_status = $2,
+           processed_at = CURRENT_TIMESTAMP
+       WHERE id = $3`,
+      [
+        refund.id,
+        refund.status === 'succeeded' ? 'processed' : 'pending',
+        refundId
+      ]
+    );
+
+    // Update order refund status
+    await dbClient.query(
+      `UPDATE orders
+       SET refund_status = $1,
+           refund_processed_at = CURRENT_TIMESTAMP
+       WHERE stripe_payment_id = $2`,
+      [
+        refund.status === 'succeeded' ? 'processed' : 'pending',
+        stripePaymentId
+      ]
+    );
+
+    return {
+      success: true,
+      stripeRefundId: refund.id,
+      status: refund.status,
     };
-
-    const response = await refundsApi.refundPayment(refundRequest);
-
-    if (response.result.refund) {
-      const squareRefund = response.result.refund;
-
-      // Update refund record
-      await dbClient.query(
-        `UPDATE refunds 
-         SET square_refund_id = $1,
-             refund_status = $2,
-             processed_at = CURRENT_TIMESTAMP
-         WHERE id = $3`,
-        [
-          squareRefund.id,
-          squareRefund.status === 'COMPLETED' ? 'processed' : 'pending',
-          refundId
-        ]
-      );
-
-      // Update order refund status
-      await dbClient.query(
-        `UPDATE orders 
-         SET refund_status = $1,
-             refund_square_id = $2,
-             refund_processed_at = CURRENT_TIMESTAMP
-         WHERE square_payment_id = $3`,
-        [
-          squareRefund.status === 'COMPLETED' ? 'processed' : 'pending',
-          squareRefund.id,
-          squarePaymentId
-        ]
-      );
-
-      return {
-        success: true,
-        squareRefundId: squareRefund.id,
-        status: squareRefund.status,
-      };
-    } else {
-      throw new Error('No refund returned from Square');
-    }
   } catch (error) {
-    console.error('Square refund error:', error);
-    
+    console.error('Stripe refund error:', error);
+
     // Update refund status to failed
     await dbClient.query(
-      `UPDATE refunds 
+      `UPDATE refunds
        SET refund_status = 'failed'
        WHERE id = $1`,
       [refundId]

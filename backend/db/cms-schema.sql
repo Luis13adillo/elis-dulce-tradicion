@@ -226,5 +226,5 @@ CREATE TRIGGER update_footer_config_updated_at BEFORE UPDATE ON footer_config
 -- ALTER TABLE business_settings ENABLE ROW LEVEL SECURITY;
 -- CREATE POLICY "Public read access" ON business_settings FOR SELECT USING (true);
 -- CREATE POLICY "Owner write access" ON business_settings FOR ALL USING (
---     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'owner')
+--     EXISTS (SELECT 1 FROM user_profiles WHERE user_id = auth.uid() AND role = 'owner')
 -- );

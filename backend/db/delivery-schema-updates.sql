@@ -125,9 +125,9 @@ CREATE POLICY "Anyone can view active delivery zones" ON delivery_zones
 CREATE POLICY "Admins can manage delivery zones" ON delivery_zones
   FOR ALL USING (
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role IN ('owner', 'baker')
+      SELECT 1 FROM user_profiles
+      WHERE user_profiles.user_id = auth.uid()
+      AND user_profiles.role IN ('owner', 'baker')
     )
   );
 
@@ -136,18 +136,18 @@ CREATE POLICY "Admins and assigned drivers can view assignments" ON delivery_ass
   FOR SELECT USING (
     assigned_to = auth.uid() OR
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role IN ('owner', 'baker')
+      SELECT 1 FROM user_profiles
+      WHERE user_profiles.user_id = auth.uid()
+      AND user_profiles.role IN ('owner', 'baker')
     )
   );
 
 CREATE POLICY "Admins can manage assignments" ON delivery_assignments
   FOR ALL USING (
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role IN ('owner', 'baker')
+      SELECT 1 FROM user_profiles
+      WHERE user_profiles.user_id = auth.uid()
+      AND user_profiles.role IN ('owner', 'baker')
     )
   );
 
@@ -164,18 +164,18 @@ CREATE POLICY "Customers can view their own delivery tracking" ON delivery_track
 CREATE POLICY "Admins can view all delivery tracking" ON delivery_tracking
   FOR SELECT USING (
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role IN ('owner', 'baker')
+      SELECT 1 FROM user_profiles
+      WHERE user_profiles.user_id = auth.uid()
+      AND user_profiles.role IN ('owner', 'baker')
     )
   );
 
 CREATE POLICY "Admins can create delivery tracking" ON delivery_tracking
   FOR INSERT WITH CHECK (
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role IN ('owner', 'baker')
+      SELECT 1 FROM user_profiles
+      WHERE user_profiles.user_id = auth.uid()
+      AND user_profiles.role IN ('owner', 'baker')
     )
   );
 

@@ -30,9 +30,9 @@ CREATE POLICY "Customers can view own orders" ON orders
 CREATE POLICY "Admins can view all orders" ON orders
   FOR SELECT USING (
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role IN ('owner', 'baker')
+      SELECT 1 FROM user_profiles
+      WHERE user_profiles.user_id = auth.uid()
+      AND user_profiles.role IN ('owner', 'baker')
     )
   );
 
@@ -47,9 +47,9 @@ CREATE POLICY "Customers can create own orders" ON orders
 CREATE POLICY "Admins can update all orders" ON orders
   FOR UPDATE USING (
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role IN ('owner', 'baker')
+      SELECT 1 FROM user_profiles
+      WHERE user_profiles.user_id = auth.uid()
+      AND user_profiles.role IN ('owner', 'baker')
     )
   );
 
@@ -57,9 +57,9 @@ CREATE POLICY "Admins can update all orders" ON orders
 CREATE POLICY "Admins can delete orders" ON orders
   FOR DELETE USING (
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role = 'owner'
+      SELECT 1 FROM user_profiles
+      WHERE user_profiles.user_id = auth.uid()
+      AND user_profiles.role = 'owner'
     )
   );
 
@@ -68,43 +68,43 @@ CREATE POLICY "Admins can delete orders" ON orders
 -- =====================================================
 
 -- Enable RLS
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies
-DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
-DROP POLICY IF EXISTS "Admins can view all profiles" ON profiles;
-DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
-DROP POLICY IF EXISTS "Admins can update all profiles" ON profiles;
+DROP POLICY IF EXISTS "Users can view own profile" ON user_profiles;
+DROP POLICY IF EXISTS "Admins can view all profiles" ON user_profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON user_profiles;
+DROP POLICY IF EXISTS "Admins can update all profiles" ON user_profiles;
 
 -- Users can view their own profile
-CREATE POLICY "Users can view own profile" ON profiles
-  FOR SELECT USING (id = auth.uid());
+CREATE POLICY "Users can view own profile" ON user_profiles
+  FOR SELECT USING (user_id = auth.uid());
 
 -- Admins can view all profiles
-CREATE POLICY "Admins can view all profiles" ON profiles
+CREATE POLICY "Admins can view all profiles" ON user_profiles
   FOR SELECT USING (
     EXISTS (
-      SELECT 1 FROM profiles p
-      WHERE p.id = auth.uid()
+      SELECT 1 FROM user_profiles p
+      WHERE p.user_id = auth.uid()
       AND p.role IN ('owner', 'baker')
     )
   );
 
 -- Users can update their own profile (limited fields)
-CREATE POLICY "Users can update own profile" ON profiles
-  FOR UPDATE USING (id = auth.uid())
+CREATE POLICY "Users can update own profile" ON user_profiles
+  FOR UPDATE USING (user_id = auth.uid())
   WITH CHECK (
-    id = auth.uid() AND
+    user_id = auth.uid() AND
     -- Prevent users from changing their own role
-    role = (SELECT role FROM profiles WHERE id = auth.uid())
+    role = (SELECT role FROM user_profiles WHERE user_id = auth.uid())
   );
 
 -- Admins can update all profiles
-CREATE POLICY "Admins can update all profiles" ON profiles
+CREATE POLICY "Admins can update all profiles" ON user_profiles
   FOR UPDATE USING (
     EXISTS (
-      SELECT 1 FROM profiles p
-      WHERE p.id = auth.uid()
+      SELECT 1 FROM user_profiles p
+      WHERE p.user_id = auth.uid()
       AND p.role IN ('owner', 'baker')
     )
   );
@@ -136,9 +136,9 @@ CREATE POLICY "Users can view own payments" ON payments
 CREATE POLICY "Admins can view all payments" ON payments
   FOR SELECT USING (
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role IN ('owner', 'baker')
+      SELECT 1 FROM user_profiles
+      WHERE user_profiles.user_id = auth.uid()
+      AND user_profiles.role IN ('owner', 'baker')
     )
   );
 
@@ -150,9 +150,9 @@ CREATE POLICY "System can create payments" ON payments
 CREATE POLICY "Admins can update payments" ON payments
   FOR UPDATE USING (
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role IN ('owner', 'baker')
+      SELECT 1 FROM user_profiles
+      WHERE user_profiles.user_id = auth.uid()
+      AND user_profiles.role IN ('owner', 'baker')
     )
   );
 
@@ -194,9 +194,9 @@ BEGIN
     CREATE POLICY "Admins can manage all reviews" ON order_reviews
       FOR ALL USING (
         EXISTS (
-          SELECT 1 FROM profiles
-          WHERE profiles.id = auth.uid()
-          AND profiles.role IN ('owner', 'baker')
+          SELECT 1 FROM user_profiles
+          WHERE user_profiles.user_id = auth.uid()
+          AND user_profiles.role IN ('owner', 'baker')
         )
       );
   END IF;
@@ -223,9 +223,9 @@ BEGIN
     CREATE POLICY "Admins can manage pricing" ON cake_pricing
       FOR ALL USING (
         EXISTS (
-          SELECT 1 FROM profiles
-          WHERE profiles.id = auth.uid()
-          AND profiles.role IN ('owner', 'baker')
+          SELECT 1 FROM user_profiles
+          WHERE user_profiles.user_id = auth.uid()
+          AND user_profiles.role IN ('owner', 'baker')
         )
       );
   END IF;
@@ -246,9 +246,9 @@ BEGIN
     CREATE POLICY "Admins can manage filling pricing" ON filling_pricing
       FOR ALL USING (
         EXISTS (
-          SELECT 1 FROM profiles
-          WHERE profiles.id = auth.uid()
-          AND profiles.role IN ('owner', 'baker')
+          SELECT 1 FROM user_profiles
+          WHERE user_profiles.user_id = auth.uid()
+          AND user_profiles.role IN ('owner', 'baker')
         )
       );
   END IF;
@@ -269,9 +269,9 @@ BEGIN
     CREATE POLICY "Admins can manage theme pricing" ON theme_pricing
       FOR ALL USING (
         EXISTS (
-          SELECT 1 FROM profiles
-          WHERE profiles.id = auth.uid()
-          AND profiles.role IN ('owner', 'baker')
+          SELECT 1 FROM user_profiles
+          WHERE user_profiles.user_id = auth.uid()
+          AND user_profiles.role IN ('owner', 'baker')
         )
       );
   END IF;

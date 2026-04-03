@@ -5,7 +5,7 @@
 -- =====================================================
 
 -- Enhance profiles table with customer-specific fields
-ALTER TABLE profiles
+ALTER TABLE user_profiles
 ADD COLUMN IF NOT EXISTS default_delivery_address TEXT,
 ADD COLUMN IF NOT EXISTS default_delivery_apartment VARCHAR(100),
 ADD COLUMN IF NOT EXISTS favorite_cake_size VARCHAR(50),
@@ -50,8 +50,8 @@ CREATE TABLE IF NOT EXISTS order_reviews (
 );
 
 -- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_profiles_total_orders ON profiles(total_orders);
-CREATE INDEX IF NOT EXISTS idx_profiles_total_spent ON profiles(total_spent);
+CREATE INDEX IF NOT EXISTS idx_profiles_total_orders ON user_profiles(total_orders);
+CREATE INDEX IF NOT EXISTS idx_profiles_total_spent ON user_profiles(total_spent);
 CREATE INDEX IF NOT EXISTS idx_customer_addresses_user ON customer_addresses(user_id);
 CREATE INDEX IF NOT EXISTS idx_customer_addresses_default ON customer_addresses(user_id, is_default);
 CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
@@ -76,12 +76,12 @@ CREATE OR REPLACE FUNCTION update_customer_stats()
 RETURNS TRIGGER AS $$
 BEGIN
   IF NEW.user_id IS NOT NULL AND NEW.status IN ('confirmed', 'in_oven', 'decorating', 'ready', 'completed') THEN
-    UPDATE profiles
+    UPDATE user_profiles
     SET 
       total_orders = COALESCE(total_orders, 0) + 1,
       total_spent = COALESCE(total_spent, 0) + COALESCE(NEW.total_amount, 0),
       loyalty_points = COALESCE(loyalty_points, 0) + FLOOR(COALESCE(NEW.total_amount, 0))
-    WHERE id = NEW.user_id;
+    WHERE user_id = NEW.user_id;
   END IF;
   RETURN NEW;
 END;
@@ -99,12 +99,12 @@ CREATE OR REPLACE FUNCTION revert_customer_stats()
 RETURNS TRIGGER AS $$
 BEGIN
   IF OLD.user_id IS NOT NULL AND OLD.status != 'cancelled' AND NEW.status = 'cancelled' THEN
-    UPDATE profiles
+    UPDATE user_profiles
     SET 
       total_orders = GREATEST(0, COALESCE(total_orders, 0) - 1),
       total_spent = GREATEST(0, COALESCE(total_spent, 0) - COALESCE(OLD.total_amount, 0)),
       loyalty_points = GREATEST(0, COALESCE(loyalty_points, 0) - FLOOR(COALESCE(OLD.total_amount, 0)))
-    WHERE id = OLD.user_id;
+    WHERE user_id = OLD.user_id;
   END IF;
   RETURN NEW;
 END;
@@ -157,9 +157,9 @@ CREATE POLICY "Customers can manage their own addresses" ON customer_addresses
 CREATE POLICY "Admins can view all addresses" ON customer_addresses
   FOR SELECT USING (
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role IN ('owner', 'baker')
+      SELECT 1 FROM user_profiles
+      WHERE user_profiles.user_id = auth.uid()
+      AND user_profiles.role IN ('owner', 'baker')
     )
   );
 
@@ -194,9 +194,9 @@ CREATE POLICY "Customers can view their own orders" ON orders
   FOR SELECT USING (
     user_id = auth.uid() OR
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role IN ('owner', 'baker')
+      SELECT 1 FROM user_profiles
+      WHERE user_profiles.user_id = auth.uid()
+      AND user_profiles.role IN ('owner', 'baker')
     )
   );
 

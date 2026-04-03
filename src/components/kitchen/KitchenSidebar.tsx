@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ClipboardList, LogOut, CalendarDays, Bell, Boxes, Truck, BarChart3 } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import TransparentLogo from '@/assets/brand/logo.png';
 
 interface KitchenSidebarProps {
@@ -16,34 +17,36 @@ interface KitchenSidebarProps {
 }
 
 export function KitchenSidebar({ activeView, onChangeView, onLogout, compact = false, darkMode = false, notificationCount, onNotificationClick, badgeCounts, userName = 'Staff' }: KitchenSidebarProps) {
+    const { t } = useLanguage();
+
     const menuItems = [
         {
             id: 'queue',
-            label: 'Orders',
+            label: t('Ordenes', 'Orders'),
             icon: ClipboardList,
             view: 'queue' as const
         },
         {
             id: 'upcoming',
-            label: 'Calendar',
+            label: t('Calendario', 'Calendar'),
             icon: CalendarDays,
             view: 'upcoming' as const
         },
         {
             id: 'inventory',
-            label: 'Inventory',
+            label: t('Inventario', 'Inventory'),
             icon: Boxes,
             view: 'inventory' as const
         },
         {
             id: 'deliveries',
-            label: 'Deliveries',
+            label: t('Entregas', 'Deliveries'),
             icon: Truck,
             view: 'deliveries' as const
         },
         {
             id: 'reports',
-            label: 'Reports',
+            label: t('Reportes', 'Reports'),
             icon: BarChart3,
             view: 'reports' as const
         },
@@ -112,7 +115,7 @@ export function KitchenSidebar({ activeView, onChangeView, onLogout, compact = f
                     onClick={onNotificationClick}
                 >
                     <Bell className={cn("transition-colors", compact ? "h-6 w-6" : "h-5 w-5")} />
-                    {!compact && "Notifications"}
+                    {!compact && t('Notificaciones', 'Notifications')}
                     {(notificationCount ?? 0) > 0 && (
                         <span className={cn(
                             "absolute rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center",
@@ -138,7 +141,7 @@ export function KitchenSidebar({ activeView, onChangeView, onLogout, compact = f
                     onClick={onLogout}
                 >
                     <LogOut className={cn(compact ? "h-5 w-5" : "h-5 w-5")} />
-                    {!compact && "Log Out"}
+                    {!compact && t('Cerrar Sesión', 'Log Out')}
                 </Button>
 
                 {/* User Avatar if compact */}

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -23,7 +23,11 @@ import { Elements } from '@stripe/react-stripe-js';
 import { StripeCheckoutForm } from '@/components/payment/StripeCheckoutForm';
 
 // Initialize Stripe outside component
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+if (!stripeKey) {
+  console.error('Missing VITE_STRIPE_PUBLISHABLE_KEY environment variable');
+}
+const stripePromise = stripeKey ? loadStripe(stripeKey) : null;
 
 interface PendingPayment {
   orderData: any;
@@ -42,6 +46,7 @@ const PaymentCheckout = () => {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [error, setError] = useState<string | null>(null);
+  const paymentIntentRequested = useRef(false);
 
   // Load pending payment from sessionStorage or URL params
   useEffect(() => {
@@ -70,8 +75,9 @@ const PaymentCheckout = () => {
           tax,
         });
 
-        // Initialize Payment Intent immediately
-        if (!clientSecret) {
+        // Initialize Payment Intent once (ref prevents duplicate calls from StrictMode)
+        if (!paymentIntentRequested.current) {
+          paymentIntentRequested.current = true;
           api.createPaymentIntent(totalAmount, {
             order_number: orderData.order_number,
             customer_name: orderData.customer_name
@@ -79,7 +85,7 @@ const PaymentCheckout = () => {
             .then(data => setClientSecret(data.clientSecret))
             .catch(err => {
               console.error("Payment Init Error:", err);
-              // Show the actual error message from the backend/API if available
+              paymentIntentRequested.current = false; // Allow retry on error
               const msg = err.message || JSON.stringify(err) || 'Failed to initialize payment';
               setError(`Payment System Error: ${msg}`);
               toast.error('Payment initialization failed: ' + msg);
@@ -90,7 +96,7 @@ const PaymentCheckout = () => {
       console.error('Failed to parse pending payment', error);
       navigate('/order');
     }
-  }, [navigate, t, searchParams, clientSecret]);
+  }, [navigate, t, searchParams]);
 
   const handlePaymentSuccess = async (paymentIntentId: string) => {
     if (!pendingPayment) return;
@@ -107,6 +113,10 @@ const PaymentCheckout = () => {
       const result = await api.createOrder(orderPayload);
 
       if (result.success) {
+        // Fire confirmation email non-blocking — do not await
+        api.sendOrderConfirmation(result.order).catch(err =>
+          console.error('Confirmation email failed:', err)
+        );
         sessionStorage.removeItem('pendingOrder');
         navigate(`/order-confirmation?paymentId=${paymentIntentId}&orderNumber=${result.order.order_number}`);
       } else {
@@ -119,7 +129,7 @@ const PaymentCheckout = () => {
   };
 
 
-if (!pendingPayment || !clientSecret) {
+if (!pendingPayment) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-black">
       <Loader2 className="h-12 w-12 animate-spin text-[#C6A649]" />
@@ -172,25 +182,36 @@ return (
                 <CardContent className="pt-8 space-y-8 px-8 md:px-12 pb-12">
 
                   {/* STRIPE ELEMENTS */}
-                  <Elements stripe={stripePromise} options={{
-                    clientSecret,
-                    appearance: {
-                      theme: 'night',
-                      variables: {
-                        colorPrimary: '#C6A649',
-                        colorBackground: '#1a1a1a',
-                        colorText: '#ffffff',
-                        colorDanger: '#ef4444',
-                        fontFamily: 'Inter, system-ui, sans-serif',
-                        borderRadius: '12px',
+                  {!stripePromise ? (
+                    <div className="p-4 text-sm text-red-400 bg-red-500/10 rounded-lg border border-red-500/20 text-center">
+                      {t('Error de configuración de pago. Contacte soporte.', 'Payment configuration error. Please contact support.')}
+                    </div>
+                  ) : clientSecret ? (
+                    <Elements stripe={stripePromise} options={{
+                      clientSecret,
+                      appearance: {
+                        theme: 'night',
+                        variables: {
+                          colorPrimary: '#C6A649',
+                          colorBackground: '#1a1a1a',
+                          colorText: '#ffffff',
+                          colorDanger: '#ef4444',
+                          fontFamily: 'Inter, system-ui, sans-serif',
+                          borderRadius: '12px',
+                        }
                       }
-                    }
-                  }}>
-                    <StripeCheckoutForm
-                      amount={totalAmount}
-                      onSuccess={handlePaymentSuccess}
-                    />
-                  </Elements>
+                    }}>
+                      <StripeCheckoutForm
+                        amount={totalAmount}
+                        onSuccess={handlePaymentSuccess}
+                      />
+                    </Elements>
+                  ) : (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-[#C6A649]" />
+                      <span className="ml-3 text-gray-400">{t('Inicializando pago seguro...', 'Initializing secure payment...')}</span>
+                    </div>
+                  )}
 
                 </CardContent>
               </Card>
