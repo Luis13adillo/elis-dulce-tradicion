@@ -412,7 +412,7 @@ const OwnerDashboard = () => {
               </motion.div>
 
               {/* TODAY'S SCHEDULE SUMMARY */}
-              <TodayScheduleSummary orders={allOrders} maxDailyCapacity={businessSettings?.max_daily_capacity || 20} />
+              <TodayScheduleSummary orders={allOrders} maxDailyCapacity={businessSettings?.max_daily_capacity || 10} />
 
               {/* CHARTS ROW */}
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -590,6 +590,7 @@ const OwnerDashboard = () => {
                   onOrderClick={(order) => setPrintOrder(order)}
                   businessStartHour={calendarHours.start}
                   businessEndHour={calendarHours.end}
+                  maxDailyCapacity={businessSettings?.max_daily_capacity || 10}
                 />
               </div>
             </TabsContent>
