@@ -15,7 +15,7 @@
 | 5 | 4/4 | Complete   | 2026-04-03 | Pending |
 | 6 | Walk-In Order Creation | Build walk-in order form so Front Desk staff can create orders for phone/in-person customers | FEAT-01 | Pending |
 | 7 | Recipe Management | Build recipe management UI connecting inventory to cake production | FEAT-02 | Pending |
-| 8 | Menu Database Migration & Price Security | Verify DB schema state, move hardcoded pricing to database, add server-side price validation, remove Square dead code | DB-VERIFY, SEC-01, SEC-02, SEC-03, SEC-04 | Pending |
+| 8 | 1/4 | In Progress|  | Pending |
 | 9 | Security Hardening & Code Quality | CSRF protection, delivery enablement, and large component refactoring | SEC-05, SEC-06, REFACTOR-01, REFACTOR-02 | Pending |
 | 10 | Post-Launch Polish | Unit tests, 2FA for admin, session timeout, and JSON-LD SEO | TEST-01, AUTH-01, AUTH-02, SEO-01 | Pending |
 
@@ -281,7 +281,7 @@ Plans:
 
 **Goal:** Move all hardcoded menu data and pricing from Order.tsx into the database, add server-side price recalculation to prevent client-side manipulation, and clean up dead payment code.
 
-**Plans:** 4 plans
+**Plans:** 1/4 plans executed
 
 Plans:
 - [ ] 08-01-PLAN.md — Square dead code removal (square.ts, SquarePaymentForm.tsx, Square routes in payments.js)
