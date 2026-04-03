@@ -4,6 +4,7 @@ import { ProductsApi } from './modules/products';
 import { InventoryApi } from './modules/inventory';
 import { AnalyticsApi } from './modules/analytics';
 import { NotificationsApi } from './modules/notifications';
+import { OrderOptionsApi } from './modules/orderOptions';
 import { supabase, STORAGE_BUCKET } from '../supabase';
 import { getBusinessHours as cmsGetBusinessHours, type BusinessHours } from '../cms';
 
@@ -14,6 +15,7 @@ class ApiClient extends BaseApiClient {
     private inventoryModule = new InventoryApi();
     private analyticsModule = new AnalyticsApi();
     private notificationsModule = new NotificationsApi();
+    private orderOptionsModule = new OrderOptionsApi();
 
     // --- Re-exporting all methods to maintain backward compatibility ---
 
@@ -56,6 +58,9 @@ class ApiClient extends BaseApiClient {
     sendStatusUpdate = this.notificationsModule.sendStatusUpdate.bind(this.notificationsModule);
     sendOrderIssueNotification = this.notificationsModule.sendOrderIssueNotification.bind(this.notificationsModule);
     sendDailyReport = this.notificationsModule.sendDailyReport.bind(this.notificationsModule);
+
+    // Order Form Options
+    getOrderFormOptions = this.orderOptionsModule.getOrderFormOptions.bind(this.orderOptionsModule);
 
     // Remaining shared methods / Helpers (Carrying over from original api.ts)
 
