@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
 status: unknown
-last_updated: "2026-04-03T14:51:52.253Z"
+last_updated: "2026-04-03T15:01:30.531Z"
 progress:
   total_phases: 10
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 25
-  completed_plans: 22
+  completed_plans: 23
 ---
 
 # Project State
@@ -116,6 +116,8 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 - [Phase 10-02]: Chromium-only Playwright suite for CI — removes firefox/webkit, speeds up CI pipeline
 - [Phase 10-02]: All Express API calls mocked via page.route() in E2E tests — no backend required
 - [Phase 10-02]: E2E credentials via process.env with fallback literals — safe for local dev and configurable in CI secrets
+- [Phase 10-04]: useInactivityTimeout rebuilt with callback-only pattern (no signOut/navigate inside hook) to prevent redirect loops
+- [Phase 10-04]: session_timeout_minutes stored in business_settings table (DEFAULT 30 minutes); fetched per-component to avoid effect coupling
 
 ## Recent Activity
 
@@ -163,6 +165,7 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 - 2026-04-03: Completed 10-03-PLAN.md — created EnrollMFA.tsx (QR code, OTP input, challenge+verify, second-device recovery), MFAChallengeScreen.tsx (listFactors on mount, auto-submit challenge), AuthenticatorAssuranceCheck.tsx (AAL gate); wired OwnerDashboard (owner, required MFA) and FrontDesk (baker, optional MFA); build verified green (AUTH-01 complete).
 - 2026-04-03: Completed 10-05-PLAN.md — installed react-helmet-async; added LocalBusiness/Bakery JSON-LD to Index.tsx (address, phone, geo, hours) and FoodEstablishment hasMenu JSON-LD to Menu.tsx (3 cake price tiers); updated sitemap.xml with 11 public pages all dated 2026-04-03; build verified green (SEO-01 complete).
 - 2026-04-03: Completed 10-02-PLAN.md — rewrote owner-dashboard.spec.ts and order-flow.spec.ts with correct credentials (ElisBakery123) and Phase 9 step-component selectors; created payment-flow.spec.ts (3 scenarios: homepage nav, mocked Stripe confirmation, invalid card failure); updated playwright.config.ts to chromium-only; created .github/workflows/ci.yml blocking merges on unit+E2E failures (TEST-01 complete).
+- 2026-04-03: Completed 10-04-PLAN.md — rebuilt useInactivityTimeout with callback-only pattern; created SessionTimeoutModal (non-dismissable Dialog with countdown); wired OwnerDashboard and FrontDesk with 30-min default timeout + 2-min warning; added session_timeout_minutes input to BusinessSettingsManager; Login shows session-expired toast; migration applied to production (AUTH-02 complete).
 
 ## Roadmap Evolution
 
@@ -223,9 +226,9 @@ None currently.
 ## Session Continuity
 
 Last session: 2026-04-03
-Stopped at: Completed 10-02-PLAN.md — E2E test rewrite and GitHub Actions CI workflow (TEST-01 complete).
+Stopped at: Completed 10-04-PLAN.md — Configurable session timeout for admin accounts (AUTH-02 complete).
 Resume file: None
-Next action: Phase 10 all plans executed. Project at production readiness milestone. Add GitHub secrets (see 10-02-SUMMARY.md) before CI runs owner login E2E with real auth.
+Next action: Phase 10 fully complete. All 5 plans executed. Project at production readiness milestone. Add GitHub secrets (see 10-02-SUMMARY.md) before CI runs owner login E2E with real auth.
 
 **Manual steps still required (Stripe dashboard):**
 - Register the Supabase edge function URL as the Stripe webhook endpoint
