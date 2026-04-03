@@ -12,7 +12,7 @@
 | 2 | Stripe Backend Integration & Order Email Verification | Wire Stripe webhook handler, implement verifyPayment(), replace Square refund, verify all order emails | STRIPE-01, STRIPE-02, STRIPE-03, STRIPE-04, EMAIL-03, EMAIL-04 | Pending |
 | 3 | Dashboard Verification | Verify both dashboards have correct components, working graphs, and proper order handling. Fix Phase 2 payment gaps. | DASH-01, DASH-02, DASH-03, DASH-04, DASH-05, STRIPE-05, STRIPE-06, DB-MIGRATE-01 | Pending |
 | 4 | UI/UX Verification | Ensure all UI/UX is polished, consistent, and working properly across the site | UX-01, UX-02, UX-03, UX-04, UX-05 | Pending |
-| 5 | 1/4 | In Progress|  | Pending |
+| 5 | 3/4 | In Progress|  | Pending |
 | 6 | Walk-In Order Creation | Build walk-in order form so Front Desk staff can create orders for phone/in-person customers | FEAT-01 | Pending |
 | 7 | Recipe Management | Build recipe management UI connecting inventory to cake production | FEAT-02 | Pending |
 | 8 | Menu Database Migration & Price Security | Verify DB schema state, move hardcoded pricing to database, add server-side price validation, remove Square dead code | DB-VERIFY, SEC-01, SEC-02, SEC-03, SEC-04 | Pending |
@@ -171,7 +171,7 @@ Plans:
 
 **Goal:** Fix all remaining bugs and wire up orphaned components in both dashboards. This addresses 9 issues identified in the system analysis that were not covered by earlier phases.
 
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 - [x] 05-01-PLAN.md — Backend bug fixes + DB migrations (MISS-04, MISS-05, MISS-08, FIX-06 migration)
