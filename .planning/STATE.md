@@ -21,7 +21,7 @@ progress:
 
 | Metric | Value |
 |--------|-------|
-| Current Phase | Phase 5 - Dashboard & Front Desk Fixes (Plan 3 of 4 complete) |
+| Current Phase | Phase 5 - Dashboard & Front Desk Fixes (Complete - all 4 plans done) |
 | Phases Complete | 4/10 |
 | Requirements Complete | 19/53 |
 | Overall Progress | 36% by req count (but ~68% feature-complete) |
@@ -43,7 +43,7 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 | 2 | Stripe Backend Integration & Order Emails | Complete ⚠️ (3 gaps in Phase 3) | 1/1 | 100% |
 | 3 | Dashboard Verification | In Progress | 2/3 | 50% |
 | 4 | UI/UX Verification | In Progress | 1/2 | 50% |
-| 5 | Dashboard & Front Desk Fixes | In Progress | 3/4 | 75% |
+| 5 | Dashboard & Front Desk Fixes | Complete | 4/4 | 100% |
 | 6 | Walk-In Order Creation | Pending | 0/0 | 0% |
 | 7 | Recipe Management | Pending | 0/0 | 0% |
 | 8 | Menu DB Migration & Price Security | Pending | 0/0 | 0% |
@@ -54,6 +54,9 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 
 | Decision | Phase | Rationale |
 |----------|-------|-----------|
+| Daily capacity warning is non-blocking — save proceeds after toast.warning | 05-04 | Owner intent to lower capacity should not be blocked by system state |
+| Capacity toast targeted: "Daily capacity updated" only when capacity changed | 05-04 | Specific feedback for specific changes; generic otherwise |
+| FrontDeskInventory uses lightweight Supabase channel as connectivity health monitor | 05-04 | No table subscription needed; CHANNEL_ERROR indicates WebSocket failure |
 | Email failures do not block form submission | 01-01 | Database is source of truth; emails are notifications |
 | All templates use phone (610) 279-6200 | 01-01 | Consistency across all customer communications |
 | Remove BakerStation page | 03-01 | Front Desk already handles baker needs |
@@ -106,6 +109,7 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 - 2026-04-03: Completed 05-01-PLAN.md — fixed capacity.js profiles→user_profiles bug (MISS-04), fixed analytics-views.sql used_at→created_at (MISS-05), added CMS RLS migration (MISS-08), added max_daily_capacity column migration (FIX-06 prerequisite)
 - 2026-04-03: Completed 05-02-PLAN.md — fixed analytics getPopularItems to use v_popular_items view (FIX-02), removed stub New Order button from OrderScheduler (FIX-04), made Order.tsx time slots dynamic from business hours (FIX-07), confirmed FIX-05 already implemented
 - 2026-04-03: Completed 05-03-PLAN.md — added maxDailyCapacity prop + traffic light fill bars + past-day dimming + expandable day panel to OwnerCalendar month view; wired FrontDesk calendar case to OwnerCalendar (FIX-03)
+- 2026-04-03: Completed 05-04-PLAN.md — added max daily capacity number input to BusinessSettings Orders tab (FIX-06), added skeleton loading + isError state + CHANNEL_ERROR health monitor to FrontDeskInventory, added staffError state + toast.error retry to DeliveryManagementPanel (FIX-08). Phase 5 fully complete.
 
 ## Roadmap Evolution
 
@@ -160,13 +164,15 @@ None currently.
 - See: `.planning/phases/05-dashboard-and-front-desk-fixes/05-02-SUMMARY.md`
 - Calendar view implemented (05-03): OwnerCalendar has traffic light fill bars + past-day dimming + expandable panels; FrontDesk wired to show it at activeView==='calendar'
 - See: `.planning/phases/05-dashboard-and-front-desk-fixes/05-03-SUMMARY.md`
+- Capacity input + error states complete (05-04): BusinessSettings Orders tab has max capacity number input; FrontDeskInventory has skeleton loading + isError + CHANNEL_ERROR health monitor; DeliveryManagementPanel has staffError + toast.error retry
+- See: `.planning/phases/05-dashboard-and-front-desk-fixes/05-04-SUMMARY.md`
 
 ## Session Continuity
 
 Last session: 2026-04-03
-Stopped at: Completed 05-03-PLAN.md — OwnerCalendar capacity fill bars, FrontDesk calendar view wired (FIX-03)
+Stopped at: Completed 05-04-PLAN.md — BusinessSettings capacity input, FrontDeskInventory error/retry states, DeliveryManagementPanel staff error state (FIX-06, FIX-08). Phase 5 complete.
 Resume file: None
-Next action: Execute 05-04-PLAN.md (final Phase 5 plan)
+Next action: Execute Phase 6 (Walk-In Order Creation)
 
 **Manual steps still required (Stripe dashboard):**
 - Register the Supabase edge function URL as the Stripe webhook endpoint
