@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
 status: unknown
-last_updated: "2026-04-03T05:02:09.351Z"
+last_updated: "2026-04-03T05:05:01Z"
 progress:
   total_phases: 10
   completed_phases: 3
   total_plans: 15
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 # Project State
@@ -46,7 +46,7 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 | 5 | Dashboard & Front Desk Fixes | Complete | 4/4 | 100% |
 | 6 | Walk-In Order Creation | Deferred ⏸️ | 0/0 | — |
 | 7 | Recipe Management | Deferred ⏸️ | 0/0 | — |
-| 8 | Menu DB Migration & Price Security | In Progress | 1/4 | 25% |
+| 8 | Menu DB Migration & Price Security | In Progress | 2/4 | 50% |
 | 9 | Security Hardening & Code Quality | Pending | 0/0 | 0% |
 | 10 | Post-Launch Polish | Pending | 0/0 | 0% |
 
@@ -54,6 +54,7 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 
 | Decision | Phase | Rationale |
 |----------|-------|-----------|
+| validatePassword error strings pre-bilingual ("Spanish / English") — t() unavailable at call site | 08-02 | validatePassword is a pure function outside component scope; no hook context available |
 | No replacement Stripe management endpoints added — payments handled via Supabase Edge Functions | 08-01 | Stripe payment flow lives entirely in Edge Functions; Express backend only needs payment lookup |
 | payments-sqlite.js Square imports are pre-existing dead code (sqlite-server.js not active server) | 08-01 | Only used by sqlite-server.js which is dead code; deferred to Phase 9 |
 | Pricing migration: static seed data only, no owner-editable UI | 08 | Keep Phase 8 simple — owner requests price changes as needed. Self-service pricing UI deferred to future. |
@@ -116,6 +117,7 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 - 2026-04-03: Completed 05-04-PLAN.md — added max daily capacity number input to BusinessSettings Orders tab (FIX-06), added skeleton loading + isError state + CHANNEL_ERROR health monitor to FrontDeskInventory, added staffError state + toast.error retry to DeliveryManagementPanel (FIX-08). Phase 5 fully complete.
 - 2026-04-03: Deferred Phase 6 (Walk-In Order Creation) — owner already has a POS system that handles walk-in and phone orders. Building a duplicate form would create redundancy.
 - 2026-04-03: Deferred Phase 7 (Recipe Management) — inventory tracking is not in use. Recipe-cost calculations require active inventory to have value. Potential future upsell once core system is live. Next phase is 8 (Menu DB Migration & Price Security).
+- 2026-04-03: Completed 08-02-PLAN.md — added validatePassword() to Signup.tsx with 5-rule complexity validation (min 8 chars, uppercase, lowercase, number, special char); removed weak length<6 check; build verified green (SEC-04)
 - 2026-04-03: Completed 08-01-PLAN.md — deleted Square source files (square.ts, SquarePaymentForm.tsx) and stripped 540 lines of Square code from backend/routes/payments.js; build verified green (SEC-03)
 
 ## Roadmap Evolution
@@ -177,9 +179,9 @@ None currently.
 ## Session Continuity
 
 Last session: 2026-04-03
-Stopped at: Completed 08-01-PLAN.md — deleted Square source files (square.ts, SquarePaymentForm.tsx), stripped Square code from payments.js (SEC-03). Phase 8 Plan 01 complete.
+Stopped at: Completed 08-02-PLAN.md — added validatePassword() to Signup.tsx, enforces 5-rule password complexity (SEC-04). Phase 8 Plan 02 complete.
 Resume file: None
-Next action: Execute 08-02-PLAN.md (next plan in Phase 8)
+Next action: Execute 08-03-PLAN.md (next plan in Phase 8)
 
 **Manual steps still required (Stripe dashboard):**
 - Register the Supabase edge function URL as the Stripe webhook endpoint
