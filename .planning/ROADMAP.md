@@ -17,7 +17,7 @@
 | 7 | Recipe Management | Build recipe management UI connecting inventory to cake production | FEAT-02 | Pending |
 | 8 | 4/4 | Complete   | 2026-04-03 | Pending |
 | 9 | 5/5 | Complete   | 2026-04-03 | Pending |
-| 10 | Post-Launch Polish | Unit tests, 2FA for admin, session timeout, and JSON-LD SEO | TEST-01, AUTH-01, AUTH-02, SEO-01 | Pending |
+| 10 | 1/5 | In Progress|  | Pending |
 
 ---
 
@@ -346,10 +346,14 @@ Plans:
 
 **Goal:** Add automated testing, admin security features, and SEO improvements for long-term maintainability and discoverability.
 
-**Plans:** 0 plans
+**Plans:** 1/5 plans executed
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 10 to break down)
+- [ ] 10-01-PLAN.md — Unit tests for pricing.ts pure functions (TDD)
+- [ ] 10-02-PLAN.md — E2E specs rewrite + GitHub Actions CI workflow
+- [ ] 10-03-PLAN.md — 2FA/MFA components: EnrollMFA, MFAChallengeScreen, AAL enforcement
+- [ ] 10-04-PLAN.md — Session timeout: DB migration + hook rebuild + warning modal + dashboard wiring
+- [ ] 10-05-PLAN.md — SEO: react-helmet-async + LocalBusiness JSON-LD + BakeryProduct JSON-LD + sitemap
 
 **Requirements:**
 - TEST-01: Add unit and integration test suites (currently at ~0% coverage despite Vitest + Playwright being configured)
@@ -369,9 +373,11 @@ Plans:
 - Vitest is already configured (`npm run test`) — just needs actual test files
 - Playwright is configured (`npm run test:e2e`) — needs proper specs with correct routes/credentials
 - Supabase Auth supports MFA natively — enable via dashboard + add UI flow
-- Session timeout: add `useInactivityTimeout` hook (was removed previously due to bugs — rebuild correctly)
-- JSON-LD: add `<script type="application/ld+json">` to index.html or via React Helmet
+- Session timeout: rebuild `useInactivityTimeout` with callback pattern (NOT direct signOut/navigate in hook)
+- JSON-LD: use react-helmet-async (install) with HelmetProvider in App.tsx
 - Sitemap exists at `/public/sitemap.xml` but is dated 2025-11-19 — needs updating
+- Wave 1 (parallel): 10-01, 10-02, 10-03, 10-05 are all independent
+- Wave 2: 10-04 (session timeout) depends on 10-03 (shares OwnerDashboard.tsx + FrontDesk.tsx touchpoints)
 
 ---
 
@@ -440,3 +446,4 @@ Phase 8 ──── Phase 9 ──── Phase 10
 *Updated: 2026-04-02 — Readiness audit against actual code. Phase 2 marked complete but had 3 functional gaps. Added STRIPE-05 (payment verification race condition), STRIPE-06 (order auto-transition on webhook), DB-MIGRATE-01 (payment_disputes migration) into Phase 3 as the verification gate. Total requirements: 53.*
 *Updated: 2026-04-03 — Phase 5 planned: 4 plans in 2 waves. FIX-05 confirmed already implemented. Wave 1: 05-01 (backend/DB fixes) + 05-02 (analytics/UI cleanup) run in parallel. Wave 2: 05-03 (calendar grid) + 05-04 (capacity UI + error states) depend on 05-01.*
 *Updated: 2026-04-03 — Phase 8 planned: 4 plans in 2 waves. Wave 1 (parallel): 08-01 (Square dead code removal), 08-02 (password complexity), 08-03 (pricing DB foundation). Wave 2: 08-04 (frontend wiring + price validation) depends on 08-03.*
+*Updated: 2026-04-03 — Phase 10 planned: 5 plans in 2 waves. Wave 1 (parallel): 10-01 (pricing TDD), 10-02 (E2E + CI), 10-03 (MFA components), 10-05 (SEO). Wave 2: 10-04 (session timeout) depends on 10-03. MFA recovery via second TOTP factor (Supabase does not support backup codes).*

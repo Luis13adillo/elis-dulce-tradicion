@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
 status: unknown
-last_updated: "2026-04-03T13:13:19.150Z"
+last_updated: "2026-04-03T14:26:46.459Z"
 progress:
   total_phases: 10
   completed_phases: 5
-  total_plans: 20
-  completed_plans: 18
+  total_plans: 25
+  completed_plans: 19
 ---
 
 # Project State
@@ -104,6 +104,9 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 - [Phase 09-03]: Delivery address validation placed before consent check in validateStep: name, phone, email, delivery address (conditional), consent
 - [Phase 09-04]: FloatingInput co-located in DetailsStep.tsx and imported by ContactStep — avoids creating a separate file for a small helper used in exactly 2 steps
 - [Phase 09-04]: handlePhoneChange refactored from event-based to string-based signature — ContactStep passes e.target.value explicitly for clarity
+- [Phase 10-01]: Mock @/lib/api in pricing tests to prevent Supabase WebSocket connections during module import
+- [Phase 10-01]: orderStateMachine backwards check moved before permission check; cancelled excluded from backwards check (toIndex >= 0 guard)
+- [Phase 10-01]: calculateTax: try county-specific rate first, then fall back to state-wide rate — previous logic returned state rate even when county-specific existed
 
 ## Recent Activity
 
@@ -147,6 +150,7 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 - 2026-04-03: Completed 09-02b-PLAN.md — created CustomerReport.tsx (customerReport useMemo + exportCustomerReport) and InventoryReport.tsx (inventoryReport useMemo + exportInventoryReport); rewrote ReportsManager.tsx as slim orchestrator (~273 lines from 855); all 5 files in reports/ module; build verified green (REFACTOR-02 complete).
 - 2026-04-03: Completed 09-03-PLAN.md — added calculateDeliveryFee to ApiClient; enabled delivery button, wired AddressAutocomplete with out-of-zone auto-revert, delivery fee in getTotal() and order payload; SEC-06 complete.
 - 2026-04-03: Completed 09-04-PLAN.md — extracted 5 step components (DateTimeStep, SizeStep, FlavorStep, DetailsStep, ContactStep) from Order.tsx monolith into src/components/order/steps/; replaced decorative progress bars with clickable step indicator; delivery UI migrated to ContactStep; build verified green (REFACTOR-01 complete).
+- 2026-04-03: Completed 10-01-PLAN.md — installed vitest + testing-library ecosystem (missing from package.json); created pricing.ts unit test suite (23 cases covering calculateCakePrice, calculateFillingCost, calculateThemeCost, calculateTax, formatPrice); fixed 2 pre-existing bugs in orderStateMachine.ts and pricing.ts; all 39 tests pass (TEST-01 complete).
 
 ## Roadmap Evolution
 
@@ -207,9 +211,9 @@ None currently.
 ## Session Continuity
 
 Last session: 2026-04-03
-Stopped at: Completed 09-04-PLAN.md — Order.tsx step extraction complete; REFACTOR-01 done.
+Stopped at: Completed 10-01-PLAN.md — pricing.ts unit tests + vitest infrastructure; TEST-01 done.
 Resume file: None
-Next action: Phase 9 complete (all plans done). Move to Phase 10 - Post-Launch Polish.
+Next action: Continue Phase 10 — 10-02 (2FA/MFA for admin accounts).
 
 **Manual steps still required (Stripe dashboard):**
 - Register the Supabase edge function URL as the Stripe webhook endpoint
