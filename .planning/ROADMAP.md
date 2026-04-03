@@ -171,18 +171,21 @@ Plans:
 
 **Goal:** Fix all remaining bugs and wire up orphaned components in both dashboards. This addresses 9 issues identified in the system analysis that were not covered by earlier phases.
 
-**Plans:** 0 plans
+**Plans:** 4 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 5 to break down)
+- [ ] 05-01-PLAN.md — Backend bug fixes + DB migrations (MISS-04, MISS-05, MISS-08, FIX-06 migration)
+- [ ] 05-02-PLAN.md — Analytics + UI cleanup (FIX-02, FIX-04, FIX-07)
+- [ ] 05-03-PLAN.md — Calendar month grid in both dashboards (FIX-03)
+- [ ] 05-04-PLAN.md — Capacity UI + error states (FIX-06 UI, FIX-08)
 
-**⚠️ Audit corrections:** FIX-01 (revenue trend) is already dynamic in code — removed. FIX-09 (navigate) is already imported — removed. Added MISS-04, MISS-05, MISS-08 from codebase audit.
+**⚠️ Audit corrections:** FIX-01 (revenue trend) is already dynamic in code — removed. FIX-09 (navigate) is already imported — removed. FIX-05 (Settings tab CMS tools) is already implemented in OwnerDashboard.tsx lines 619-645 — verified. Added MISS-04, MISS-05, MISS-08 from codebase audit.
 
 **Requirements:**
 - FIX-02: Populate Most Ordered Items from `v_popular_items` analytics view (currently always empty despite api.getPopularItems() existing)
 - FIX-03: Render month calendar view — add conditional `{activeView === 'calendar' && <OrderScheduler />}` in FrontDesk.tsx and implement month grid in OwnerCalendar.tsx
 - FIX-04: Remove stub 'New Order' buttons from Owner calendar views (owner doesn't create orders)
-- FIX-05: Expose hidden CMS tools (BusinessHoursManager, ContactSubmissionsManager, OrderIssuesManager) in Settings tab of Owner Dashboard
+- FIX-05: Expose hidden CMS tools (BusinessHoursManager, ContactSubmissionsManager, OrderIssuesManager) in Settings tab of Owner Dashboard — ALREADY DONE (lines 619-645)
 - FIX-06: Move maxDailyCapacity to `business_settings` table (currently hardcoded to **10** in TodayScheduleSummary.tsx and capacity.js)
 - FIX-07: Fetch calendar hours dynamically from `business_hours` table via `GET /api/capacity/business-hours` (currently hardcoded TIME_OPTIONS in Order.tsx and OrderScheduler.tsx)
 - FIX-08: Add error states and retry buttons to order feed, inventory, and delivery panels
@@ -428,3 +431,4 @@ Phase 8 ──── Phase 9 ──── Phase 10
 *Updated: 2026-02-13 — Added Phases 5-10 from system analysis gap review. Site live at elisbakery.com.*
 *Updated: 2026-04-02 — Full codebase audit. Phase 2 renamed + expanded with STRIPE-01 through STRIPE-04 (critical: Stripe webhook handler missing). Phase 5 corrected: removed FIX-01 (revenue trend already dynamic) and FIX-09 (navigate already imported); added MISS-04/MISS-05/MISS-08. Phase 8 added DB-VERIFY. Total requirements: 50.*
 *Updated: 2026-04-02 — Readiness audit against actual code. Phase 2 marked complete but had 3 functional gaps. Added STRIPE-05 (payment verification race condition), STRIPE-06 (order auto-transition on webhook), DB-MIGRATE-01 (payment_disputes migration) into Phase 3 as the verification gate. Total requirements: 53.*
+*Updated: 2026-04-03 — Phase 5 planned: 4 plans in 2 waves. FIX-05 confirmed already implemented. Wave 1: 05-01 (backend/DB fixes) + 05-02 (analytics/UI cleanup) run in parallel. Wave 2: 05-03 (calendar grid) + 05-04 (capacity UI + error states) depend on 05-01.*
