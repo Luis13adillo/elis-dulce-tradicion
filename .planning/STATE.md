@@ -54,6 +54,7 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 
 | Decision | Phase | Rationale |
 |----------|-------|-----------|
+| Pricing migration: static seed data only, no owner-editable UI | 08 | Keep Phase 8 simple — owner requests price changes as needed. Self-service pricing UI deferred to future. |
 | Daily capacity warning is non-blocking — save proceeds after toast.warning | 05-04 | Owner intent to lower capacity should not be blocked by system state |
 | Capacity toast targeted: "Daily capacity updated" only when capacity changed | 05-04 | Specific feedback for specific changes; generic otherwise |
 | FrontDeskInventory uses lightweight Supabase channel as connectivity health monitor | 05-04 | No table subscription needed; CHANNEL_ERROR indicates WebSocket failure |
