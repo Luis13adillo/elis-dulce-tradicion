@@ -63,6 +63,8 @@ import { FAQManager } from '@/components/admin/FAQManager';
 import { GalleryManager } from '@/components/admin/GalleryManager';
 import { AnnouncementManager } from '@/components/admin/AnnouncementManager';
 import { useBusinessSettings, useBusinessHours } from '@/lib/hooks/useCMS';
+import { AuthenticatorAssuranceCheck } from '@/components/auth/AuthenticatorAssuranceCheck';
+// MFA enforcement: Set 'Require MFA for owner role' in Supabase Auth dashboard → Users → owner@elisbakery.com → Settings
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
@@ -342,6 +344,7 @@ const OwnerDashboard = () => {
 
   // --- RENDER ---
   return (
+    <AuthenticatorAssuranceCheck userRole="owner">
     <div className="flex h-screen w-full bg-[#F5F6FA] overflow-hidden">
       <PrintPreviewModal
         order={printOrder}
@@ -695,6 +698,7 @@ const OwnerDashboard = () => {
         />
       )}
     </div>
+    </AuthenticatorAssuranceCheck>
   );
 };
 

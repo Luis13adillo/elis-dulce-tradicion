@@ -28,6 +28,7 @@ import ReportsManager from '@/components/dashboard/ReportsManager';
 import { QuickStatsWidget } from '@/components/dashboard/QuickStatsWidget';
 import { UrgentOrdersBanner } from '@/components/kitchen/UrgentOrdersBanner';
 import { Package, AlertTriangle, ChevronLeft, ChevronRight, WifiOff, Wifi, RefreshCw } from 'lucide-react';
+import { AuthenticatorAssuranceCheck } from '@/components/auth/AuthenticatorAssuranceCheck';
 
 const FrontDesk = () => {
   const { t } = useLanguage();
@@ -591,6 +592,7 @@ const FrontDesk = () => {
   }
 
   return (
+    <AuthenticatorAssuranceCheck userRole="baker">
     <KitchenRedesignedLayout
       activeView={activeView}
       onChangeView={setActiveView}
@@ -684,6 +686,7 @@ const FrontDesk = () => {
       {renderContent()}
 
     </KitchenRedesignedLayout>
+    </AuthenticatorAssuranceCheck>
   );
 };
 
