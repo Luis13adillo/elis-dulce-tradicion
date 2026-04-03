@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export type KitchenTab = 'all' | 'active' | 'today' | 'new' | 'preparing' | 'pickup' | 'delivery' | 'done';
 
@@ -11,15 +12,17 @@ interface KitchenNavTabsProps {
 }
 
 export function KitchenNavTabs({ activeTab, onTabChange, counts, darkMode = false }: KitchenNavTabsProps) {
+    const { t } = useLanguage();
+
     const tabs: { id: KitchenTab; label: string }[] = [
-        { id: 'all', label: 'All' },
-        { id: 'active', label: 'Active' },
-        { id: 'today', label: 'Today' },
-        { id: 'new', label: 'New' },
-        { id: 'preparing', label: 'Preparing' },
-        { id: 'pickup', label: 'Pickup' },
-        { id: 'delivery', label: 'Delivery' },
-        { id: 'done', label: 'Done' },
+        { id: 'all', label: t('Todos', 'All') },
+        { id: 'active', label: t('Activos', 'Active') },
+        { id: 'today', label: t('Hoy', 'Today') },
+        { id: 'new', label: t('Nuevo', 'New') },
+        { id: 'preparing', label: t('Preparando', 'Preparing') },
+        { id: 'pickup', label: t('Recogida', 'Pickup') },
+        { id: 'delivery', label: t('Entrega', 'Delivery') },
+        { id: 'done', label: t('Listo', 'Done') },
     ];
 
     return (
