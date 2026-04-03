@@ -1,44 +1,54 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
+
+interface UseInactivityTimeoutOptions {
+  timeoutMs: number;
+  warningMs?: number; // ms before expiry to fire onWarn. Default: 2 minutes
+  onWarn: () => void;
+  onExpire: () => void;
+}
 
 /**
- * Hook that signs out the user and redirects to /login
- * after a period of inactivity (no mouse, keyboard, or touch events).
+ * Tracks user inactivity and fires callbacks at warning and expiry thresholds.
+ * Does NOT call signOut() or navigate() — those are the consumer's responsibility.
+ * Returns a resetTimers() function for "Stay logged in" button.
  */
-export function useInactivityTimeout(timeoutMs: number = 15 * 60 * 1000) {
-  const { signOut } = useAuth();
-  const navigate = useNavigate();
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
-  const lastActivityRef = useRef<number>(Date.now());
+export function useInactivityTimeout({
+  timeoutMs,
+  warningMs = 2 * 60 * 1000,
+  onWarn,
+  onExpire,
+}: UseInactivityTimeoutOptions): () => void {
+  const warnTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const expireTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const onWarnRef = useRef(onWarn);
+  const onExpireRef = useRef(onExpire);
 
-  const handleTimeout = useCallback(async () => {
-    toast.warning('Session expired due to inactivity');
-    await signOut();
-    navigate('/login', { replace: true });
-  }, [signOut, navigate]);
+  // Keep refs current without re-triggering effect
+  useEffect(() => { onWarnRef.current = onWarn; }, [onWarn]);
+  useEffect(() => { onExpireRef.current = onExpire; }, [onExpire]);
 
-  const resetTimer = useCallback(() => {
-    const now = Date.now();
-    // Throttle: only reset if >30s since last activity reset
-    if (now - lastActivityRef.current < 30000) return;
-    lastActivityRef.current = now;
-
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(handleTimeout, timeoutMs);
-  }, [handleTimeout, timeoutMs]);
+  const resetTimers = useCallback(() => {
+    if (warnTimerRef.current) clearTimeout(warnTimerRef.current);
+    if (expireTimerRef.current) clearTimeout(expireTimerRef.current);
+    warnTimerRef.current = setTimeout(() => onWarnRef.current(), timeoutMs - warningMs);
+    expireTimerRef.current = setTimeout(() => onExpireRef.current(), timeoutMs);
+  }, [timeoutMs, warningMs]);
 
   useEffect(() => {
     const events = ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'];
-    events.forEach((e) => window.addEventListener(e, resetTimer));
-
-    // Start the initial timer
-    timerRef.current = setTimeout(handleTimeout, timeoutMs);
-
-    return () => {
-      events.forEach((e) => window.removeEventListener(e, resetTimer));
-      if (timerRef.current) clearTimeout(timerRef.current);
+    let lastReset = 0;
+    const throttledReset = () => {
+      const now = Date.now();
+      if (now - lastReset > 1000) { lastReset = now; resetTimers(); }
     };
-  }, [resetTimer, handleTimeout, timeoutMs]);
+    events.forEach((e) => window.addEventListener(e, throttledReset, { passive: true }));
+    resetTimers();
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, throttledReset));
+      if (warnTimerRef.current) clearTimeout(warnTimerRef.current);
+      if (expireTimerRef.current) clearTimeout(expireTimerRef.current);
+    };
+  }, [resetTimers]);
+
+  return resetTimers;
 }
