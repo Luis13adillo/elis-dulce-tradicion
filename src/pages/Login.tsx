@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,6 +26,14 @@ const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const message = location.state?.message;
+  const sessionExpired = location.state?.sessionExpired;
+
+  // Show session expired toast when redirected from auto-logout
+  useEffect(() => {
+    if (sessionExpired) {
+      toast.info(t('Tu sesión expiró por inactividad', 'Your session expired due to inactivity'));
+    }
+  }, [sessionExpired]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-redirect authenticated users to their dashboard
   useEffect(() => {

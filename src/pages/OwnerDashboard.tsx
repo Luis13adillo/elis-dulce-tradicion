@@ -64,13 +64,17 @@ import { GalleryManager } from '@/components/admin/GalleryManager';
 import { AnnouncementManager } from '@/components/admin/AnnouncementManager';
 import { useBusinessSettings, useBusinessHours } from '@/lib/hooks/useCMS';
 import { AuthenticatorAssuranceCheck } from '@/components/auth/AuthenticatorAssuranceCheck';
+import { useInactivityTimeout } from '@/hooks/useInactivityTimeout';
+import { SessionTimeoutModal } from '@/components/auth/SessionTimeoutModal';
+import { useNavigate } from 'react-router-dom';
 // MFA enforcement: Set 'Require MFA for owner role' in Supabase Auth dashboard → Users → owner@elisbakery.com → Settings
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 const OwnerDashboard = () => {
   const { t } = useLanguage();
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, signOut } = useAuth();
+  const navigate = useNavigate();
   const { data: businessSettings } = useBusinessSettings();
   const { data: businessHours } = useBusinessHours();
 
@@ -107,6 +111,58 @@ const OwnerDashboard = () => {
   const [revenuePeriod, setRevenuePeriod] = useState<'today' | 'week' | 'month'>('today');
   const [settingsSubTab, setSettingsSubTab] = useState<'business' | 'hours' | 'contacts' | 'issues'>('business');
   const [websiteSubTab, setWebsiteSubTab] = useState<'gallery' | 'faq' | 'announcements'>('gallery');
+
+  // --- SESSION TIMEOUT ---
+  const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(120);
+  const [sessionTimeoutMinutes, setSessionTimeoutMinutes] = useState(30);
+
+  // Fetch session timeout setting from business_settings
+  useEffect(() => {
+    const fetchTimeoutSetting = async () => {
+      try {
+        const { data } = await (await import('@/lib/supabase')).supabase
+          .from('business_settings')
+          .select('session_timeout_minutes')
+          .single();
+        if (data?.session_timeout_minutes) {
+          setSessionTimeoutMinutes(data.session_timeout_minutes);
+        }
+      } catch {
+        // Default to 30 minutes on error
+      }
+    };
+    fetchTimeoutSetting();
+  }, []);
+
+  const resetTimers = useInactivityTimeout({
+    timeoutMs: sessionTimeoutMinutes * 60 * 1000,
+    warningMs: 2 * 60 * 1000,
+    onWarn: () => {
+      setSecondsLeft(120);
+      setShowTimeoutWarning(true);
+    },
+    onExpire: async () => {
+      setShowTimeoutWarning(false);
+      await signOut();
+      navigate('/login', { state: { sessionExpired: true } });
+    },
+  });
+
+  // Countdown when warning modal is shown
+  useEffect(() => {
+    if (!showTimeoutWarning) return;
+    const interval = setInterval(() => {
+      setSecondsLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [showTimeoutWarning]);
 
   // Compute revenue trend: compare today vs yesterday
   const revenueTrend = useMemo(() => {
@@ -697,6 +753,19 @@ const OwnerDashboard = () => {
           isAdmin={true}
         />
       )}
+
+      <SessionTimeoutModal
+        isOpen={showTimeoutWarning}
+        secondsRemaining={secondsLeft}
+        onStayLoggedIn={() => {
+          setShowTimeoutWarning(false);
+          resetTimers();
+        }}
+        onLogOut={async () => {
+          await signOut();
+          navigate('/login');
+        }}
+      />
     </div>
     </AuthenticatorAssuranceCheck>
   );

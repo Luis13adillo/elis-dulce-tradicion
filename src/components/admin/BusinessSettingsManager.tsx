@@ -56,10 +56,13 @@ export function BusinessSettingsManager() {
 
     try {
       await updateMutation.mutateAsync(formData);
-      // Show targeted "Daily capacity updated" message if capacity field changed
+      // Show targeted message based on what changed
       const capacityChanged = settings?.max_daily_capacity !== formData.max_daily_capacity;
+      const timeoutChanged = settings?.session_timeout_minutes !== formData.session_timeout_minutes;
       if (capacityChanged) {
-        toast.success('Daily capacity updated');
+        toast.success(isSpanish ? 'Capacidad diaria actualizada' : 'Daily capacity updated');
+      } else if (timeoutChanged) {
+        toast.success(isSpanish ? 'Tiempo de sesión actualizado' : 'Session timeout updated');
       } else {
         toast.success(
           isSpanish ? 'Configuración guardada exitosamente' : 'Settings saved successfully'
@@ -430,6 +433,48 @@ export function BusinessSettingsManager() {
                   {isSpanish
                     ? 'El valor predeterminado es 10. El personal ve este límite en las vistas de calendario y agenda.'
                     : 'Default is 10. Staff see this limit in the calendar and schedule views.'}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>{isSpanish ? 'Seguridad de Sesión' : 'Session Security'}</CardTitle>
+              <CardDescription>
+                {isSpanish
+                  ? 'Configura el tiempo de cierre automático de sesión para el personal'
+                  : 'Configure automatic session timeout for staff accounts'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="session_timeout_minutes">
+                  {isSpanish ? 'Tiempo de sesión (minutos)' : 'Session Timeout (minutes)'}
+                </Label>
+                <div className="flex items-center gap-3">
+                  <Input
+                    id="session_timeout_minutes"
+                    type="number"
+                    min={5}
+                    max={480}
+                    step={5}
+                    value={formData.session_timeout_minutes ?? 30}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        session_timeout_minutes: parseInt(e.target.value, 10) || 30,
+                      })
+                    }
+                    className="w-24"
+                  />
+                  <span className="text-sm text-gray-500">
+                    {isSpanish ? 'minutos' : 'minutes'}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-400">
+                  {isSpanish
+                    ? 'Las cuentas de propietario y recepcionista cierran sesión automáticamente después de este tiempo de inactividad. El valor predeterminado es 30 minutos.'
+                    : 'Owner and front desk accounts auto-logout after this period of inactivity. Default is 30 minutes.'}
                 </p>
               </div>
             </CardContent>

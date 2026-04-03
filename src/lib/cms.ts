@@ -26,6 +26,8 @@ export interface BusinessSettings {
   service_zipcodes?: string[];
   about_us_content?: string;
   about_us_content_es?: string;
+  max_daily_capacity?: number;
+  session_timeout_minutes?: number;
 }
 
 export interface BusinessHours {

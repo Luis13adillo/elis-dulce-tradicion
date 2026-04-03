@@ -29,6 +29,8 @@ import { QuickStatsWidget } from '@/components/dashboard/QuickStatsWidget';
 import { UrgentOrdersBanner } from '@/components/kitchen/UrgentOrdersBanner';
 import { Package, AlertTriangle, ChevronLeft, ChevronRight, WifiOff, Wifi, RefreshCw } from 'lucide-react';
 import { AuthenticatorAssuranceCheck } from '@/components/auth/AuthenticatorAssuranceCheck';
+import { useInactivityTimeout } from '@/hooks/useInactivityTimeout';
+import { SessionTimeoutModal } from '@/components/auth/SessionTimeoutModal';
 
 const FrontDesk = () => {
   const { t } = useLanguage();
@@ -58,6 +60,59 @@ const FrontDesk = () => {
   // Business Settings (for calendar capacity)
   const { data: businessSettings } = useBusinessSettings();
   const maxDailyCapacity = businessSettings?.max_daily_capacity || 10;
+
+  // --- SESSION TIMEOUT ---
+  const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(120);
+  const [sessionTimeoutMinutes, setSessionTimeoutMinutes] = useState(30);
+
+  // Fetch session timeout setting from business_settings
+  useEffect(() => {
+    const fetchTimeoutSetting = async () => {
+      try {
+        const { supabase } = await import('@/lib/supabase');
+        const { data } = await supabase
+          .from('business_settings')
+          .select('session_timeout_minutes')
+          .single();
+        if (data?.session_timeout_minutes) {
+          setSessionTimeoutMinutes(data.session_timeout_minutes);
+        }
+      } catch {
+        // Default to 30 minutes on error
+      }
+    };
+    fetchTimeoutSetting();
+  }, []);
+
+  const resetTimers = useInactivityTimeout({
+    timeoutMs: sessionTimeoutMinutes * 60 * 1000,
+    warningMs: 2 * 60 * 1000,
+    onWarn: () => {
+      setSecondsLeft(120);
+      setShowTimeoutWarning(true);
+    },
+    onExpire: async () => {
+      setShowTimeoutWarning(false);
+      await signOut();
+      navigate('/login', { state: { sessionExpired: true } });
+    },
+  });
+
+  // Countdown when warning modal is shown
+  useEffect(() => {
+    if (!showTimeoutWarning) return;
+    const interval = setInterval(() => {
+      setSecondsLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [showTimeoutWarning]);
 
   const ACTIVE_STATUSES = ['pending', 'confirmed', 'in_progress', 'ready'];
   const unreadCount = orders.filter(o => ACTIVE_STATUSES.includes(o.status) && isUnread(o.id)).length;
@@ -686,6 +741,19 @@ const FrontDesk = () => {
       {renderContent()}
 
     </KitchenRedesignedLayout>
+
+    <SessionTimeoutModal
+      isOpen={showTimeoutWarning}
+      secondsRemaining={secondsLeft}
+      onStayLoggedIn={() => {
+        setShowTimeoutWarning(false);
+        resetTimers();
+      }}
+      onLogOut={async () => {
+        await signOut();
+        navigate('/login');
+      }}
+    />
     </AuthenticatorAssuranceCheck>
   );
 };
