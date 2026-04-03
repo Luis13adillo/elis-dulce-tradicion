@@ -1,3 +1,4 @@
+import { Helmet } from 'react-helmet-async';
 import { useLanguage } from '@/contexts/LanguageContext';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -5,6 +6,45 @@ import { Button } from '@/components/ui/button';
 import { Cake, Coffee, Cookie } from 'lucide-react';
 import { LazyImage } from '@/components/optimized/LazyImage';
 import EventBookingForm from '@/components/EventBookingForm';
+
+const menuSchema = {
+  "@context": "https://schema.org",
+  "@type": "FoodEstablishment",
+  "name": "Eli's Dulce Tradicion",
+  "url": "https://elisbakery.com/menu",
+  "hasMenu": {
+    "@type": "Menu",
+    "name": "Eli's Custom Cakes Menu",
+    "description": "Custom cakes for all occasions — birthdays, weddings, quinceañeras, and more",
+    "hasMenuSection": [
+      {
+        "@type": "MenuSection",
+        "name": "Custom Cakes / Pasteles Personalizados",
+        "description": "Made-to-order cakes in various sizes and flavors",
+        "hasMenuItem": [
+          {
+            "@type": "MenuItem",
+            "name": "Small Custom Cake",
+            "description": "Small custom cake, serves 8-12 people",
+            "offers": { "@type": "Offer", "price": "35.00", "priceCurrency": "USD" }
+          },
+          {
+            "@type": "MenuItem",
+            "name": "Medium Custom Cake",
+            "description": "Medium custom cake, serves 16-20 people",
+            "offers": { "@type": "Offer", "price": "55.00", "priceCurrency": "USD" }
+          },
+          {
+            "@type": "MenuItem",
+            "name": "Large Custom Cake",
+            "description": "Large custom cake, serves 24-30 people",
+            "offers": { "@type": "Offer", "price": "75.00", "priceCurrency": "USD" }
+          }
+        ]
+      }
+    ]
+  }
+};
 
 type MenuProduct = { id?: number; name_es: string; name_en: string; description_es: string; description_en: string; price: number | string; category?: string; image_url?: string; };
 
@@ -29,6 +69,11 @@ const Menu = () => {
 
   return (
     <div className="min-h-screen bg-black text-white selection:bg-[#C6A649]/30">
+      <Helmet>
+        <script type="application/ld+json">
+          {JSON.stringify(menuSchema)}
+        </script>
+      </Helmet>
       <Navbar />
       <main className="pt-48 pb-32 relative overflow-hidden">
         {/* Background Glows - Cyber Premium Style */}
