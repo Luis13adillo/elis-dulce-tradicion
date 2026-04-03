@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
 status: unknown
-last_updated: "2026-04-03T12:48:27.380Z"
+last_updated: "2026-04-03T12:56:57.588Z"
 progress:
   total_phases: 10
   completed_phases: 4
   total_plans: 20
-  completed_plans: 16
+  completed_plans: 17
 ---
 
 # Project State
@@ -99,6 +99,9 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 - [Phase 09-02a]: dateRange prop added to OrderVolumeReport beyond plan spec — enables consistent CSV filename generation, no behavior change
 - [Phase 09-02b]: Orchestrator summary card stats computed inline in ReportsManager (small derivations) — child components own detailed data transforms
 - [Phase 09-02b]: ReportsManager at ~273 lines vs 150-200 target — lightweight parent-level card stats add lines but all detailed report panels and export functions are extracted to child modules
+- [Phase 09]: deliveryFee kept as separate state (not in formData) — it is a computed value from API response, not user-editable form field
+- [Phase 09-03]: AddressAutocomplete handles calculateDeliveryFee internally — Order.tsx receives delivery results only via handleAddressChange callback
+- [Phase 09-03]: Delivery address validation placed before consent check in validateStep: name, phone, email, delivery address (conditional), consent
 
 ## Recent Activity
 
@@ -140,6 +143,7 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 - 2026-04-03: Completed 09-01-PLAN.md — CSRF defense-in-depth using csrf-csrf double-submit cookie pattern; removed squarecdn.com/squareup.com from CSP (replaced with maps.googleapis.com); created backend/middleware/csrf.js and src/lib/csrf.ts; wired X-CSRF-Token injection + credentials:include into api-client.ts; build verified green (SEC-05 complete).
 - 2026-04-03: Completed 09-02a-PLAN.md — created src/components/dashboard/reports/ with reportUtils.ts (generateCSV, downloadCSV, getDateRange, DatePreset), RevenueReport.tsx (revenueSummary useMemo + exportRevenueSummary), and OrderVolumeReport.tsx (orderVolume useMemo + exportOrderVolume); first half of ReportsManager refactor; build verified green (REFACTOR-02 partial).
 - 2026-04-03: Completed 09-02b-PLAN.md — created CustomerReport.tsx (customerReport useMemo + exportCustomerReport) and InventoryReport.tsx (inventoryReport useMemo + exportInventoryReport); rewrote ReportsManager.tsx as slim orchestrator (~273 lines from 855); all 5 files in reports/ module; build verified green (REFACTOR-02 complete).
+- 2026-04-03: Completed 09-03-PLAN.md — added calculateDeliveryFee to ApiClient; enabled delivery button, wired AddressAutocomplete with out-of-zone auto-revert, delivery fee in getTotal() and order payload; SEC-06 complete.
 
 ## Roadmap Evolution
 
@@ -200,9 +204,9 @@ None currently.
 ## Session Continuity
 
 Last session: 2026-04-03
-Stopped at: Completed 09-02b-PLAN.md — created CustomerReport.tsx + InventoryReport.tsx + slimmed ReportsManager.tsx to orchestrator; REFACTOR-02 fully complete.
+Stopped at: Completed 09-03-PLAN.md — added calculateDeliveryFee to ApiClient, wired AddressAutocomplete into Order.tsx with out-of-zone auto-revert; SEC-06 complete.
 Resume file: None
-Next action: Execute remaining Phase 9 plans
+Next action: Execute remaining Phase 9 plans (09-04: Order.tsx step extraction)
 
 **Manual steps still required (Stripe dashboard):**
 - Register the Supabase edge function URL as the Stripe webhook endpoint
