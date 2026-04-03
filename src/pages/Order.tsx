@@ -18,6 +18,7 @@ import LanguageToggle from '@/components/LanguageToggle';
 import { useBusinessHours } from '@/lib/hooks/useCMS';
 import { api } from '@/lib/api';
 import type { OrderFormOptions } from '@/lib/api/modules/orderOptions';
+import AddressAutocomplete from '@/components/order/AddressAutocomplete';
 
 const STORAGE_KEY = 'bakery_order_draft';
 
@@ -163,6 +164,7 @@ const Order = () => {
     filling: '',
     theme: '',
     dedication: '',
+    deliveryAddress: '',
   });
 
   const [selectedFillings, setSelectedFillings] = useState<string[]>([]);
@@ -174,6 +176,7 @@ const Order = () => {
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [consentGiven, setConsentGiven] = useState(false);
+  const [deliveryFee, setDeliveryFee] = useState(0);
 
   // DB-driven order form options (with fallback to hardcoded arrays)
   const [orderOptions, setOrderOptions] = useState<OrderFormOptions | null>(null);
@@ -329,7 +332,7 @@ const Order = () => {
   const getTotal = () => {
     const base = pricingBreakdown ? pricingBreakdown.total : getBasePrice();
     const premiumUpcharge = getPremiumFillingUpcharge();
-    return base + premiumUpcharge;
+    return base + premiumUpcharge + deliveryFee;
   };
 
   const toggleFilling = (filling: string) => {
@@ -445,6 +448,20 @@ const Order = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const handleAddressChange = (address: string, _isValid: boolean, _placeDetails?: any, deliveryInfo?: any) => {
+    setFormData(prev => ({ ...prev, deliveryAddress: address }));
+    if (deliveryInfo && !deliveryInfo.serviceable) {
+      setFormData(prev => ({ ...prev, pickupType: 'pickup' }));
+      setDeliveryFee(0);
+      toast.error(t(
+        'Dirección fuera del área de entrega. Cambiado a Pickup.',
+        'Address outside delivery area. Switched to Pickup.'
+      ));
+    } else if (deliveryInfo?.serviceable) {
+      setDeliveryFee(deliveryInfo.fee || 0);
+    }
+  };
+
   // --- NAVIGATION VALIDATION ---
   const validateStep = async (stepIndex: number): Promise<boolean> => {
     setValidationError(null);
@@ -487,6 +504,10 @@ const Order = () => {
       }
       if (!formData.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
         setValidationError(t('Correo electrónico inválido', 'Invalid email address'));
+        return false;
+      }
+      if (formData.pickupType === 'delivery' && !formData.deliveryAddress.trim()) {
+        setValidationError(t('Por favor ingresa tu dirección de entrega', 'Please enter your delivery address'));
         return false;
       }
       if (!consentGiven) {
@@ -552,6 +573,8 @@ const Order = () => {
         dedication: formData.dedication || '',
         reference_image_path: uploadedImageUrl || '',
         delivery_option: formData.pickupType,
+        delivery_address: formData.pickupType === 'delivery' ? formData.deliveryAddress : '',
+        delivery_fee: formData.pickupType === 'delivery' ? deliveryFee : 0,
         consent_given: true,
         consent_timestamp: new Date().toISOString(),
         total_amount: getTotal(),
@@ -1034,12 +1057,33 @@ const Order = () => {
                   </button>
                   <div className="w-px bg-white/10 my-3"></div>
                   <button
-                    disabled
-                    className="flex-1 py-4 rounded-2xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-3 text-white/20 cursor-not-allowed"
+                    onClick={() => setFormData(prev => ({ ...prev, pickupType: 'delivery' }))}
+                    className={`flex-1 py-4 rounded-2xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all duration-500 ${
+                      formData.pickupType === 'delivery'
+                        ? 'bg-[#C6A649] text-black shadow-[0_10px_20px_rgba(198,166,73,0.3)]'
+                        : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                    }`}
                   >
                     <MapPin size={18} /> Delivery
                   </button>
                 </div>
+
+                {formData.pickupType === 'delivery' && (
+                  <div className="space-y-2">
+                    <AddressAutocomplete
+                      value={formData.deliveryAddress}
+                      onChange={handleAddressChange}
+                      showDeliveryInfo={true}
+                      placeholder={t('Dirección de entrega', 'Delivery address')}
+                    />
+                    {deliveryFee > 0 && (
+                      <div className="flex items-center gap-2 px-4 py-2 bg-[#C6A649]/10 border border-[#C6A649]/20 rounded-xl text-[#C6A649] text-xs font-black uppercase tracking-widest">
+                        <MapPin size={14} />
+                        {t('Tarifa de entrega:', 'Delivery fee:')} {formatPrice(deliveryFee)}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <label className="flex items-center gap-5 cursor-pointer group p-4 rounded-3xl transition-colors hover:bg-white/5">
                   <div className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center transition-all duration-500 ${consentGiven ? 'bg-[#C6A649] border-[#C6A649] text-black shadow-[0_0_15px_rgba(198,166,73,0.4)]' : 'border-white/10 group-hover:border-[#C6A649]'
