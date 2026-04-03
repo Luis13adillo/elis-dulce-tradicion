@@ -3,30 +3,30 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
 status: unknown
-last_updated: "2026-04-03T00:55:58.052Z"
+last_updated: "2026-04-03T02:05:00Z"
 progress:
   total_phases: 10
   completed_phases: 2
-  total_plans: 7
-  completed_plans: 5
+  total_plans: 8
+  completed_plans: 6
 ---
 
 # Project State
 
 **Project:** Eli's Bakery - Notification Fixes
 **Milestone:** v1.1
-**Updated:** 2026-04-02
+**Updated:** 2026-04-03
 
 ## Current Status
 
 | Metric | Value |
 |--------|-------|
-| Current Phase | Phase 4 - UI/UX Verification (Plan 1 of 2 complete) |
-| Phases Complete | 3/10 |
-| Requirements Complete | 11/53 |
-| Overall Progress | 21% by req count (but ~60% feature-complete) |
+| Current Phase | Phase 5 - Dashboard & Front Desk Fixes (Plan 1 of 4 complete) |
+| Phases Complete | 4/10 |
+| Requirements Complete | 15/53 |
+| Overall Progress | 28% by req count (but ~65% feature-complete) |
 
-Progress: [==------------------] 10% (requirements)
+Progress: [===------------------] 15% (requirements)
 
 ## Project Reference
 
@@ -43,7 +43,7 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 | 2 | Stripe Backend Integration & Order Emails | Complete ⚠️ (3 gaps in Phase 3) | 1/1 | 100% |
 | 3 | Dashboard Verification | In Progress | 2/3 | 50% |
 | 4 | UI/UX Verification | In Progress | 1/2 | 50% |
-| 5 | Dashboard & Front Desk Fixes | Pending | 0/0 | 0% |
+| 5 | Dashboard & Front Desk Fixes | In Progress | 1/4 | 25% |
 | 6 | Walk-In Order Creation | Pending | 0/0 | 0% |
 | 7 | Recipe Management | Pending | 0/0 | 0% |
 | 8 | Menu DB Migration & Price Security | Pending | 0/0 | 0% |
@@ -69,6 +69,8 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 | backend/db/ files are reference library only | audit | 24 files in backend/db/ are NOT applied migrations — verify production DB state in Phase 8 |
 | Use toast.error instead of console.error for dashboard errors | 04-01 | User-visible feedback preferred over browser console noise in production |
 | Audio autoplay browser policy failures silenced with comment | 04-01 | Not a code bug — browser policy constraint, not worth alerting user |
+| business_hours allows baker+owner write (not owner-only) | 05-01 | Front desk staff need write access to business hours for kitchen display |
+| analytics-views.sql iu.used_at → iu.created_at is reference fix only | 05-01 | backend/db/ files are reference library; apply fix via Supabase SQL editor separately |
 
 ## Recent Activity
 
@@ -97,6 +99,7 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 - 2026-04-02: Added verifyPayment() to API client; wired confirmation email in PaymentCheckout; fixed stripe-webhook column bugs; replaced Square refund with Stripe in cancellation.js; installed stripe SDK in backend
 - 2026-04-02: Readiness audit against actual code found 3 Phase 2 gaps. Added STRIPE-05 (verifyPayment race condition — queries DB only, not Stripe API), STRIPE-06 (webhook missing order status pending→confirmed transition), DB-MIGRATE-01 (payment_disputes table missing from Supabase migrations) into Phase 3 as verification gate. Total requirements: 50 → 53.
 - 2026-04-02: Completed 04-01-PLAN.md — deleted 7 dead code files from disk; removed all debug console statements from OwnerDashboard, FrontDesk, useOrdersFeed; build verified green
+- 2026-04-03: Completed 05-01-PLAN.md — fixed capacity.js profiles→user_profiles bug (MISS-04), fixed analytics-views.sql used_at→created_at (MISS-05), added CMS RLS migration (MISS-08), added max_daily_capacity column migration (FIX-06 prerequisite)
 
 ## Roadmap Evolution
 
@@ -139,17 +142,21 @@ None currently.
 - See: `.planning/phases/03-dashboard-verification/03-01-SUMMARY.md` and `.planning/phases/03-dashboard-verification/03-02-SUMMARY.md`
 - ⚠️ Phase 3 also covers 3 payment gaps from Phase 2: STRIPE-05, STRIPE-06, DB-MIGRATE-01 (see ROADMAP.md Phase 3)
 
-**Phase 4 In Progress:**
+**Phase 4 Complete:**
 - Code cleanup complete (04-01): Deleted 7 dead code files from disk; removed all console statements from OwnerDashboard, FrontDesk, and useOrdersFeed
 - Build verified green after cleanup
 - See: `.planning/phases/04-ui-ux-verification/04-01-SUMMARY.md`
 
+**Phase 5 In Progress:**
+- Backend bug fixes and DB prerequisites complete (05-01): fixed capacity.js bug, fixed analytics view, added 2 migration files
+- See: `.planning/phases/05-dashboard-and-front-desk-fixes/05-01-SUMMARY.md`
+
 ## Session Continuity
 
-Last session: 2026-04-02
-Stopped at: Completed 04-01-PLAN.md — code cleanup and console statement removal
+Last session: 2026-04-03
+Stopped at: Completed 05-01-PLAN.md — backend fixes and database prerequisites
 Resume file: None
-Next action: Execute 04-02-PLAN.md (next UI/UX verification plan)
+Next action: Execute 05-02-PLAN.md (next Phase 5 plan)
 
 **Manual steps still required (Stripe dashboard):**
 - Register the Supabase edge function URL as the Stripe webhook endpoint
