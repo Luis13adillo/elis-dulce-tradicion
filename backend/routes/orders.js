@@ -189,8 +189,79 @@ router.post('/', validateOrder, async (req, res) => {
       user_id, // Optional: for authenticated users
       save_address, // Optional: save address to profile
       address_label, // Optional: label for saved address
+      cake_size_value, // New: value slug from Order.tsx (e.g. '8-round')
+      filling_values,  // New: array of filling value slugs e.g. ['strawberry', 'tiramisu']
     } = req.body;
-    
+
+    // Server-side price validation (SEC-02)
+    // Only validate when cake_size_value is provided (skip for legacy orders without it)
+    if (cake_size_value) {
+      try {
+        // Look up expected base price from DB
+        const sizeResult = await client.query(
+          'SELECT price FROM cake_sizes WHERE value = $1 AND active = true',
+          [cake_size_value]
+        );
+
+        if (sizeResult.rows.length > 0) {
+          let expectedTotal = parseFloat(sizeResult.rows[0].price);
+
+          // Check if any selected fillings are premium
+          const hasPremiumFilling = Array.isArray(filling_values) && filling_values.length > 0
+            ? await (async () => {
+                const premiumCheck = await client.query(
+                  'SELECT COUNT(*) as cnt FROM cake_fillings WHERE value = ANY($1) AND is_premium = true',
+                  [filling_values]
+                );
+                return parseInt(premiumCheck.rows[0].cnt) > 0;
+              })()
+            : false;
+
+          // If premium filling selected, check if this size has an upcharge
+          if (hasPremiumFilling) {
+            const upchargeResult = await client.query(
+              'SELECT upcharge FROM premium_filling_upcharges WHERE size_value = $1 AND active = true',
+              [cake_size_value]
+            );
+            if (upchargeResult.rows.length > 0) {
+              expectedTotal += parseFloat(upchargeResult.rows[0].upcharge);
+            }
+          }
+
+          const clientTotal = parseFloat(total_amount);
+          const mismatch = Math.abs(clientTotal - expectedTotal) > 0.01;
+
+          if (mismatch) {
+            // Log the mismatch for investigation
+            await client.query(
+              `INSERT INTO audit_logs (table_name, record_id, action, new_data)
+               VALUES ('orders', 'PRICE_MISMATCH_DETECTED', 'INSERT', $1)`,
+              [JSON.stringify({
+                event: 'PRICE_MISMATCH_DETECTED',
+                cake_size_value,
+                filling_values: filling_values || [],
+                client_total: clientTotal,
+                expected_total: expectedTotal,
+                has_premium_filling: hasPremiumFilling,
+                customer_email,
+                timestamp: new Date().toISOString(),
+              })]
+            );
+
+            await client.query('ROLLBACK');
+            return sendError(res, {
+              code: 'ORDER_INVALID',
+              message: 'Something went wrong, please try again'
+            }, 400);
+          }
+        }
+        // If cake_size_value not in DB (unexpected), skip validation and proceed
+      } catch (validationError) {
+        // If validation itself errors, log and proceed (don't block order creation)
+        console.error('Price validation error (non-blocking):', validationError.message);
+      }
+    }
+
     const orderNumber = generateOrderNumber();
     
     // Determine delivery zone if delivery option
