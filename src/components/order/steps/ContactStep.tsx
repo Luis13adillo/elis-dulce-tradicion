@@ -1,0 +1,154 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useLanguage } from '@/contexts/LanguageContext';
+import AddressAutocomplete from '@/components/order/AddressAutocomplete';
+import { FloatingInput } from './DetailsStep';
+import { formatPrice } from '@/lib/pricing';
+import { ShoppingBag, MapPin, Check, User, Phone, Mail } from 'lucide-react';
+
+interface ContactStepProps {
+  customerName: string;
+  phone: string;
+  email: string;
+  pickupType: string;
+  consentGiven: boolean;
+  deliveryAddress: string;
+  deliveryFee: number;
+  onNameChange: (name: string) => void;
+  onPhoneChange: (phone: string) => void;
+  onEmailChange: (email: string) => void;
+  onPickupTypeChange: (type: 'pickup' | 'delivery') => void;
+  onConsentChange: (consent: boolean) => void;
+  onAddressChange: (address: string, isValid: boolean, placeDetails?: any, deliveryInfo?: any) => void;
+}
+
+export function getContactSummary(customerName: string, pickupType: string, t: any): string | null {
+  if (!customerName) return null;
+  const typeLabel = pickupType === 'delivery' ? t('Delivery', 'Delivery') : t('Pickup', 'Pickup');
+  return `${customerName} \u2022 ${typeLabel}`;
+}
+
+export function validateContactStep(
+  customerName: string,
+  phone: string,
+  email: string,
+  pickupType: string,
+  deliveryAddress: string,
+  consentGiven: boolean,
+  t: any
+): string | null {
+  if (!customerName.trim()) return t('Por favor ingresa tu nombre', 'Please enter your name');
+  if (!phone.trim()) return t('Por favor ingresa tu teléfono', 'Please enter your phone');
+  if (!email.trim() || !email.includes('@')) return t('Por favor ingresa un email válido', 'Please enter a valid email');
+  if (pickupType === 'delivery' && !deliveryAddress.trim()) return t('Por favor ingresa tu dirección', 'Please enter your delivery address');
+  if (!consentGiven) return t('Por favor acepta los términos', 'Please accept the terms');
+  return null;
+}
+
+const ContactStep = ({
+  customerName,
+  phone,
+  email,
+  pickupType,
+  consentGiven,
+  deliveryAddress,
+  deliveryFee,
+  onNameChange,
+  onPhoneChange,
+  onEmailChange,
+  onPickupTypeChange,
+  onConsentChange,
+  onAddressChange,
+}: ContactStepProps) => {
+  const { t } = useLanguage();
+
+  return (
+    <div className="space-y-4">
+      {/* Name, Phone, Email fields */}
+      <FloatingInput
+        label={t('Nombre', 'Name')}
+        icon={User}
+        value={customerName}
+        onChange={(e: any) => onNameChange(e.target.value)}
+      />
+      <FloatingInput
+        label={t('Teléfono', 'Phone')}
+        type="tel"
+        icon={Phone}
+        value={phone}
+        onChange={(e: any) => onPhoneChange(e.target.value)}
+        maxLength={14}
+        placeholder="(555) 555-5555"
+      />
+      <FloatingInput
+        label={t('Correo Electrónico', 'Email')}
+        type="email"
+        icon={Mail}
+        value={email}
+        onChange={(e: any) => onEmailChange(e.target.value)}
+        placeholder="ejemplo@email.com"
+      />
+
+      {/* Pickup / Delivery Selector */}
+      <div className="bg-white/5 p-3 rounded-[2rem] border border-white/10 flex gap-3 shadow-2xl">
+        <button
+          onClick={() => onPickupTypeChange('pickup')}
+          className={`flex-1 py-4 rounded-2xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all duration-500 ${
+            pickupType === 'pickup'
+              ? 'bg-[#C6A649] text-black shadow-[0_10px_20px_rgba(198,166,73,0.3)]'
+              : 'text-gray-400 hover:bg-white/5 hover:text-white'
+          }`}
+        >
+          <ShoppingBag size={18} /> Pickup
+        </button>
+        <div className="w-px bg-white/10 my-3"></div>
+        <button
+          onClick={() => onPickupTypeChange('delivery')}
+          className={`flex-1 py-4 rounded-2xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all duration-500 ${
+            pickupType === 'delivery'
+              ? 'bg-[#C6A649] text-black shadow-[0_10px_20px_rgba(198,166,73,0.3)]'
+              : 'text-gray-400 hover:bg-white/5 hover:text-white'
+          }`}
+        >
+          <MapPin size={18} /> Delivery
+        </button>
+      </div>
+
+      {/* AddressAutocomplete — rendered when delivery is selected */}
+      {pickupType === 'delivery' && (
+        <div className="space-y-2">
+          <AddressAutocomplete
+            value={deliveryAddress}
+            onChange={onAddressChange}
+            showDeliveryInfo={true}
+            placeholder={t('Dirección de entrega', 'Delivery address')}
+          />
+          {deliveryFee > 0 && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-[#C6A649]/10 border border-[#C6A649]/20 rounded-xl text-[#C6A649] text-xs font-black uppercase tracking-widest">
+              <MapPin size={14} />
+              {t('Tarifa de entrega:', 'Delivery fee:')} {formatPrice(deliveryFee)}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Consent Checkbox */}
+      <label className="flex items-center gap-5 cursor-pointer group p-4 rounded-3xl transition-colors hover:bg-white/5">
+        <div
+          className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center transition-all duration-500 ${
+            consentGiven
+              ? 'bg-[#C6A649] border-[#C6A649] text-black shadow-[0_0_15px_rgba(198,166,73,0.4)]'
+              : 'border-white/10 group-hover:border-[#C6A649]'
+          }`}
+        >
+          <Check size={18} strokeWidth={4} />
+        </div>
+        <input type="checkbox" checked={consentGiven} onChange={e => onConsentChange(e.target.checked)} className="hidden" />
+        <div className="text-xs text-gray-400 font-bold leading-relaxed uppercase tracking-wider group-hover:text-white transition-colors">
+          {t('Acepto los términos y confirmo que los detalles son correctos.', 'I accept terms and confirm details are correct.')}
+        </div>
+      </label>
+    </div>
+  );
+};
+
+export default ContactStep;
