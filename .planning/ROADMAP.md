@@ -213,7 +213,9 @@ Plans:
 
 ---
 
-## Phase 6: Walk-In Order Creation
+## Phase 6: Walk-In Order Creation ⏸️ DEFERRED
+
+> **Status: Deferred** — The owner has an existing POS system that already handles walk-in and phone orders. Building a duplicate form would create redundancy. Revisit if the owner wants orders created in the POS to also appear in the kitchen display (requires POS integration, not just a form).
 
 **Goal:** Build a walk-in order form for Front Desk staff so they can create orders for phone and in-person customers directly from the kitchen display.
 
