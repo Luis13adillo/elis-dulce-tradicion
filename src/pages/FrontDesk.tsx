@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useOrdersFeed } from '@/hooks/useOrdersFeed';
 import { useNotificationState } from '@/hooks/useNotificationState';
 import { api } from '@/lib/api';
+import { useBusinessSettings } from '@/lib/hooks/useCMS';
 import { toast } from 'sonner';
 import { Order } from '@/types/order';
 import { parseISO } from 'date-fns';
@@ -15,6 +16,7 @@ import { KitchenRedesignedLayout } from '@/components/kitchen/KitchenRedesignedL
 import { KitchenNavTabs, KitchenTab } from '@/components/kitchen/KitchenNavTabs';
 import { ModernOrderCard } from '@/components/kitchen/ModernOrderCard';
 import { OrderScheduler } from '@/components/dashboard/OrderScheduler';
+import { OwnerCalendar } from '@/components/dashboard/OwnerCalendar';
 import { PrintPreviewModal } from '@/components/print/PrintPreviewModal';
 import TodayScheduleSummary from '@/components/dashboard/TodayScheduleSummary';
 import { FullScreenOrderAlert } from '@/components/kitchen/FullScreenOrderAlert';
@@ -51,6 +53,10 @@ const FrontDesk = () => {
   // Notification State
   const { markAsRead, markAllAsRead, isUnread } = useNotificationState();
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
+
+  // Business Settings (for calendar capacity)
+  const { data: businessSettings } = useBusinessSettings();
+  const maxDailyCapacity = businessSettings?.max_daily_capacity || 10;
 
   const ACTIVE_STATUSES = ['pending', 'confirmed', 'in_progress', 'ready'];
   const unreadCount = orders.filter(o => ACTIVE_STATUSES.includes(o.status) && isUnread(o.id)).length;
@@ -342,6 +348,18 @@ const FrontDesk = () => {
               darkMode={isDarkMode}
             />
           </div>
+        </div>
+      );
+    }
+
+    if (activeView === 'calendar') {
+      return (
+        <div className={cn("flex flex-col h-full overflow-hidden", isDarkMode ? 'dark' : '')}>
+          <OwnerCalendar
+            orders={orders}
+            onOrderClick={(order) => setSelectedOrder(order)}
+            maxDailyCapacity={maxDailyCapacity}
+          />
         </div>
       );
     }
