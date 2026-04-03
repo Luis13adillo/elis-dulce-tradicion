@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
 status: unknown
-last_updated: "2026-04-03T12:56:57.588Z"
+last_updated: "2026-04-03T13:10:00.000Z"
 progress:
   total_phases: 10
   completed_phases: 4
   total_plans: 20
-  completed_plans: 17
+  completed_plans: 18
 ---
 
 # Project State
@@ -102,6 +102,8 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 - [Phase 09]: deliveryFee kept as separate state (not in formData) — it is a computed value from API response, not user-editable form field
 - [Phase 09-03]: AddressAutocomplete handles calculateDeliveryFee internally — Order.tsx receives delivery results only via handleAddressChange callback
 - [Phase 09-03]: Delivery address validation placed before consent check in validateStep: name, phone, email, delivery address (conditional), consent
+- [Phase 09-04]: FloatingInput co-located in DetailsStep.tsx and imported by ContactStep — avoids creating a separate file for a small helper used in exactly 2 steps
+- [Phase 09-04]: handlePhoneChange refactored from event-based to string-based signature — ContactStep passes e.target.value explicitly for clarity
 
 ## Recent Activity
 
@@ -144,6 +146,7 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 - 2026-04-03: Completed 09-02a-PLAN.md — created src/components/dashboard/reports/ with reportUtils.ts (generateCSV, downloadCSV, getDateRange, DatePreset), RevenueReport.tsx (revenueSummary useMemo + exportRevenueSummary), and OrderVolumeReport.tsx (orderVolume useMemo + exportOrderVolume); first half of ReportsManager refactor; build verified green (REFACTOR-02 partial).
 - 2026-04-03: Completed 09-02b-PLAN.md — created CustomerReport.tsx (customerReport useMemo + exportCustomerReport) and InventoryReport.tsx (inventoryReport useMemo + exportInventoryReport); rewrote ReportsManager.tsx as slim orchestrator (~273 lines from 855); all 5 files in reports/ module; build verified green (REFACTOR-02 complete).
 - 2026-04-03: Completed 09-03-PLAN.md — added calculateDeliveryFee to ApiClient; enabled delivery button, wired AddressAutocomplete with out-of-zone auto-revert, delivery fee in getTotal() and order payload; SEC-06 complete.
+- 2026-04-03: Completed 09-04-PLAN.md — extracted 5 step components (DateTimeStep, SizeStep, FlavorStep, DetailsStep, ContactStep) from Order.tsx monolith into src/components/order/steps/; replaced decorative progress bars with clickable step indicator; delivery UI migrated to ContactStep; build verified green (REFACTOR-01 complete).
 
 ## Roadmap Evolution
 
@@ -204,9 +207,9 @@ None currently.
 ## Session Continuity
 
 Last session: 2026-04-03
-Stopped at: Completed 09-03-PLAN.md — added calculateDeliveryFee to ApiClient, wired AddressAutocomplete into Order.tsx with out-of-zone auto-revert; SEC-06 complete.
+Stopped at: Completed 09-04-PLAN.md — Order.tsx step extraction complete; REFACTOR-01 done.
 Resume file: None
-Next action: Execute remaining Phase 9 plans (09-04: Order.tsx step extraction)
+Next action: Phase 9 complete (all plans done). Move to Phase 10 - Post-Launch Polish.
 
 **Manual steps still required (Stripe dashboard):**
 - Register the Supabase edge function URL as the Stripe webhook endpoint
