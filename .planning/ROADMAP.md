@@ -281,10 +281,13 @@ Plans:
 
 **Goal:** Move all hardcoded menu data and pricing from Order.tsx into the database, add server-side price recalculation to prevent client-side manipulation, and clean up dead payment code.
 
-**Plans:** 0 plans
+**Plans:** 4 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 8 to break down)
+- [ ] 08-01-PLAN.md — Square dead code removal (square.ts, SquarePaymentForm.tsx, Square routes in payments.js)
+- [ ] 08-02-PLAN.md — Password complexity validation on signup form
+- [ ] 08-03-PLAN.md — Pricing DB foundation (4 tables + seed data + OrderOptionsApi module)
+- [ ] 08-04-PLAN.md — Frontend wiring + server-side price validation
 
 **Requirements:**
 - DB-VERIFY: Query production Supabase database (`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'`) to confirm which `backend/db/` reference schemas are actually applied. The 24 files in `backend/db/` are a reference library — NOT guaranteed applied migrations. Apply any missing schemas before proceeding.
@@ -436,3 +439,4 @@ Phase 8 ──── Phase 9 ──── Phase 10
 *Updated: 2026-04-02 — Full codebase audit. Phase 2 renamed + expanded with STRIPE-01 through STRIPE-04 (critical: Stripe webhook handler missing). Phase 5 corrected: removed FIX-01 (revenue trend already dynamic) and FIX-09 (navigate already imported); added MISS-04/MISS-05/MISS-08. Phase 8 added DB-VERIFY. Total requirements: 50.*
 *Updated: 2026-04-02 — Readiness audit against actual code. Phase 2 marked complete but had 3 functional gaps. Added STRIPE-05 (payment verification race condition), STRIPE-06 (order auto-transition on webhook), DB-MIGRATE-01 (payment_disputes migration) into Phase 3 as the verification gate. Total requirements: 53.*
 *Updated: 2026-04-03 — Phase 5 planned: 4 plans in 2 waves. FIX-05 confirmed already implemented. Wave 1: 05-01 (backend/DB fixes) + 05-02 (analytics/UI cleanup) run in parallel. Wave 2: 05-03 (calendar grid) + 05-04 (capacity UI + error states) depend on 05-01.*
+*Updated: 2026-04-03 — Phase 8 planned: 4 plans in 2 waves. Wave 1 (parallel): 08-01 (Square dead code removal), 08-02 (password complexity), 08-03 (pricing DB foundation). Wave 2: 08-04 (frontend wiring + price validation) depends on 08-03.*
