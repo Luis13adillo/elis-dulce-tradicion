@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
 status: unknown
-last_updated: "2026-04-03T05:05:01Z"
+last_updated: "2026-04-03T05:14:38.494Z"
 progress:
   total_phases: 10
   completed_phases: 3
   total_plans: 15
-  completed_plans: 11
+  completed_plans: 12
 ---
 
 # Project State
@@ -46,7 +46,7 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 | 5 | Dashboard & Front Desk Fixes | Complete | 4/4 | 100% |
 | 6 | Walk-In Order Creation | Deferred ⏸️ | 0/0 | — |
 | 7 | Recipe Management | Deferred ⏸️ | 0/0 | — |
-| 8 | Menu DB Migration & Price Security | In Progress | 2/4 | 50% |
+| 8 | Menu DB Migration & Price Security | In Progress | 3/4 | 75% |
 | 9 | Security Hardening & Code Quality | Pending | 0/0 | 0% |
 | 10 | Post-Launch Polish | Pending | 0/0 | 0% |
 
@@ -54,6 +54,8 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 
 | Decision | Phase | Rationale |
 |----------|-------|-----------|
+| Applied migration via psql direct connection (DATABASE_URL) — Supabase CLI requires config.toml not present in this project | 08-03 | Direct psql works reliably; no config.toml in this project |
+| Seed data uses ASCII-safe values for Spanish labels in SQL (Pina vs Piña) to avoid psql encoding issues | 08-03 | SQL encoding safety; display labels in Order.tsx retain accents |
 | validatePassword error strings pre-bilingual ("Spanish / English") — t() unavailable at call site | 08-02 | validatePassword is a pure function outside component scope; no hook context available |
 | No replacement Stripe management endpoints added — payments handled via Supabase Edge Functions | 08-01 | Stripe payment flow lives entirely in Edge Functions; Express backend only needs payment lookup |
 | payments-sqlite.js Square imports are pre-existing dead code (sqlite-server.js not active server) | 08-01 | Only used by sqlite-server.js which is dead code; deferred to Phase 9 |
@@ -83,6 +85,8 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 | Month view click expands inline order panel (not navigate to day view) | 05-03 | Day view still accessible via view mode switcher; inline panel is faster for staff |
 | FrontDesk maxDailyCapacity defaults to 10 (not 20) | 05-03 | Consistent with audit decision: capacity-inventory-schema.sql default is 10 |
 - [Phase 08-01]: No replacement Stripe management endpoints added — Stripe payments handled entirely via Supabase Edge Functions
+- [Phase 08-03]: Applied migration via psql direct connection (DATABASE_URL) — Supabase CLI requires config.toml not present in this project
+- [Phase 08-03]: Seed data uses ASCII-safe values for Spanish labels in SQL (Pina vs Piña) to avoid psql encoding issues — display labels in Order.tsx retain accents
 
 ## Recent Activity
 
@@ -119,6 +123,7 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 - 2026-04-03: Deferred Phase 7 (Recipe Management) — inventory tracking is not in use. Recipe-cost calculations require active inventory to have value. Potential future upsell once core system is live. Next phase is 8 (Menu DB Migration & Price Security).
 - 2026-04-03: Completed 08-02-PLAN.md — added validatePassword() to Signup.tsx with 5-rule complexity validation (min 8 chars, uppercase, lowercase, number, special char); removed weak length<6 check; build verified green (SEC-04)
 - 2026-04-03: Completed 08-01-PLAN.md — deleted Square source files (square.ts, SquarePaymentForm.tsx) and stripped 540 lines of Square code from backend/routes/payments.js; build verified green (SEC-03)
+- 2026-04-03: Completed 08-03-PLAN.md — applied 4 pricing tables migration to production Supabase via psql (cake_sizes 8 rows, bread_types 3 rows, cake_fillings 14 rows, premium_filling_upcharges 2 rows); wired OrderOptionsApi into api singleton; build verified green (DB-VERIFY + SEC-01)
 
 ## Roadmap Evolution
 
@@ -179,9 +184,9 @@ None currently.
 ## Session Continuity
 
 Last session: 2026-04-03
-Stopped at: Completed 08-02-PLAN.md — added validatePassword() to Signup.tsx, enforces 5-rule password complexity (SEC-04). Phase 8 Plan 02 complete.
+Stopped at: Completed 08-03-PLAN.md — 4 pricing tables applied to production Supabase (cake_sizes, bread_types, cake_fillings, premium_filling_upcharges), OrderOptionsApi wired into api singleton (DB-VERIFY + SEC-01 complete). Phase 8 Plan 03 complete.
 Resume file: None
-Next action: Execute 08-03-PLAN.md (next plan in Phase 8)
+Next action: Execute 08-04-PLAN.md (migrate Order.tsx to use DB-fetched options via api.getOrderFormOptions())
 
 **Manual steps still required (Stripe dashboard):**
 - Register the Supabase edge function URL as the Stripe webhook endpoint
