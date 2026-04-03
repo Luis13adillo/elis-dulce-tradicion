@@ -171,11 +171,11 @@ Plans:
 
 **Goal:** Fix all remaining bugs and wire up orphaned components in both dashboards. This addresses 9 issues identified in the system analysis that were not covered by earlier phases.
 
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 
 Plans:
-- [ ] 05-01-PLAN.md — Backend bug fixes + DB migrations (MISS-04, MISS-05, MISS-08, FIX-06 migration)
-- [ ] 05-02-PLAN.md — Analytics + UI cleanup (FIX-02, FIX-04, FIX-07)
+- [x] 05-01-PLAN.md — Backend bug fixes + DB migrations (MISS-04, MISS-05, MISS-08, FIX-06 migration)
+- [x] 05-02-PLAN.md — Analytics + UI cleanup (FIX-02, FIX-04, FIX-07)
 - [ ] 05-03-PLAN.md — Calendar month grid in both dashboards (FIX-03)
 - [ ] 05-04-PLAN.md — Capacity UI + error states (FIX-06 UI, FIX-08)
 
