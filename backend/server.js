@@ -76,6 +76,17 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Input sanitization
 app.use(validateInput);
 
+// CSRF protection — exempt Stripe webhooks (handled before versioning middleware)
+// Webhooks use raw body + Stripe signature, not JSON, so must be registered before body parser
+// The doubleCsrfProtection middleware only applies to POST/PUT/PATCH/DELETE
+app.use((req, res, next) => {
+  // Exclude webhook routes from CSRF
+  if (req.path.startsWith('/api/v1/webhooks') || req.path.startsWith('/api/webhooks')) {
+    return next();
+  }
+  return doubleCsrfProtection(req, res, next);
+});
+
 // API Versioning
 app.use(versioningMiddleware);
 
@@ -104,6 +115,12 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
 
 // Health check endpoint
 app.use('/api/health', healthRouter);
+
+// CSRF token endpoint — returns a token for the SPA to use
+app.get('/api/v1/csrf-token', (req, res) => {
+  const token = generateToken(req, res);
+  res.json({ token });
+});
 
 // API Versioning - All routes prefixed with /v1
 // Note: cancellationRouter must come before ordersRouter to catch /:id/cancel routes
