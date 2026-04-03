@@ -46,7 +46,7 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 | 5 | Dashboard & Front Desk Fixes | Complete | 4/4 | 100% |
 | 6 | Walk-In Order Creation | Deferred ⏸️ | 0/0 | — |
 | 7 | Recipe Management | Deferred ⏸️ | 0/0 | — |
-| 8 | Menu DB Migration & Price Security | In Progress | 3/4 | 75% |
+| 8 | Menu DB Migration & Price Security | Complete | 4/4 | 100% |
 | 9 | Security Hardening & Code Quality | Pending | 0/0 | 0% |
 | 10 | Post-Launch Polish | Pending | 0/0 | 0% |
 
@@ -87,6 +87,9 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 - [Phase 08-01]: No replacement Stripe management endpoints added — Stripe payments handled entirely via Supabase Edge Functions
 - [Phase 08-03]: Applied migration via psql direct connection (DATABASE_URL) — Supabase CLI requires config.toml not present in this project
 - [Phase 08-03]: Seed data uses ASCII-safe values for Spanish labels in SQL (Pina vs Piña) to avoid psql encoding issues — display labels in Order.tsx retain accents
+- [Phase 08-04]: activeCakeSizes/activeFillings/etc. derived in render (not useMemo) — arrays are small (8 sizes, 14 fillings); no measurable performance benefit from memoization
+- [Phase 08-04]: Price validation errors are non-blocking in backend — log and proceed to avoid disrupting legitimate orders if validation DB query fails
+- [Phase 08-04]: Generic error message on price mismatch ("Something went wrong") — does not reveal manipulation was detected (per SEC-02 spec)
 
 ## Recent Activity
 
@@ -124,6 +127,7 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 - 2026-04-03: Completed 08-02-PLAN.md — added validatePassword() to Signup.tsx with 5-rule complexity validation (min 8 chars, uppercase, lowercase, number, special char); removed weak length<6 check; build verified green (SEC-04)
 - 2026-04-03: Completed 08-01-PLAN.md — deleted Square source files (square.ts, SquarePaymentForm.tsx) and stripped 540 lines of Square code from backend/routes/payments.js; build verified green (SEC-03)
 - 2026-04-03: Completed 08-03-PLAN.md — applied 4 pricing tables migration to production Supabase via psql (cake_sizes 8 rows, bread_types 3 rows, cake_fillings 14 rows, premium_filling_upcharges 2 rows); wired OrderOptionsApi into api singleton; build verified green (DB-VERIFY + SEC-01)
+- 2026-04-03: Completed 08-04-PLAN.md — wired Order.tsx to fetch pricing options from DB with FALLBACK_ arrays; added server-side price validation (PRICE_MISMATCH_DETECTED) to backend/routes/orders.js; build verified green (SEC-01 + SEC-02). Phase 8 fully complete.
 
 ## Roadmap Evolution
 
@@ -184,9 +188,9 @@ None currently.
 ## Session Continuity
 
 Last session: 2026-04-03
-Stopped at: Completed 08-03-PLAN.md — 4 pricing tables applied to production Supabase (cake_sizes, bread_types, cake_fillings, premium_filling_upcharges), OrderOptionsApi wired into api singleton (DB-VERIFY + SEC-01 complete). Phase 8 Plan 03 complete.
+Stopped at: Completed 08-04-PLAN.md — Order.tsx wired to DB-fetched pricing options with FALLBACK_ arrays; server-side price validation added to backend/routes/orders.js (SEC-01 + SEC-02 complete). Phase 8 fully complete.
 Resume file: None
-Next action: Execute 08-04-PLAN.md (migrate Order.tsx to use DB-fetched options via api.getOrderFormOptions())
+Next action: Execute Phase 9 (Security Hardening & Code Quality)
 
 **Manual steps still required (Stripe dashboard):**
 - Register the Supabase edge function URL as the Stripe webhook endpoint
