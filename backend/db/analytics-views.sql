@@ -38,12 +38,12 @@ SELECT
   p.total_orders as customer_total_orders,
   p.total_spent as customer_total_spent
 FROM orders o
-LEFT JOIN profiles p ON o.user_id = p.id;
+LEFT JOIN user_profiles p ON o.user_id = p.user_id;
 
 -- Customer Stats View
 CREATE OR REPLACE VIEW v_customer_stats AS
 SELECT 
-  p.id as customer_id,
+  p.user_id as customer_id,
   p.full_name,
   p.email,
   COUNT(DISTINCT o.id) as total_orders,
@@ -55,10 +55,10 @@ SELECT
   p.loyalty_points,
   p.total_orders as profile_total_orders,
   p.total_spent as profile_total_spent
-FROM profiles p
-LEFT JOIN orders o ON p.id = o.user_id AND o.status != 'cancelled'
+FROM user_profiles p
+LEFT JOIN orders o ON p.user_id = o.user_id AND o.status != 'cancelled'
 WHERE p.role = 'customer'
-GROUP BY p.id, p.full_name, p.email, p.loyalty_points, p.total_orders, p.total_spent;
+GROUP BY p.user_id, p.full_name, p.email, p.loyalty_points, p.total_orders, p.total_spent;
 
 -- Popular Items View (Last 30 days)
 CREATE OR REPLACE VIEW v_popular_items AS
@@ -183,10 +183,10 @@ SELECT
     ELSE false
   END as is_low_stock,
   COALESCE(SUM(iu.quantity_used), 0) as total_used,
-  COALESCE(MAX(iu.used_at), i.last_updated) as last_used
+  COALESCE(MAX(iu.created_at), i.last_updated) as last_used
 FROM ingredients i
 LEFT JOIN ingredient_usage iu ON i.id = iu.ingredient_id
-WHERE iu.used_at >= CURRENT_DATE - INTERVAL '30 days' OR iu.used_at IS NULL
+WHERE iu.created_at >= CURRENT_DATE - INTERVAL '30 days' OR iu.created_at IS NULL
 GROUP BY i.id, i.name, i.quantity, i.unit, i.low_stock_threshold, i.last_updated;
 
 -- Today's Orders Summary

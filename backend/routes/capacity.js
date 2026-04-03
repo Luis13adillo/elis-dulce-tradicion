@@ -139,7 +139,7 @@ router.post('/set', requireAuth, async (req, res) => {
 
     // Verify user is admin
     const userResult = await pool.query(
-      'SELECT role FROM profiles WHERE id = $1',
+      'SELECT role FROM user_profiles WHERE user_id = $1',
       [req.user?.id]
     );
 
