@@ -72,7 +72,7 @@ describe('Order State Machine - Backend', () => {
 
     it('should return refund flag for cancellation', () => {
       const paidOrder = { ...mockOrder, payment_status: 'paid' };
-      const effects = getSideEffects('pending', 'cancelled');
+      const effects = getSideEffects('pending', 'cancelled', paidOrder);
       expect(effects.processRefund).toBe(true);
     });
   });

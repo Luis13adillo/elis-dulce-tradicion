@@ -124,7 +124,7 @@ function getAvailableTransitions(currentStatus, order, userRole) {
 /**
  * Determine side effects for transition
  */
-function getSideEffects(from, to) {
+function getSideEffects(from, to, order = {}) {
   const sideEffects = {
     sendEmail: false,
     sendWebhook: false,
