@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
 status: unknown
-last_updated: "2026-04-03T14:47:43.673Z"
+last_updated: "2026-04-03T14:51:52.253Z"
 progress:
   total_phases: 10
   completed_phases: 5
   total_plans: 25
-  completed_plans: 21
+  completed_plans: 22
 ---
 
 # Project State
@@ -113,6 +113,9 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 - [Phase 10-05]: Schema const defined at module level (not inside component) — avoids object recreation on every render
 - [Phase 10-05]: FoodEstablishment with hasMenu chosen over BakeryProduct for Menu page — better represents restaurant-style menu structure
 - [Phase 10-05]: Static menu schema with 3 price tiers — DB-driven schema would require SSR; static sufficient for SEO
+- [Phase 10-02]: Chromium-only Playwright suite for CI — removes firefox/webkit, speeds up CI pipeline
+- [Phase 10-02]: All Express API calls mocked via page.route() in E2E tests — no backend required
+- [Phase 10-02]: E2E credentials via process.env with fallback literals — safe for local dev and configurable in CI secrets
 
 ## Recent Activity
 
@@ -159,6 +162,7 @@ See: .planning/PROJECT.md (updated 2025-02-01)
 - 2026-04-03: Completed 10-01-PLAN.md — installed vitest + testing-library ecosystem (missing from package.json); created pricing.ts unit test suite (23 cases covering calculateCakePrice, calculateFillingCost, calculateThemeCost, calculateTax, formatPrice); fixed 2 pre-existing bugs in orderStateMachine.ts and pricing.ts; all 39 tests pass (TEST-01 complete).
 - 2026-04-03: Completed 10-03-PLAN.md — created EnrollMFA.tsx (QR code, OTP input, challenge+verify, second-device recovery), MFAChallengeScreen.tsx (listFactors on mount, auto-submit challenge), AuthenticatorAssuranceCheck.tsx (AAL gate); wired OwnerDashboard (owner, required MFA) and FrontDesk (baker, optional MFA); build verified green (AUTH-01 complete).
 - 2026-04-03: Completed 10-05-PLAN.md — installed react-helmet-async; added LocalBusiness/Bakery JSON-LD to Index.tsx (address, phone, geo, hours) and FoodEstablishment hasMenu JSON-LD to Menu.tsx (3 cake price tiers); updated sitemap.xml with 11 public pages all dated 2026-04-03; build verified green (SEO-01 complete).
+- 2026-04-03: Completed 10-02-PLAN.md — rewrote owner-dashboard.spec.ts and order-flow.spec.ts with correct credentials (ElisBakery123) and Phase 9 step-component selectors; created payment-flow.spec.ts (3 scenarios: homepage nav, mocked Stripe confirmation, invalid card failure); updated playwright.config.ts to chromium-only; created .github/workflows/ci.yml blocking merges on unit+E2E failures (TEST-01 complete).
 
 ## Roadmap Evolution
 
@@ -219,9 +223,9 @@ None currently.
 ## Session Continuity
 
 Last session: 2026-04-03
-Stopped at: Completed 10-05-PLAN.md — SEO JSON-LD structured data (SEO-01 complete). Phase 10 plan 05 complete.
+Stopped at: Completed 10-02-PLAN.md — E2E test rewrite and GitHub Actions CI workflow (TEST-01 complete).
 Resume file: None
-Next action: Phase 10 complete (all 5 plans executed). Project at production readiness milestone.
+Next action: Phase 10 all plans executed. Project at production readiness milestone. Add GitHub secrets (see 10-02-SUMMARY.md) before CI runs owner login E2E with real auth.
 
 **Manual steps still required (Stripe dashboard):**
 - Register the Supabase edge function URL as the Stripe webhook endpoint
