@@ -1,16 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Upload, Check, Clock, User, Camera, X, Loader2, AlertCircle, ShoppingBag, Calendar, Sparkles, MapPin, ChevronRight, ChevronLeft, Star, Mail } from 'lucide-react';
+import { Loader2, AlertCircle, ChevronRight, ChevronLeft } from 'lucide-react';
 import logoImage from '@/assets/brand/logo.png';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
-import { validateLeadTime, validateOrderDateTimeComplete } from '@/lib/validation';
+import { validateOrderDateTimeComplete } from '@/lib/validation';
 import { useNavigate } from 'react-router-dom';
 import { uploadReferenceImage } from '@/lib/storage';
 import { isValidImageType, isValidFileSize, compressImage } from '@/lib/imageCompression';
 import { useOptimizedPricing } from '@/lib/hooks/useOptimizedPricing';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { CameraCapture } from '@/components/mobile/CameraCapture';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatPrice } from '@/lib/pricing';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,58 +17,22 @@ import LanguageToggle from '@/components/LanguageToggle';
 import { useBusinessHours } from '@/lib/hooks/useCMS';
 import { api } from '@/lib/api';
 import type { OrderFormOptions } from '@/lib/api/modules/orderOptions';
-import AddressAutocomplete from '@/components/order/AddressAutocomplete';
+import { cn } from '@/lib/utils';
+
+// Step components
+import DateTimeStep, { validateDateTimeStep, getDateTimeSummary } from '@/components/order/steps/DateTimeStep';
+import SizeStep, { validateSizeStep, getSizeSummary } from '@/components/order/steps/SizeStep';
+import FlavorStep, { validateFlavorStep, getFlavorSummary } from '@/components/order/steps/FlavorStep';
+import DetailsStep, { validateDetailsStep, getDetailsSummary } from '@/components/order/steps/DetailsStep';
+import ContactStep, { validateContactStep, getContactSummary } from '@/components/order/steps/ContactStep';
+import {
+  FALLBACK_CAKE_SIZES,
+  FALLBACK_BREAD_TYPES,
+  FALLBACK_FILLINGS,
+  FALLBACK_PREMIUM_FILLING_OPTIONS,
+} from '@/components/order/steps/orderStepConstants';
 
 const STORAGE_KEY = 'bakery_order_draft';
-
-// --- CONSTANTS (Fallback arrays — used when DB fetch fails or is loading) ---
-const FALLBACK_CAKE_SIZES = [
-  { value: '6-round', label: '6" Round', labelEs: '6" Redondo', price: 30, serves: '6-8', featured: false },
-  { value: '8-round', label: '8" Round', labelEs: '8" Redondo', price: 35, serves: '10-12', featured: false },
-  { value: '10-round', label: '10" Round', labelEs: '10" Redondo', price: 55, serves: '20-25', featured: true },
-  { value: '12-round', label: '12" Round', labelEs: '12" Redondo', price: 85, serves: '30-35', featured: false },
-  { value: 'quarter-sheet', label: '1/4 Sheet', labelEs: '1/4 Plancha', price: 70, serves: '20-25', featured: false },
-  { value: 'half-sheet', label: '1/2 Sheet', labelEs: '1/2 Plancha', price: 135, serves: '40-50', featured: false },
-  { value: 'full-sheet', label: 'Full Sheet', labelEs: 'Plancha Completa', price: 240, serves: '90-100', featured: false },
-  { value: '8-hard-shape', label: '8" Hard Shape', labelEs: '8" Forma Especial', price: 50, serves: '10-12', featured: false },
-];
-
-const FALLBACK_BREAD_TYPES = [
-  { value: 'tres-leches', label: '3 Leches', desc: 'Moist & Traditional' },
-  { value: 'chocolate', label: 'Chocolate', desc: 'Rich & Decadent' },
-  { value: 'vanilla', label: 'Regular', desc: 'Classic Vanilla' },
-];
-
-const FALLBACK_FILLINGS = [
-  { value: 'strawberry', label: 'Fresa', sub: 'Strawberry', premium: false },
-  { value: 'chocolate-chip', label: 'Choco Chip', sub: 'Dark Chocolate', premium: false },
-  { value: 'mocha', label: 'Mocha', sub: 'Coffee Blend', premium: false },
-  { value: 'mousse', label: 'Mousse', sub: 'Whipped', premium: false },
-  { value: 'napolitano', label: 'Napolitano', sub: 'Mix', premium: false },
-  { value: 'pecan', label: 'Nuez', sub: 'Pecan', premium: false },
-  { value: 'coconut', label: 'Coco', sub: 'Coconut', premium: false },
-  { value: 'pineapple', label: 'Piña', sub: 'Pineapple', premium: false },
-  { value: 'pina-colada', label: 'Piña Colada', sub: 'Tropical', premium: false },
-  { value: 'peach', label: 'Durazno', sub: 'Peach', premium: false },
-  { value: 'tiramisu', label: 'Tiramisu', sub: 'Italian Style', premium: true },
-  { value: 'relleno-flan', label: 'Relleno de Flan', sub: 'Flan Filling', premium: true },
-  { value: 'oreo', label: 'Oreo', sub: 'Cookies & Cream', premium: false },
-  { value: 'red-velvet', label: 'Red Velvet', sub: 'Cream Cheese', premium: false },
-];
-
-// Premium filling size options with upcharges (fallback)
-const FALLBACK_PREMIUM_FILLING_OPTIONS = [
-  { value: '10-round', label: '10"', labelEs: '10"', upcharge: 5 },
-  { value: 'full-sheet', label: 'Full Sheet', labelEs: 'Plancha Completa', upcharge: 20 },
-];
-
-const formatTimeDisplay = (time: string) => {
-  const [hours, minutes] = time.split(':');
-  const h = parseInt(hours);
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const h12 = h % 12 || 12;
-  return `${h12}:${minutes} ${ampm}`;
-};
 
 // --- ANIMATION VARIANTS ---
 const slideVariants = {
@@ -90,37 +53,6 @@ const slideVariants = {
     opacity: 0,
     position: 'absolute' as const,
   })
-};
-
-// --- CUSTOM COMPONENTS ---
-const FloatingInput = ({ label, value, onChange, type = "text", placeholder, icon: Icon, maxLength, className }: any) => {
-  const [focused, setFocused] = useState(false);
-
-  return (
-    <div className={`relative group ${className}`}>
-      <div className={`absolute inset-0 bg-[#C6A649]/10 rounded-2xl transition-all duration-300 pointer-events-none ${focused ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`} />
-      <div className={`relative bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl rounded-2xl overflow-hidden transition-all duration-300 group-hover:border-[#C6A649]/30 ${focused ? 'ring-[3px] ring-[#C6A649]/40 border-[#C6A649]/50' : ''}`}>
-        <label className={`absolute left-10 transition-all duration-200 pointer-events-none ${focused || value ? 'top-2 text-[10px] text-[#C6A649] font-black tracking-widest uppercase' : 'top-4 text-sm text-gray-400 font-medium'}`}>
-          {label}
-        </label>
-        {Icon && (
-          <div className={`absolute left-3 top-4 transition-colors duration-300 ${focused ? 'text-[#C6A649]' : 'text-gray-500'}`}>
-            <Icon size={18} />
-          </div>
-        )}
-        <input
-          type={type}
-          value={value}
-          onChange={onChange}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          maxLength={maxLength}
-          className="w-full bg-transparent p-4 pl-10 pt-5 text-white font-bold placeholder-transparent focus:outline-none min-h-[60px]"
-          placeholder={placeholder}
-        />
-      </div>
-    </div>
-  );
 };
 
 // --- MAIN COMPONENT ---
@@ -335,7 +267,7 @@ const Order = () => {
     return base + premiumUpcharge + deliveryFee;
   };
 
-  const toggleFilling = (filling: string) => {
+  const handleFillingToggle = (filling: string) => {
     const fillingObj = activeFillings.find(f => f.value === filling);
 
     setSelectedFillings(prev => {
@@ -359,7 +291,7 @@ const Order = () => {
     });
   };
 
-  const setPremiumFillingSize = (filling: string, sizeOption: string) => {
+  const handlePremiumSizeSet = (filling: string, sizeOption: string) => {
     setPremiumFillingSizes(prev => ({
       ...prev,
       [filling]: sizeOption
@@ -390,13 +322,13 @@ const Order = () => {
     return false;
   };
 
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+  const handlePhoneChange = (phone: string) => {
+    const digits = phone.replace(/\D/g, '').slice(0, 10);
     let formatted = '';
     if (digits.length > 0) formatted = '(' + digits.slice(0, 3);
     if (digits.length > 3) formatted += ') ' + digits.slice(3, 6);
     if (digits.length > 6) formatted += '-' + digits.slice(6, 10);
-    setFormData({ ...formData, phone: formatted });
+    setFormData(prev => ({ ...prev, phone: formatted }));
   };
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -462,16 +394,26 @@ const Order = () => {
     }
   };
 
-  // --- NAVIGATION VALIDATION ---
+  // --- STEP NAVIGATION ---
+  const goToStep = (index: number) => {
+    if (index < currentStep) {
+      setDirection(-1);
+      setCurrentStep(index);
+    }
+  };
+
+  // --- NAVIGATION VALIDATION (delegates to step validators) ---
   const validateStep = async (stepIndex: number): Promise<boolean> => {
     setValidationError(null);
     const stepId = STEPS[stepIndex].id;
 
     if (stepId === 'date') {
-      if (!formData.dateNeeded || !formData.timeNeeded) {
-        setValidationError(t('Selecciona fecha y hora', 'Select date and time'));
+      const syncError = validateDateTimeStep(formData.dateNeeded, formData.timeNeeded, t);
+      if (syncError) {
+        setValidationError(syncError);
         return false;
       }
+      // Also run async full validation
       const validation = await validateOrderDateTimeComplete(formData.dateNeeded, formData.timeNeeded);
       if (!validation.isValid) {
         setValidationError(validation.errors.join(', '));
@@ -480,40 +422,36 @@ const Order = () => {
     }
 
     if (stepId === 'size') {
-      if (!formData.cakeSize) {
-        setValidationError(t('Debes seleccionar un tamaño', 'Must select a size'));
-        return false;
-      }
+      const err = validateSizeStep(formData.cakeSize, t);
+      if (err) { setValidationError(err); return false; }
     }
 
     if (stepId === 'flavor') {
+      // Check pending premium selection first (requires fillings context)
       if (hasPendingPremiumSelection()) {
         setValidationError(t('Selecciona el tamaño para los rellenos premium', 'Select size for premium fillings'));
         return false;
       }
+      const err = validateFlavorStep(selectedFillings, t);
+      if (err) { setValidationError(err); return false; }
+    }
+
+    if (stepId === 'details') {
+      const err = validateDetailsStep();
+      if (err) { setValidationError(err); return false; }
     }
 
     if (stepId === 'info') {
-      if (!formData.customerName.trim()) {
-        setValidationError(t('Tu nombre es requerido', 'Name is required'));
-        return false;
-      }
-      if (formData.phone.replace(/\D/g, '').length !== 10) {
-        setValidationError(t('Teléfono incompleto', 'Phone incomplete'));
-        return false;
-      }
-      if (!formData.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-        setValidationError(t('Correo electrónico inválido', 'Invalid email address'));
-        return false;
-      }
-      if (formData.pickupType === 'delivery' && !formData.deliveryAddress.trim()) {
-        setValidationError(t('Por favor ingresa tu dirección de entrega', 'Please enter your delivery address'));
-        return false;
-      }
-      if (!consentGiven) {
-        setValidationError(t('Marca la casilla de confirmación', 'Check the confirmation box'));
-        return false;
-      }
+      const err = validateContactStep(
+        formData.customerName,
+        formData.phone,
+        formData.email,
+        formData.pickupType,
+        formData.deliveryAddress,
+        consentGiven,
+        t
+      );
+      if (err) { setValidationError(err); return false; }
     }
 
     return true;
@@ -529,7 +467,6 @@ const Order = () => {
         handleSubmit();
       }
     } else {
-      // Shake animation triggering could be added here
       toast.error(validationError || t('Completa este paso', 'Complete this step'));
     }
   };
@@ -644,11 +581,34 @@ const Order = () => {
 
             {/* Right: Progress & Language */}
             <div className="flex items-center gap-8 w-full md:w-auto justify-center md:justify-end">
-              {/* Progress Indicator */}
-              <div className="flex gap-2">
-                {STEPS.map((_, i) => (
-                  <div key={i} className={`h-2 w-10 rounded-full transition-all duration-500 ${i <= currentStep ? 'bg-[#C6A649] shadow-[0_0_15px_rgba(198,166,73,0.5)]' : 'bg-white/10'}`} />
-                ))}
+              {/* Clickable Step Indicator */}
+              <div className="flex gap-2 items-end">
+                {STEPS.map((_, i) => {
+                  const summary = [
+                    getDateTimeSummary(formData.dateNeeded, formData.timeNeeded),
+                    getSizeSummary(formData.cakeSize, activeCakeSizes, isSpanish),
+                    getFlavorSummary(formData.breadType, selectedFillings, activeBreadTypes, activeFillings),
+                    getDetailsSummary(formData.theme, uploadedImageUrl, t),
+                    getContactSummary(formData.customerName, formData.pickupType, t),
+                  ][i];
+                  const isCompleted = i < currentStep;
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => isCompleted && goToStep(i)}
+                      className={cn(
+                        "flex flex-col items-center gap-1 transition-all",
+                        isCompleted ? "cursor-pointer hover:opacity-80" : "cursor-default"
+                      )}
+                      aria-label={isCompleted ? `Go to step ${i + 1}` : undefined}
+                    >
+                      <div className={`h-2 w-10 rounded-full transition-all duration-500 ${i <= currentStep ? 'bg-[#C6A649] shadow-[0_0_15px_rgba(198,166,73,0.5)]' : 'bg-white/10'}`} />
+                      {isCompleted && summary && (
+                        <span className="text-[9px] text-[#C6A649]/70 font-bold max-w-[40px] truncate hidden md:block">{summary}</span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Language Toggle - Custom Styles handled in component */}
@@ -705,397 +665,91 @@ const Order = () => {
             className="w-full bg-white/5 backdrop-blur-3xl p-8 sm:p-10 rounded-[3rem] shadow-[0_30px_60px_rgba(0,0,0,0.5)] border border-white/10 min-h-[400px] flex flex-col justify-center relative overflow-hidden group"
           >
             <div className="absolute top-0 right-0 w-40 h-40 bg-[#C6A649]/5 rounded-full blur-3xl pointer-events-none" />
+
             {/* --- STEP 1: DATE --- */}
             {STEPS[currentStep].id === 'date' && (
-              <div className="space-y-6">
-                <div className="relative group/date">
-                  <input
-                    type="date"
-                    min={new Date().toISOString().split('T')[0]}
-                    max={new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
-                    value={formData.dateNeeded}
-                    onChange={(e) => setFormData({ ...formData, dateNeeded: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 focus:border-[#C6A649]/50 hover:bg-white/10 transition-all rounded-3xl p-6 text-center text-2xl font-black text-white outline-none cursor-pointer"
-                  />
-                  <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-[#C6A649] group-hover/date:scale-110 transition-transform">
-                    <Calendar size={24} />
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <label className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] mb-4 block text-center opacity-70">{t('Hora de Entrega', 'Pickup Time')}</label>
-                  <div className="grid grid-cols-3 gap-3">
-                    {timeOptions.map(time => (
-                      <button
-                        key={time}
-                        onClick={() => setFormData({ ...formData, timeNeeded: time })}
-                        className={`py-4 rounded-2xl text-xs font-black transition-all border uppercase tracking-widest ${formData.timeNeeded === time
-                          ? 'bg-[#C6A649] text-black border-[#C6A649] shadow-[0_0_20px_rgba(198,166,73,0.4)] scale-105'
-                          : 'bg-white/5 border-white/10 text-gray-400 hover:border-[#C6A649]/30 hover:bg-white/10'
-                          }`}
-                      >
-                        {formatTimeDisplay(time)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Lead Time Display */}
-                {formData.dateNeeded && formData.timeNeeded && (
-                  <div className="flex justify-center">
-                    {(() => {
-                      const leadTime = validateLeadTime(formData.dateNeeded, formData.timeNeeded);
-                      if (leadTime.isValid && leadTime.hoursUntilEvent) {
-                        const days = Math.floor(leadTime.hoursUntilEvent / 24);
-                        return (
-                          <div className="flex items-center gap-2 text-[#C6A649] text-xs font-black uppercase tracking-widest bg-[#C6A649]/10 px-6 py-2 rounded-full border border-[#C6A649]/20 animate-fade-in">
-                            <Check size={14} strokeWidth={4} /> {days} {t('días para preparar', 'days to prepare')}
-                          </div>
-                        )
-                      }
-                      return (
-                        <div className="flex items-center gap-2 text-amber-500 text-xs font-black uppercase tracking-widest bg-amber-500/10 px-6 py-2 rounded-full border border-amber-500/20">
-                          <Clock size={14} strokeWidth={4} /> {t('Mínimo 48h requerido', 'Min 48h required')}
-                        </div>
-                      )
-                    })()}
-                  </div>
-                )}
-              </div>
+              <DateTimeStep
+                dateNeeded={formData.dateNeeded}
+                timeNeeded={formData.timeNeeded}
+                timeOptions={timeOptions}
+                onDateChange={(date) => setFormData(prev => ({ ...prev, dateNeeded: date }))}
+                onTimeChange={(time) => setFormData(prev => ({ ...prev, timeNeeded: time }))}
+              />
             )}
 
             {/* --- STEP 2: SIZE --- */}
             {STEPS[currentStep].id === 'size' && (
-              <div className="space-y-6">
-                <div className="bg-[#C6A649]/10 border border-[#C6A649]/20 rounded-2xl p-4 flex items-center gap-4 mb-2">
-                  <div className="bg-[#C6A649] text-black rounded-lg p-2">
-                    <User size={20} strokeWidth={3} />
-                  </div>
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-widest text-[#C6A649]">{t('Guía de Porciones', 'Serving Guide')}</p>
-                    <p className="text-sm text-gray-300 font-medium">{t('Escoge según el número de invitados', 'Choose based on your headcount')}</p>
-                  </div>
-                </div>
-                {optionsLoading ? (
-                  <div className="grid grid-cols-2 gap-3">
-                    {[...Array(6)].map((_, i) => (
-                      <div key={i} className="h-20 rounded-xl bg-white/5 animate-pulse" />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-4">
-                    {activeCakeSizes.map(s => (
-                      <button
-                        key={s.value}
-                        onClick={() => setFormData({ ...formData, cakeSize: s.value })}
-                        className={`relative p-6 rounded-[2rem] text-left transition-all duration-500 border overflow-hidden group/card ${formData.cakeSize === s.value
-                          ? 'bg-white/10 border-[#C6A649]/50 shadow-[0_20px_50px_rgba(0,0,0,0.5)] scale-105'
-                          : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/[0.08] hover:border-[#C6A649]/30'
-                          }`}
-                      >
-                        {s.featured && (
-                          <div className="absolute top-0 right-0 bg-[#C6A649] text-[9px] font-black text-black px-4 py-1.5 rounded-bl-[1.5rem] uppercase tracking-widest z-10">
-                            Popular
-                          </div>
-                        )}
-                        <div className="text-xs font-black uppercase tracking-widest mb-2 opacity-50 group-hover/card:opacity-100 transition-opacity">{s.serves} {t('pers', 'ppl')}</div>
-                        <div className="font-black text-white text-base md:text-lg mb-4 leading-tight uppercase tracking-tight">{isSpanish ? s.labelEs : s.label}</div>
-                        <div className={`text-2xl font-black tracking-tight ${formData.cakeSize === s.value ? 'text-[#C6A649]' : 'text-white'}`}>${s.price}</div>
-
-                        {formData.cakeSize === s.value && (
-                          <div className="absolute bottom-5 right-5 text-[#C6A649] animate-fade-in">
-                            <Check size={28} strokeWidth={4} />
-                          </div>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <SizeStep
+                cakeSize={formData.cakeSize}
+                activeCakeSizes={activeCakeSizes}
+                optionsLoading={optionsLoading}
+                isSpanish={isSpanish}
+                onSizeChange={(size) => setFormData(prev => ({ ...prev, cakeSize: size }))}
+              />
             )}
 
             {/* --- STEP 3: FLAVOR --- */}
             {STEPS[currentStep].id === 'flavor' && (
-              <div className="space-y-6">
-                <div className="space-y-4">
-                  <label className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] mb-4 block opacity-70">{t('Tipo de Pan', 'Bread Type')}</label>
-                  {optionsLoading ? (
-                    <div className="grid grid-cols-2 gap-3">
-                      {[...Array(6)].map((_, i) => (
-                        <div key={i} className="h-20 rounded-xl bg-white/5 animate-pulse" />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-3">
-                      {activeBreadTypes.map(type => (
-                        <button
-                          key={type.value}
-                          onClick={() => setFormData({ ...formData, breadType: type.value })}
-                          className={`p-6 rounded-3xl flex items-center justify-between border transition-all duration-500 ${formData.breadType === type.value
-                            ? 'bg-[#C6A649] border-[#C6A649] text-black shadow-[0_15px_30px_rgba(198,166,73,0.3)] scale-[1.02]'
-                            : 'bg-white/5 border-white/10 text-white hover:bg-white/[0.08] hover:border-[#C6A649]/30'
-                            }`}
-                        >
-                          <div className="text-left">
-                            <div className="font-black uppercase tracking-tight text-lg">{type.label}</div>
-                            <div className={`text-sm font-medium italic ${formData.breadType === type.value ? 'text-black/60' : 'text-gray-400'}`}>{type.desc}</div>
-                          </div>
-                          {formData.breadType === type.value && <Check size={24} className="text-black" strokeWidth={4} />}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-4">
-                  <label className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] mb-4 block opacity-70 flex items-center justify-between">
-                    <span>{t('Relleno', 'Filling')} <span className="opacity-50 font-medium">({t('Opcional', 'Optional')})</span></span>
-                    <span className={`${selectedFillings.length >= 2 ? 'text-[#C6A649]' : 'text-gray-500'}`}>
-                      {selectedFillings.length}/2
-                    </span>
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {activeFillings.map(f => {
-                      const isSelected = selectedFillings.includes(f.value);
-                      const needsSizeSelection = f.premium && isSelected && !premiumFillingSizes[f.value];
-                      const selectedSizeOption = f.premium && isSelected ? activePremiumOptions.find(opt => opt.value === premiumFillingSizes[f.value]) : null;
-
-                      return (
-                        <div key={f.value} className="relative">
-                          <button
-                            onClick={() => toggleFilling(f.value)}
-                            className={`w-full p-4 rounded-2xl border text-left transition-all duration-500 relative overflow-hidden group/filling ${isSelected
-                              ? 'bg-[#C6A649]/20 border-[#C6A649] text-[#C6A649] shadow-[0_10px_20px_rgba(0,0,0,0.3)] scale-[1.05]'
-                              : 'bg-white/5 border-white/10 text-gray-400 hover:border-[#C6A649]/30 hover:bg-white/[0.08]'
-                              }`}
-                          >
-                            <div className="relative z-10 flex flex-col">
-                              <div className="flex items-center gap-2">
-                                <div className="text-sm font-black uppercase tracking-tight mb-1">{f.label}</div>
-                                {f.premium && (
-                                  <span className="text-[8px] font-black bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full uppercase tracking-widest">Premium</span>
-                                )}
-                              </div>
-                              <div className="text-[10px] font-bold uppercase tracking-widest opacity-60 leading-none">{f.sub}</div>
-                              {selectedSizeOption && (
-                                <div className="text-[10px] font-black text-[#C6A649] mt-2 flex items-center gap-1">
-                                  +${selectedSizeOption.upcharge} ({isSpanish ? selectedSizeOption.labelEs : selectedSizeOption.label})
-                                </div>
-                              )}
-                            </div>
-                            {isSelected && <div className="absolute inset-0 bg-[#C6A649]/5 z-0" />}
-                          </button>
-
-                          {/* Premium filling size selection popup */}
-                          {needsSizeSelection && (
-                            <div className="absolute top-full left-0 right-0 mt-2 z-20 bg-black/95 backdrop-blur-xl border border-[#C6A649]/50 rounded-2xl p-4 shadow-[0_20px_40px_rgba(0,0,0,0.8)] animate-fade-in">
-                              <p className="text-xs font-black text-[#C6A649] uppercase tracking-widest mb-3 text-center">
-                                {t('Selecciona tamaño', 'Select size')}
-                              </p>
-                              <div className="flex flex-col gap-2">
-                                {activePremiumOptions.map(opt => (
-                                  <button
-                                    key={opt.value}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setPremiumFillingSize(f.value, opt.value);
-                                    }}
-                                    className="w-full p-3 rounded-xl bg-white/5 border border-white/10 hover:border-[#C6A649]/50 hover:bg-[#C6A649]/10 transition-all flex justify-between items-center"
-                                  >
-                                    <span className="text-sm font-bold text-white">{isSpanish ? opt.labelEs : opt.label}</span>
-                                    <span className="text-sm font-black text-[#C6A649]">+${opt.upcharge}</span>
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Warning if premium filling needs size selection */}
-                  {hasPendingPremiumSelection() && (
-                    <div className="flex items-center gap-3 text-amber-400 text-xs font-bold uppercase tracking-wider bg-amber-500/10 px-4 py-3 rounded-xl border border-amber-500/20">
-                      <AlertCircle size={16} />
-                      {t('Selecciona el tamaño para los rellenos premium', 'Select size for premium fillings')}
-                    </div>
-                  )}
-                </div>
-              </div>
+              <FlavorStep
+                breadType={formData.breadType}
+                activeBreadTypes={activeBreadTypes}
+                selectedFillings={selectedFillings}
+                activeFillings={activeFillings}
+                premiumFillingSizes={premiumFillingSizes}
+                activePremiumOptions={activePremiumOptions}
+                optionsLoading={optionsLoading}
+                isSpanish={isSpanish}
+                onBreadChange={(bt) => setFormData(prev => ({ ...prev, breadType: bt }))}
+                onFillingToggle={handleFillingToggle}
+                onPremiumSizeSet={handlePremiumSizeSet}
+              />
             )}
 
             {/* --- STEP 4: DETAILS --- */}
             {STEPS[currentStep].id === 'details' && (
-              <div className="space-y-4">
-                <FloatingInput
-                  label={t('Tema', 'Theme')}
-                  value={formData.theme}
-                  onChange={(e: any) => setFormData({ ...formData, theme: e.target.value })}
-                  icon={Sparkles}
-                  placeholder="e.g. Birthday, Wedding..."
-                />
-                <FloatingInput
-                  label={t('Dedicatoria', 'Message')}
-                  value={formData.dedication}
-                  onChange={(e: any) => setFormData({ ...formData, dedication: e.target.value })}
-                  icon={Star}
-                  placeholder="e.g. Happy Birthday!"
-                />
-
-                <div className="pt-2">
-                  <label className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] mb-4 block opacity-70">
-                    {t('Notas de Decoración', 'Decoration Notes')}
-                  </label>
-                  <textarea
-                    value={formData.theme}
-                    onChange={(e) => setFormData({ ...formData, theme: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 focus:border-[#C6A649]/50 hover:bg-white/10 transition-all rounded-2xl p-4 text-white font-medium outline-none min-h-[100px] text-sm"
-                    placeholder={t('Describe tu visión... (colores, estilo, personajes)', 'Describe your vision... (colors, style, characters)')}
-                  />
-                </div>
-
-                {/* Photo Upload */}
-                <div className="relative mt-8">
-                  {!imagePreviewUrl ? (
-                    <div className="grid grid-cols-2 gap-4">
-                      {isMobile && (
-                        <button
-                          onClick={() => setShowCamera(true)}
-                          className="bg-white/5 border-2 border-dashed border-white/10 rounded-[2rem] p-8 flex flex-col items-center justify-center gap-4 cursor-pointer hover:bg-white/10 hover:border-[#C6A649]/50 transition-all duration-500 group/btn"
-                        >
-                          <div className="w-16 h-16 rounded-2xl bg-[#C6A649]/10 border border-[#C6A649]/20 text-[#C6A649] flex items-center justify-center group-hover/btn:scale-110 group-hover/btn:bg-[#C6A649] group-hover/btn:text-black transition-all">
-                            <Camera size={32} />
-                          </div>
-                          <span className="text-xs font-black text-gray-400 group-hover/btn:text-white uppercase tracking-[0.2em]">{t('Cámara', 'Camera')}</span>
-                        </button>
-                      )}
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className={`bg-white/5 border-2 border-dashed border-white/10 rounded-[2rem] p-8 flex flex-col items-center justify-center gap-4 cursor-pointer hover:bg-white/10 hover:border-[#C6A649]/50 transition-all duration-500 group/btn ${!isMobile ? 'col-span-2' : ''
-                          }`}
-                      >
-                        <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 text-gray-500 flex items-center justify-center group-hover/btn:scale-110 group-hover/btn:border-[#C6A649]/30 group-hover/btn:text-[#C6A649] transition-all">
-                          <Upload size={32} />
-                        </div>
-                        <div className="text-center">
-                          <span className="text-xs font-black text-gray-400 group-hover/btn:text-white uppercase tracking-[0.2em] block mb-1">{t('Subir Foto', 'Upload')}</span>
-                          <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">JPG, PNG, WEBP</span>
-                        </div>
-                      </button>
-                      <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
-                    </div>
-                  ) : (
-                    <div className="relative rounded-[2rem] overflow-hidden shadow-2xl group h-64 border border-white/10 group">
-                      <img src={imagePreviewUrl} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" alt="Preview" />
-                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                        <button onClick={handleRemoveImage} className="bg-white/10 backdrop-blur-md p-5 rounded-full text-white hover:bg-red-500/80 transition-all scale-150 group-hover:scale-100 duration-500">
-                          <X size={32} />
-                        </button>
-                      </div>
-                      {isUploadingImage && (
-                        <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-30">
-                          <Loader2 className="animate-spin text-[#C6A649]" size={48} />
-                        </div>
-                      )}
-                      <div className="absolute bottom-6 left-6 z-10 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
-                        <p className="text-xs font-black text-white uppercase tracking-widest">{t('Referencia Visual', 'Visual Reference')}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {showCamera && (
-                  <CameraCapture
-                    onCapture={(file) => {
+              <DetailsStep
+                theme={formData.theme}
+                dedication={formData.dedication}
+                imagePreviewUrl={imagePreviewUrl}
+                isUploadingImage={isUploadingImage}
+                isMobile={isMobile}
+                fileInputRef={fileInputRef}
+                showCamera={showCamera}
+                onThemeChange={(theme) => setFormData(prev => ({ ...prev, theme }))}
+                onDedicationChange={(dedication) => setFormData(prev => ({ ...prev, dedication }))}
+                onImageChange={handleImageChange}
+                onRemoveImage={handleRemoveImage}
+                onCameraCapture={(imageDataUrl) => {
+                  // Convert data URL to file and process via handleImageChange
+                  fetch(imageDataUrl)
+                    .then(r => r.blob())
+                    .then(blob => {
+                      const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
                       const fake = { target: { files: [file], value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>;
                       handleImageChange(fake);
-                      setShowCamera(false);
-                    }}
-                    onCancel={() => setShowCamera(false)}
-                  />
-                )}
-              </div>
+                    });
+                }}
+                onShowCameraChange={setShowCamera}
+              />
             )}
 
             {/* --- STEP 5: CONTACT INFO --- */}
             {STEPS[currentStep].id === 'info' && (
-              <div className="space-y-4">
-                <FloatingInput
-                  label={t('Nombre', 'Name')}
-                  icon={User}
-                  value={formData.customerName}
-                  onChange={(e: any) => setFormData({ ...formData, customerName: e.target.value })}
-                />
-                <FloatingInput
-                  label={t('Teléfono', 'Phone')}
-                  type="tel"
-                  icon={null}
-                  value={formData.phone}
-                  onChange={handlePhoneChange}
-                  maxLength={14}
-                  placeholder="(555) 555-5555"
-                />
-                <FloatingInput
-                  label={t('Correo Electrónico', 'Email')}
-                  type="email"
-                  icon={Mail}
-                  value={formData.email}
-                  onChange={(e: any) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="ejemplo@email.com"
-                />
-
-                <div className="bg-white/5 p-3 rounded-[2rem] border border-white/10 flex gap-3 shadow-2xl">
-                  <button
-                    onClick={() => setFormData({ ...formData, pickupType: 'pickup' })}
-                    className={`flex-1 py-4 rounded-2xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all duration-500 ${formData.pickupType === 'pickup'
-                      ? 'bg-[#C6A649] text-black shadow-[0_10px_20px_rgba(198,166,73,0.3)]'
-                      : 'text-gray-400 hover:bg-white/5 hover:text-white'
-                      }`}
-                  >
-                    <ShoppingBag size={18} /> Pickup
-                  </button>
-                  <div className="w-px bg-white/10 my-3"></div>
-                  <button
-                    onClick={() => setFormData(prev => ({ ...prev, pickupType: 'delivery' }))}
-                    className={`flex-1 py-4 rounded-2xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all duration-500 ${
-                      formData.pickupType === 'delivery'
-                        ? 'bg-[#C6A649] text-black shadow-[0_10px_20px_rgba(198,166,73,0.3)]'
-                        : 'text-gray-400 hover:bg-white/5 hover:text-white'
-                    }`}
-                  >
-                    <MapPin size={18} /> Delivery
-                  </button>
-                </div>
-
-                {formData.pickupType === 'delivery' && (
-                  <div className="space-y-2">
-                    <AddressAutocomplete
-                      value={formData.deliveryAddress}
-                      onChange={handleAddressChange}
-                      showDeliveryInfo={true}
-                      placeholder={t('Dirección de entrega', 'Delivery address')}
-                    />
-                    {deliveryFee > 0 && (
-                      <div className="flex items-center gap-2 px-4 py-2 bg-[#C6A649]/10 border border-[#C6A649]/20 rounded-xl text-[#C6A649] text-xs font-black uppercase tracking-widest">
-                        <MapPin size={14} />
-                        {t('Tarifa de entrega:', 'Delivery fee:')} {formatPrice(deliveryFee)}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <label className="flex items-center gap-5 cursor-pointer group p-4 rounded-3xl transition-colors hover:bg-white/5">
-                  <div className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center transition-all duration-500 ${consentGiven ? 'bg-[#C6A649] border-[#C6A649] text-black shadow-[0_0_15px_rgba(198,166,73,0.4)]' : 'border-white/10 group-hover:border-[#C6A649]'
-                    }`}>
-                    <Check size={18} strokeWidth={4} />
-                  </div>
-                  <input type="checkbox" checked={consentGiven} onChange={e => setConsentGiven(e.target.checked)} className="hidden" />
-                  <div className="text-xs text-gray-400 font-bold leading-relaxed uppercase tracking-wider group-hover:text-white transition-colors">
-                    {t('Acepto los términos y confirmo que los detalles son correctos.', 'I accept terms and confirm details are correct.')}
-                  </div>
-                </label>
-              </div>
+              <ContactStep
+                customerName={formData.customerName}
+                phone={formData.phone}
+                email={formData.email}
+                pickupType={formData.pickupType}
+                consentGiven={consentGiven}
+                deliveryAddress={formData.deliveryAddress}
+                deliveryFee={deliveryFee}
+                onNameChange={(name) => setFormData(prev => ({ ...prev, customerName: name }))}
+                onPhoneChange={handlePhoneChange}
+                onEmailChange={(email) => setFormData(prev => ({ ...prev, email }))}
+                onPickupTypeChange={(type) => setFormData(prev => ({ ...prev, pickupType: type }))}
+                onConsentChange={setConsentGiven}
+                onAddressChange={handleAddressChange}
+              />
             )}
 
           </motion.div>
@@ -1125,8 +779,9 @@ const Order = () => {
             <button
               onClick={nextStep}
               disabled={isSubmitting}
-              className={`h-14 px-8 rounded-[1.2rem] flex items-center justify-center gap-3 font-black text-sm uppercase tracking-[0.2em] transition-all duration-500 shadow-[0_0_20px_rgba(198,166,73,0.3)] ${isSubmitting ? 'bg-gray-800 text-gray-500' : 'bg-[#C6A649] text-black hover:bg-white hover:scale-105'
-                }`}
+              className={`h-14 px-8 rounded-[1.2rem] flex items-center justify-center gap-3 font-black text-sm uppercase tracking-[0.2em] transition-all duration-500 shadow-[0_0_20px_rgba(198,166,73,0.3)] ${
+                isSubmitting ? 'bg-gray-800 text-gray-500' : 'bg-[#C6A649] text-black hover:bg-white hover:scale-105'
+              }`}
             >
               {isSubmitting ? (
                 <Loader2 className="animate-spin" size={20} />
