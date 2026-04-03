@@ -16,11 +16,13 @@ import { formatPrice } from '@/lib/pricing';
 import { motion, AnimatePresence } from 'framer-motion';
 import LanguageToggle from '@/components/LanguageToggle';
 import { useBusinessHours } from '@/lib/hooks/useCMS';
+import { api } from '@/lib/api';
+import type { OrderFormOptions } from '@/lib/api/modules/orderOptions';
 
 const STORAGE_KEY = 'bakery_order_draft';
 
-// --- CONSTANTS ---
-const CAKE_SIZES = [
+// --- CONSTANTS (Fallback arrays — used when DB fetch fails or is loading) ---
+const FALLBACK_CAKE_SIZES = [
   { value: '6-round', label: '6" Round', labelEs: '6" Redondo', price: 30, serves: '6-8', featured: false },
   { value: '8-round', label: '8" Round', labelEs: '8" Redondo', price: 35, serves: '10-12', featured: false },
   { value: '10-round', label: '10" Round', labelEs: '10" Redondo', price: 55, serves: '20-25', featured: true },
@@ -31,13 +33,13 @@ const CAKE_SIZES = [
   { value: '8-hard-shape', label: '8" Hard Shape', labelEs: '8" Forma Especial', price: 50, serves: '10-12', featured: false },
 ];
 
-const BREAD_TYPES = [
+const FALLBACK_BREAD_TYPES = [
   { value: 'tres-leches', label: '3 Leches', desc: 'Moist & Traditional' },
   { value: 'chocolate', label: 'Chocolate', desc: 'Rich & Decadent' },
   { value: 'vanilla', label: 'Regular', desc: 'Classic Vanilla' },
 ];
 
-const FILLINGS = [
+const FALLBACK_FILLINGS = [
   { value: 'strawberry', label: 'Fresa', sub: 'Strawberry', premium: false },
   { value: 'chocolate-chip', label: 'Choco Chip', sub: 'Dark Chocolate', premium: false },
   { value: 'mocha', label: 'Mocha', sub: 'Coffee Blend', premium: false },
@@ -54,9 +56,9 @@ const FILLINGS = [
   { value: 'red-velvet', label: 'Red Velvet', sub: 'Cream Cheese', premium: false },
 ];
 
-// Premium filling size options with upcharges
-const PREMIUM_FILLING_OPTIONS = [
-  { value: '10-inch', label: '10"', labelEs: '10"', upcharge: 5 },
+// Premium filling size options with upcharges (fallback)
+const FALLBACK_PREMIUM_FILLING_OPTIONS = [
+  { value: '10-round', label: '10"', labelEs: '10"', upcharge: 5 },
   { value: 'full-sheet', label: 'Full Sheet', labelEs: 'Plancha Completa', upcharge: 20 },
 ];
 
@@ -173,6 +175,10 @@ const Order = () => {
   const [showCamera, setShowCamera] = useState(false);
   const [consentGiven, setConsentGiven] = useState(false);
 
+  // DB-driven order form options (with fallback to hardcoded arrays)
+  const [orderOptions, setOrderOptions] = useState<OrderFormOptions | null>(null);
+  const [optionsLoading, setOptionsLoading] = useState(true);
+
   // Derive available time slots for the selected date from business hours
   const timeOptions = useMemo(() => {
     if (!businessHours || !Array.isArray(businessHours) || businessHours.length === 0) {
@@ -261,6 +267,53 @@ const Order = () => {
     };
   }, [imagePreviewUrl]);
 
+  // Fetch order form options from DB on mount
+  useEffect(() => {
+    api.getOrderFormOptions()
+      .then((options) => {
+        setOrderOptions(options);
+      })
+      .catch(() => {
+        toast.warning(
+          t('Usando opciones de menú predeterminadas', 'Using default menu options')
+        );
+      })
+      .finally(() => {
+        setOptionsLoading(false);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Derive active arrays from DB data (or fall back to hardcoded arrays)
+  const activeCakeSizes = orderOptions?.cakeSizes.map(s => ({
+    value: s.value,
+    label: s.label_en,
+    labelEs: s.label_es,
+    price: s.price,
+    serves: s.serves,
+    featured: s.featured,
+  })) ?? FALLBACK_CAKE_SIZES;
+
+  const activeBreadTypes = orderOptions?.breadTypes.map(b => ({
+    value: b.value,
+    label: b.label_en,
+    desc: b.description,
+  })) ?? FALLBACK_BREAD_TYPES;
+
+  const activeFillings = orderOptions?.fillings.map(f => ({
+    value: f.value,
+    label: f.label_en,
+    sub: f.sub_label,
+    premium: f.is_premium,
+  })) ?? FALLBACK_FILLINGS;
+
+  const activePremiumOptions = orderOptions?.premiumUpcharges.map(u => ({
+    value: u.size_value,
+    label: u.label_en,
+    labelEs: u.label_es,
+    upcharge: u.upcharge,
+  })) ?? FALLBACK_PREMIUM_FILLING_OPTIONS;
+
   const { pricingBreakdown, isLoading: isCalculatingPrice } = useOptimizedPricing({
     size: formData.cakeSize,
     filling: formData.breadType,
@@ -269,7 +322,7 @@ const Order = () => {
   });
 
   const getBasePrice = () => {
-    const size = CAKE_SIZES.find(s => s.value === formData.cakeSize);
+    const size = activeCakeSizes.find(s => s.value === formData.cakeSize);
     return size?.price || 0;
   };
 
@@ -280,7 +333,7 @@ const Order = () => {
   };
 
   const toggleFilling = (filling: string) => {
-    const fillingObj = FILLINGS.find(f => f.value === filling);
+    const fillingObj = activeFillings.find(f => f.value === filling);
 
     setSelectedFillings(prev => {
       if (prev.includes(filling)) {
@@ -313,9 +366,9 @@ const Order = () => {
   const getPremiumFillingUpcharge = () => {
     let upcharge = 0;
     for (const filling of selectedFillings) {
-      const fillingObj = FILLINGS.find(f => f.value === filling);
+      const fillingObj = activeFillings.find(f => f.value === filling);
       if (fillingObj?.premium && premiumFillingSizes[filling]) {
-        const sizeOption = PREMIUM_FILLING_OPTIONS.find(opt => opt.value === premiumFillingSizes[filling]);
+        const sizeOption = activePremiumOptions.find(opt => opt.value === premiumFillingSizes[filling]);
         if (sizeOption) {
           upcharge += sizeOption.upcharge;
         }
@@ -326,7 +379,7 @@ const Order = () => {
 
   const hasPendingPremiumSelection = () => {
     for (const filling of selectedFillings) {
-      const fillingObj = FILLINGS.find(f => f.value === filling);
+      const fillingObj = activeFillings.find(f => f.value === filling);
       if (fillingObj?.premium && !premiumFillingSizes[filling]) {
         return true;
       }
@@ -472,13 +525,13 @@ const Order = () => {
     setIsSubmitting(true);
     try {
       const cleanPhone = formData.phone.replace(/\D/g, '');
-      const selectedSize = CAKE_SIZES.find(s => s.value === formData.cakeSize);
+      const selectedSize = activeCakeSizes.find(s => s.value === formData.cakeSize);
 
       // Build filling description with premium options
       const fillingDescriptions = selectedFillings.map(filling => {
-        const fillingObj = FILLINGS.find(f => f.value === filling);
+        const fillingObj = activeFillings.find(f => f.value === filling);
         if (fillingObj?.premium && premiumFillingSizes[filling]) {
-          const sizeOpt = PREMIUM_FILLING_OPTIONS.find(opt => opt.value === premiumFillingSizes[filling]);
+          const sizeOpt = activePremiumOptions.find(opt => opt.value === premiumFillingSizes[filling]);
           return `${fillingObj.label} (${sizeOpt?.label || premiumFillingSizes[filling]} +$${sizeOpt?.upcharge || 0})`;
         }
         return fillingObj?.label || filling;
@@ -492,7 +545,9 @@ const Order = () => {
         date_needed: formData.dateNeeded,
         time_needed: formData.timeNeeded,
         cake_size: selectedSize?.label || formData.cakeSize,
+        cake_size_value: formData.cakeSize,       // slug e.g. '8-round' — used for server-side price validation
         filling: fillingDescriptions.join(', ') || formData.breadType,
+        filling_values: selectedFillings,          // string[] of filling slugs e.g. ['strawberry', 'tiramisu']
         theme: formData.theme || 'Custom',
         dedication: formData.dedication || '',
         reference_image_path: uploadedImageUrl || '',
@@ -698,33 +753,41 @@ const Order = () => {
                     <p className="text-sm text-gray-300 font-medium">{t('Escoge según el número de invitados', 'Choose based on your headcount')}</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  {CAKE_SIZES.map(s => (
-                    <button
-                      key={s.value}
-                      onClick={() => setFormData({ ...formData, cakeSize: s.value })}
-                      className={`relative p-6 rounded-[2rem] text-left transition-all duration-500 border overflow-hidden group/card ${formData.cakeSize === s.value
-                        ? 'bg-white/10 border-[#C6A649]/50 shadow-[0_20px_50px_rgba(0,0,0,0.5)] scale-105'
-                        : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/[0.08] hover:border-[#C6A649]/30'
-                        }`}
-                    >
-                      {s.featured && (
-                        <div className="absolute top-0 right-0 bg-[#C6A649] text-[9px] font-black text-black px-4 py-1.5 rounded-bl-[1.5rem] uppercase tracking-widest z-10">
-                          Popular
-                        </div>
-                      )}
-                      <div className="text-xs font-black uppercase tracking-widest mb-2 opacity-50 group-hover/card:opacity-100 transition-opacity">{s.serves} {t('pers', 'ppl')}</div>
-                      <div className="font-black text-white text-base md:text-lg mb-4 leading-tight uppercase tracking-tight">{isSpanish ? s.labelEs : s.label}</div>
-                      <div className={`text-2xl font-black tracking-tight ${formData.cakeSize === s.value ? 'text-[#C6A649]' : 'text-white'}`}>${s.price}</div>
+                {optionsLoading ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    {[...Array(6)].map((_, i) => (
+                      <div key={i} className="h-20 rounded-xl bg-white/5 animate-pulse" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4">
+                    {activeCakeSizes.map(s => (
+                      <button
+                        key={s.value}
+                        onClick={() => setFormData({ ...formData, cakeSize: s.value })}
+                        className={`relative p-6 rounded-[2rem] text-left transition-all duration-500 border overflow-hidden group/card ${formData.cakeSize === s.value
+                          ? 'bg-white/10 border-[#C6A649]/50 shadow-[0_20px_50px_rgba(0,0,0,0.5)] scale-105'
+                          : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/[0.08] hover:border-[#C6A649]/30'
+                          }`}
+                      >
+                        {s.featured && (
+                          <div className="absolute top-0 right-0 bg-[#C6A649] text-[9px] font-black text-black px-4 py-1.5 rounded-bl-[1.5rem] uppercase tracking-widest z-10">
+                            Popular
+                          </div>
+                        )}
+                        <div className="text-xs font-black uppercase tracking-widest mb-2 opacity-50 group-hover/card:opacity-100 transition-opacity">{s.serves} {t('pers', 'ppl')}</div>
+                        <div className="font-black text-white text-base md:text-lg mb-4 leading-tight uppercase tracking-tight">{isSpanish ? s.labelEs : s.label}</div>
+                        <div className={`text-2xl font-black tracking-tight ${formData.cakeSize === s.value ? 'text-[#C6A649]' : 'text-white'}`}>${s.price}</div>
 
-                      {formData.cakeSize === s.value && (
-                        <div className="absolute bottom-5 right-5 text-[#C6A649] animate-fade-in">
-                          <Check size={28} strokeWidth={4} />
-                        </div>
-                      )}
-                    </button>
-                  ))}
-                </div>
+                        {formData.cakeSize === s.value && (
+                          <div className="absolute bottom-5 right-5 text-[#C6A649] animate-fade-in">
+                            <Check size={28} strokeWidth={4} />
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -733,24 +796,32 @@ const Order = () => {
               <div className="space-y-6">
                 <div className="space-y-4">
                   <label className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] mb-4 block opacity-70">{t('Tipo de Pan', 'Bread Type')}</label>
-                  <div className="flex flex-col gap-3">
-                    {BREAD_TYPES.map(type => (
-                      <button
-                        key={type.value}
-                        onClick={() => setFormData({ ...formData, breadType: type.value })}
-                        className={`p-6 rounded-3xl flex items-center justify-between border transition-all duration-500 ${formData.breadType === type.value
-                          ? 'bg-[#C6A649] border-[#C6A649] text-black shadow-[0_15px_30px_rgba(198,166,73,0.3)] scale-[1.02]'
-                          : 'bg-white/5 border-white/10 text-white hover:bg-white/[0.08] hover:border-[#C6A649]/30'
-                          }`}
-                      >
-                        <div className="text-left">
-                          <div className="font-black uppercase tracking-tight text-lg">{type.label}</div>
-                          <div className={`text-sm font-medium italic ${formData.breadType === type.value ? 'text-black/60' : 'text-gray-400'}`}>{type.desc}</div>
-                        </div>
-                        {formData.breadType === type.value && <Check size={24} className="text-black" strokeWidth={4} />}
-                      </button>
-                    ))}
-                  </div>
+                  {optionsLoading ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      {[...Array(6)].map((_, i) => (
+                        <div key={i} className="h-20 rounded-xl bg-white/5 animate-pulse" />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      {activeBreadTypes.map(type => (
+                        <button
+                          key={type.value}
+                          onClick={() => setFormData({ ...formData, breadType: type.value })}
+                          className={`p-6 rounded-3xl flex items-center justify-between border transition-all duration-500 ${formData.breadType === type.value
+                            ? 'bg-[#C6A649] border-[#C6A649] text-black shadow-[0_15px_30px_rgba(198,166,73,0.3)] scale-[1.02]'
+                            : 'bg-white/5 border-white/10 text-white hover:bg-white/[0.08] hover:border-[#C6A649]/30'
+                            }`}
+                        >
+                          <div className="text-left">
+                            <div className="font-black uppercase tracking-tight text-lg">{type.label}</div>
+                            <div className={`text-sm font-medium italic ${formData.breadType === type.value ? 'text-black/60' : 'text-gray-400'}`}>{type.desc}</div>
+                          </div>
+                          {formData.breadType === type.value && <Check size={24} className="text-black" strokeWidth={4} />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-4">
@@ -761,10 +832,10 @@ const Order = () => {
                     </span>
                   </label>
                   <div className="grid grid-cols-2 gap-3">
-                    {FILLINGS.map(f => {
+                    {activeFillings.map(f => {
                       const isSelected = selectedFillings.includes(f.value);
                       const needsSizeSelection = f.premium && isSelected && !premiumFillingSizes[f.value];
-                      const selectedSizeOption = f.premium && isSelected ? PREMIUM_FILLING_OPTIONS.find(opt => opt.value === premiumFillingSizes[f.value]) : null;
+                      const selectedSizeOption = f.premium && isSelected ? activePremiumOptions.find(opt => opt.value === premiumFillingSizes[f.value]) : null;
 
                       return (
                         <div key={f.value} className="relative">
@@ -799,7 +870,7 @@ const Order = () => {
                                 {t('Selecciona tamaño', 'Select size')}
                               </p>
                               <div className="flex flex-col gap-2">
-                                {PREMIUM_FILLING_OPTIONS.map(opt => (
+                                {activePremiumOptions.map(opt => (
                                   <button
                                     key={opt.value}
                                     onClick={(e) => {
