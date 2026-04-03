@@ -49,6 +49,7 @@ const FrontDesk = () => {
     latestOrder,
     dismissAlert,
     isConnected,
+    isConnecting,
     connectionError,
     reconnect
   } = useOrdersFeed(undefined, { soundEnabled: isSoundEnabled });
@@ -667,7 +668,7 @@ const FrontDesk = () => {
       userName={user?.profile?.full_name || user?.email?.split('@')[0] || 'Staff'}
     >
       {/* Connection Status Banner */}
-      {!isConnected && !feedLoading && (
+      {!isConnected && !isConnecting && !feedLoading && (
         <div className={cn(
           "flex items-center gap-3 px-4 py-3 rounded-xl border mb-4",
           isDarkMode

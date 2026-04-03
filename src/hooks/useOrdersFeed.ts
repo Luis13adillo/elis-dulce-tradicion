@@ -50,68 +50,58 @@ export const useOrdersFeed = (role?: UserRole, options?: { soundEnabled?: boolea
   // Real-time subscription
   const isAdmin = role === 'owner' || role === 'baker' || user?.profile?.role === 'owner' || user?.profile?.role === 'baker';
 
-  const { isConnected, connectionError, reconnect } = useRealtimeOrders({
-    filterByUserId: !isAdmin, // Customers only see their orders, admins see all
-    onOrderInsert: (newOrder) => {
-      setOrders((prev) => {
-        // Check if order already exists
-        if (ordersMapRef.current.has(newOrder.id)) {
-          return prev;
+  const handleOrderInsert = useCallback((newOrder: Order) => {
+    setOrders((prev) => {
+      if (ordersMapRef.current.has(newOrder.id)) return prev;
+      ordersMapRef.current.set(newOrder.id, newOrder);
+      const updated = [newOrder, ...prev];
+      if (isAdmin) {
+        setLatestOrder(newOrder);
+        setNewOrderAlert(true);
+        if (audioRef.current && options?.soundEnabled !== false) {
+          audioRef.current.currentTime = 0;
+          audioRef.current.play().catch(() => { /* autoplay blocked by browser policy */ });
         }
-
-        // Add new order
-        ordersMapRef.current.set(newOrder.id, newOrder);
-        const updated = [newOrder, ...prev];
-
-        // Show alert for admins/bakers
-        if (isAdmin) {
-          setLatestOrder(newOrder);
-          setNewOrderAlert(true);
-
-          // Play sound (unless muted)
-          if (audioRef.current && options?.soundEnabled !== false) {
-            audioRef.current.currentTime = 0;
-            audioRef.current.play().catch(() => { /* autoplay blocked by browser policy */ });
-          }
-
-          // Browser Notification
-          if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification('🎂 New Order!', {
-              body: `#${newOrder.order_number} - ${newOrder.customer_name}`,
-              icon: SLASH + 'favicon.ico'
-            });
-          }
-
-          toast.success('🎂 New Order!', {
-            description: `#${newOrder.order_number} - ${newOrder.customer_name}`,
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('🎂 New Order!', {
+            body: `#${newOrder.order_number} - ${newOrder.customer_name}`,
+            icon: SLASH + 'favicon.ico',
           });
         }
+        toast.success('🎂 New Order!', {
+          description: `#${newOrder.order_number} - ${newOrder.customer_name}`,
+        });
+      }
+      return updated;
+    });
+  }, [isAdmin, options?.soundEnabled]);
 
-        return updated;
-      });
-    },
-    onOrderUpdate: (updatedOrder, oldOrder) => {
-      setOrders((prev) => {
-        const index = prev.findIndex((o) => o.id === updatedOrder.id);
-        if (index === -1) {
-          // Order not in list, add it
-          ordersMapRef.current.set(updatedOrder.id, updatedOrder);
-          return [updatedOrder, ...prev];
-        }
-
-        // Update existing order
+  const handleOrderUpdate = useCallback((updatedOrder: Order) => {
+    setOrders((prev) => {
+      const index = prev.findIndex((o) => o.id === updatedOrder.id);
+      if (index === -1) {
         ordersMapRef.current.set(updatedOrder.id, updatedOrder);
-        const updated = [...prev];
-        updated[index] = updatedOrder;
-        return updated;
-      });
-    },
-    onOrderDelete: (deletedOrder) => {
-      setOrders((prev) => {
-        ordersMapRef.current.delete(deletedOrder.id);
-        return prev.filter((o) => o.id !== deletedOrder.id);
-      });
-    },
+        return [updatedOrder, ...prev];
+      }
+      ordersMapRef.current.set(updatedOrder.id, updatedOrder);
+      const updated = [...prev];
+      updated[index] = updatedOrder;
+      return updated;
+    });
+  }, []);
+
+  const handleOrderDelete = useCallback((deletedOrder: Order) => {
+    setOrders((prev) => {
+      ordersMapRef.current.delete(deletedOrder.id);
+      return prev.filter((o) => o.id !== deletedOrder.id);
+    });
+  }, []);
+
+  const { isConnected, isConnecting, connectionError, reconnect } = useRealtimeOrders({
+    filterByUserId: !isAdmin, // Customers only see their orders, admins see all
+    onOrderInsert: handleOrderInsert,
+    onOrderUpdate: handleOrderUpdate,
+    onOrderDelete: handleOrderDelete,
   });
 
   // Mock Data Event Listener
@@ -145,6 +135,7 @@ export const useOrdersFeed = (role?: UserRole, options?: { soundEnabled?: boolea
     latestOrder,
     dismissAlert,
     isConnected,
+    isConnecting,
     connectionError,
     reconnect
   };

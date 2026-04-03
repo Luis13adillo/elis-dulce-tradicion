@@ -99,6 +99,34 @@ Deno.serve(async (req) => {
                         console.error("Failed to update order:", error);
                     } else {
                         console.log(`Order ${orderNumber} marked as paid`);
+
+                        // Fetch full order and trigger confirmation email server-side.
+                        // This is the reliable guarantee — frontend also tries, but if
+                        // the browser closes before it fires, this ensures delivery.
+                        if (RESEND_API_KEY) {
+                            try {
+                                const { data: order } = await supabase
+                                    .from("orders")
+                                    .select("*")
+                                    .eq("order_number", orderNumber)
+                                    .single();
+
+                                if (order) {
+                                    await fetch(`${SUPABASE_URL}/functions/v1/send-order-confirmation`, {
+                                        method: "POST",
+                                        headers: {
+                                            "Content-Type": "application/json",
+                                            "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                                        },
+                                        body: JSON.stringify({ order }),
+                                    });
+                                    console.log(`Confirmation email triggered for order ${orderNumber}`);
+                                }
+                            } catch (emailErr) {
+                                // Non-fatal: log but don't fail the webhook response
+                                console.error("Failed to trigger confirmation email:", emailErr);
+                            }
+                        }
                     }
                 }
                 break;

@@ -21,6 +21,7 @@ export interface UseRealtimeOrdersOptions {
 
 export interface UseRealtimeOrdersReturn {
   isConnected: boolean;
+  isConnecting: boolean;
   connectionError: string | null;
   reconnect: () => void;
 }
@@ -33,7 +34,9 @@ export function useRealtimeOrders(
 ): UseRealtimeOrdersReturn {
   const { user } = useAuth();
   const [isConnected, setIsConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(true);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [reconnectTrigger, setReconnectTrigger] = useState(0);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastUpdateRef = useRef<Map<number, number>>(new Map());
@@ -74,23 +77,27 @@ export function useRealtimeOrders(
     }
 
     setIsConnected(false);
+    setIsConnecting(true);
     setConnectionError(null);
 
-    // Reconnect after a short delay
+    // Increment trigger after delay to force useEffect to recreate the channel
     reconnectTimeoutRef.current = setTimeout(() => {
-      // The useEffect will handle reconnection
-      setIsConnected(false);
+      setReconnectTrigger(t => t + 1);
     }, 1000);
   }, []);
 
   useEffect(() => {
+    setIsConnecting(true);
+
     if (!supabase) {
+      setIsConnecting(false);
       setConnectionError('Supabase client not initialized');
       return;
     }
 
     if (filterByUserId && !user?.id) {
       // Wait for user to be loaded
+      setIsConnecting(false);
       return;
     }
 
@@ -146,6 +153,7 @@ export function useRealtimeOrders(
         }
       )
       .subscribe((status) => {
+        setIsConnecting(false);
         if (status === 'SUBSCRIBED') {
           setIsConnected(true);
           setConnectionError(null);
@@ -174,11 +182,13 @@ export function useRealtimeOrders(
         channelRef.current = null;
       }
       setIsConnected(false);
+      setIsConnecting(false);
     };
-  }, [user?.id, filterByUserId, onOrderInsert, onOrderUpdate, onOrderDelete, debounce, reconnect]);
+  }, [user?.id, filterByUserId, onOrderInsert, onOrderUpdate, onOrderDelete, debounce, reconnect, reconnectTrigger]);
 
   return {
     isConnected,
+    isConnecting,
     connectionError,
     reconnect,
   };
