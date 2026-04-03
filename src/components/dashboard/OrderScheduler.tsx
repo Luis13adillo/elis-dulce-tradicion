@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { format, startOfWeek, addDays, isSameDay, parse, addHours, startOfDay, isWithinInterval, set, getHours, getMinutes } from 'date-fns';
 import { enUS, es } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -151,10 +151,6 @@ export function OrderScheduler({ orders, onOrderClick, darkMode = false }: Order
                             <ChevronRight className="h-5 w-5" />
                         </Button>
                     </div>
-                    <Button className="bg-green-600 hover:bg-green-700 text-white gap-2 rounded-lg">
-                        <Plus className="h-4 w-4" />
-                        {t('Nueva Reserva', 'New Order')}
-                    </Button>
                 </div>
             </div>
 

@@ -2,7 +2,7 @@
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Upload, Check, Clock, User, Camera, X, Loader2, AlertCircle, ShoppingBag, Calendar, Sparkles, MapPin, ChevronRight, ChevronLeft, Star, Mail } from 'lucide-react';
 import logoImage from '@/assets/brand/logo.png';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { validateLeadTime, validateOrderDateTimeComplete } from '@/lib/validation';
 import { useNavigate } from 'react-router-dom';
@@ -15,6 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { formatPrice } from '@/lib/pricing';
 import { motion, AnimatePresence } from 'framer-motion';
 import LanguageToggle from '@/components/LanguageToggle';
+import { useBusinessHours } from '@/lib/hooks/useCMS';
 
 const STORAGE_KEY = 'bakery_order_draft';
 
@@ -57,11 +58,6 @@ const FILLINGS = [
 const PREMIUM_FILLING_OPTIONS = [
   { value: '10-inch', label: '10"', labelEs: '10"', upcharge: 5 },
   { value: 'full-sheet', label: 'Full Sheet', labelEs: 'Plancha Completa', upcharge: 20 },
-];
-
-const TIME_OPTIONS = [
-  '10:00', '11:00', '12:00', '13:00', '14:00',
-  '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'
 ];
 
 const formatTimeDisplay = (time: string) => {
@@ -133,6 +129,14 @@ const Order = () => {
   const isSpanish = language === 'es';
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Dynamic time slots from business hours
+  const { data: businessHours } = useBusinessHours();
+
+  const FALLBACK_TIME_OPTIONS = [
+    '10:00', '11:00', '12:00', '13:00', '14:00',
+    '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'
+  ];
+
   // Steps definition
   const STEPS = [
     { id: 'date', title: t('Fecha', 'Date'), subtitle: t('¿Cuándo lo necesitas?', 'When needed?') },
@@ -168,6 +172,30 @@ const Order = () => {
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [consentGiven, setConsentGiven] = useState(false);
+
+  // Derive available time slots for the selected date from business hours
+  const timeOptions = useMemo(() => {
+    if (!businessHours || !Array.isArray(businessHours) || businessHours.length === 0) {
+      return FALLBACK_TIME_OPTIONS;
+    }
+    const selectedDate = formData.dateNeeded ? new Date(formData.dateNeeded + 'T12:00:00') : null;
+    if (!selectedDate) return FALLBACK_TIME_OPTIONS;
+
+    const dayOfWeek = selectedDate.getDay(); // 0 = Sunday, 6 = Saturday
+    const dayHours = businessHours.find((h: any) => h.day_of_week === dayOfWeek);
+    if (!dayHours || dayHours.is_closed || !dayHours.open_time || !dayHours.close_time) {
+      return FALLBACK_TIME_OPTIONS;
+    }
+
+    const openHour = parseInt(dayHours.open_time.split(':')[0], 10);
+    const closeHour = parseInt(dayHours.close_time.split(':')[0], 10);
+    const slots: string[] = [];
+    for (let h = openHour; h <= closeHour; h++) {
+      slots.push(`${String(h).padStart(2, '0')}:00`);
+    }
+    return slots.length > 0 ? slots : FALLBACK_TIME_OPTIONS;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businessHours, formData.dateNeeded]);
 
   // --- LOGIC HOOKS ---
   useEffect(() => {
@@ -619,7 +647,7 @@ const Order = () => {
                 <div className="space-y-4">
                   <label className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] mb-4 block text-center opacity-70">{t('Hora de Entrega', 'Pickup Time')}</label>
                   <div className="grid grid-cols-3 gap-3">
-                    {TIME_OPTIONS.map(time => (
+                    {timeOptions.map(time => (
                       <button
                         key={time}
                         onClick={() => setFormData({ ...formData, timeNeeded: time })}
