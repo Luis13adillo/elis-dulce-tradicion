@@ -11,6 +11,25 @@ import { Loader2, Mail, Lock, User, Phone, AlertCircle, Store } from 'lucide-rea
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 
+function validatePassword(password: string): string | null {
+  if (password.length < 8) {
+    return 'La contraseña debe tener al menos 8 caracteres / Password must be at least 8 characters';
+  }
+  if (!/[A-Z]/.test(password)) {
+    return 'La contraseña debe contener al menos una letra mayúscula / Password must contain at least one uppercase letter';
+  }
+  if (!/[a-z]/.test(password)) {
+    return 'La contraseña debe contener al menos una letra minúscula / Password must contain at least one lowercase letter';
+  }
+  if (!/[0-9]/.test(password)) {
+    return 'La contraseña debe contener al menos un número / Password must contain at least one number';
+  }
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    return 'La contraseña debe contener al menos un carácter especial / Password must contain at least one special character';
+  }
+  return null;
+}
+
 const Signup = () => {
   const { t } = useLanguage();
   const { signUp, isAuthenticated } = useAuth();
@@ -41,8 +60,9 @@ const Signup = () => {
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError(t('La contraseña debe tener al menos 6 caracteres', 'Password must be at least 6 characters'));
+    const passwordError = validatePassword(formData.password);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
 
@@ -182,7 +202,7 @@ const Signup = () => {
                     }
                     className="pl-12 bg-white/5 border-white/10 text-white placeholder:text-gray-600 focus:border-[#C6A649]/50 focus:ring-[#C6A649]/20 transition-all h-14 rounded-2xl font-bold"
                     required
-                    minLength={6}
+                    minLength={8}
                   />
                 </div>
               </div>
@@ -203,7 +223,7 @@ const Signup = () => {
                     }
                     className="pl-12 bg-white/5 border-white/10 text-white placeholder:text-gray-600 focus:border-[#C6A649]/50 focus:ring-[#C6A649]/20 transition-all h-14 rounded-2xl font-bold"
                     required
-                    minLength={6}
+                    minLength={8}
                   />
                 </div>
               </div>
