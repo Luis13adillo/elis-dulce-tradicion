@@ -88,31 +88,28 @@ export class AnalyticsApi extends BaseApiClient {
 
         try {
             const { data, error } = await sb
-                .from('order_items')
-                .select('name, quantity, price')
-                .limit(100);
+                .from('v_popular_items')
+                .select('item_type, item_name, order_count, total_revenue')
+                .order('order_count', { ascending: false })
+                .limit(10);
 
-            if (error) throw error;
+            if (error) {
+                // v_popular_items may not exist in production (backend/db/ files are reference-only)
+                // If view doesn't exist (42P01), return empty gracefully
+                if (error.code === '42P01') {
+                    console.warn('v_popular_items view does not exist — run analytics-views.sql migration');
+                    return [];
+                }
+                throw error;
+            }
             if (!data || data.length === 0) return [];
 
-            const itemStats: Record<string, { count: number, revenue: number }> = {};
-
-            data.forEach((item: any) => {
-                const name = item.name || 'Unknown Item';
-                if (!itemStats[name]) itemStats[name] = { count: 0, revenue: 0 };
-                itemStats[name].count += (item.quantity || 1);
-                itemStats[name].revenue += ((item.price || 0) * (item.quantity || 1));
-            });
-
-            return Object.entries(itemStats)
-                .map(([name, stats]) => ({
-                    name,
-                    count: stats.count,
-                    revenue: stats.revenue
-                }))
-                .sort((a, b) => b.count - a.count)
-                .slice(0, 5);
-
+            return data.map((item: any) => ({
+                name: item.item_name,
+                count: item.order_count,
+                revenue: item.total_revenue,
+                type: item.item_type,  // 'size' | 'filling' | 'theme'
+            }));
         } catch (err) {
             console.warn('Could not fetch popular items:', err);
             return [];
