@@ -123,6 +123,27 @@ class ApiClient extends BaseApiClient {
         if (error) throw error;
         return data;
     }
+
+    async calculateDeliveryFee(address: string, zipCode: string): Promise<{
+        serviceable: boolean;
+        fee: number;
+        zone?: string;
+        distance?: number;
+        estimatedTime?: string;
+    }> {
+        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        try {
+            const params = new URLSearchParams({ address, zipCode });
+            const res = await fetch(
+                `${API_BASE_URL}/api/v1/delivery/calculate-fee?${params.toString()}`,
+                { credentials: 'include' } // Required for CSRF cookie cross-origin
+            );
+            if (!res.ok) return { serviceable: false, fee: 0 };
+            return res.json();
+        } catch {
+            return { serviceable: false, fee: 0 };
+        }
+    }
 }
 
 export const api = new ApiClient();
