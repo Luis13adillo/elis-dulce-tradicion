@@ -95,6 +95,7 @@ const Order = () => {
     filling: '',
     theme: '',
     dedication: '',
+    decorationNotes: '',
     deliveryAddress: '',
   });
 
@@ -502,7 +503,7 @@ const Order = () => {
         cake_size_value: formData.cakeSize,       // slug e.g. '8-round' — used for server-side price validation
         filling: fillingDescriptions.join(', ') || formData.breadType,
         filling_values: selectedFillings,          // string[] of filling slugs e.g. ['strawberry', 'tiramisu']
-        theme: formData.theme || 'Custom',
+        theme: [formData.theme, formData.decorationNotes].filter(Boolean).join(' — ') || 'Custom',
         dedication: formData.dedication || '',
         reference_image_path: uploadedImageUrl || '',
         delivery_option: formData.pickupType,
@@ -706,6 +707,7 @@ const Order = () => {
               <DetailsStep
                 theme={formData.theme}
                 dedication={formData.dedication}
+                decorationNotes={formData.decorationNotes}
                 imagePreviewUrl={imagePreviewUrl}
                 isUploadingImage={isUploadingImage}
                 isMobile={isMobile}
@@ -713,6 +715,7 @@ const Order = () => {
                 showCamera={showCamera}
                 onThemeChange={(theme) => setFormData(prev => ({ ...prev, theme }))}
                 onDedicationChange={(dedication) => setFormData(prev => ({ ...prev, dedication }))}
+                onDecorationNotesChange={(decorationNotes) => setFormData(prev => ({ ...prev, decorationNotes }))}
                 onImageChange={handleImageChange}
                 onRemoveImage={handleRemoveImage}
                 onCameraCapture={(imageDataUrl) => {

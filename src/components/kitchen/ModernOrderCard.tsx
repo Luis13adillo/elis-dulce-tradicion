@@ -6,6 +6,7 @@ import { Clock, MapPin, Calendar } from "lucide-react";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
+import ReferenceImageViewer from "@/components/order/ReferenceImageViewer";
 
 interface ModernOrderCardProps {
     order: Order;
@@ -252,11 +253,25 @@ export const ModernOrderCard = memo(function ModernOrderCard({
                                 )}
                             </div>
                         </div>
-                        {order.theme && (
-                            <p className={cn("text-xs pl-6", variant === 'dark' ? "text-slate-400" : "text-gray-500")}>
-                                Theme: {order.theme}
-                            </p>
-                        )}
+                        {order.theme && (() => {
+                            const [shortTheme, designNotes] = order.theme.split(' — ');
+                            return (
+                                <>
+                                    <p className={cn("text-sm font-medium pl-6", variant === 'dark' ? "text-amber-400" : "text-amber-600")}>
+                                        <span className="font-bold">Theme:</span> {shortTheme}
+                                    </p>
+                                    {designNotes && (
+                                        <div className={cn(
+                                            "ml-6 mt-1 px-3 py-2 rounded-lg border-l-4 border-[#C6A649] text-xs",
+                                            variant === 'dark' ? "bg-[#C6A649]/10 text-slate-300" : "bg-amber-50 text-gray-700"
+                                        )}>
+                                            <span className="font-bold text-[#C6A649] block mb-0.5">Design Notes:</span>
+                                            {designNotes}
+                                        </div>
+                                    )}
+                                </>
+                            );
+                        })()}
                         {order.dedication && (
                             <p className="text-xs text-amber-500 italic pl-6">
                                 "{order.dedication}"
@@ -292,6 +307,45 @@ export const ModernOrderCard = memo(function ModernOrderCard({
                     ))
                 )}
             </div>
+
+            {/* Reference Photo — prominent inline display */}
+            {order.reference_image_path && (() => {
+                const imgUrl = order.reference_image_path.startsWith('http')
+                    ? order.reference_image_path
+                    : `https://rnszrscxwkdwvvlsihqc.supabase.co/storage/v1/object/public/reference-images/${order.reference_image_path}`;
+                return (
+                    <div
+                        data-ref-section="true"
+                        className={cn(
+                            "rounded-xl overflow-hidden border-l-4 border-[#C6A649]",
+                            variant === 'dark' ? "bg-[#C6A649]/10 border border-[#C6A649]/30" : "bg-amber-50 border border-amber-200"
+                        )}
+                    >
+                        <div className={cn(
+                            "flex items-center justify-between px-3 py-1.5 text-xs font-bold",
+                            variant === 'dark' ? "text-[#C6A649]" : "text-amber-700"
+                        )}>
+                            <div className="flex items-center gap-2">
+                                <span>📷</span>
+                                <span>{t('Foto de Referencia', 'Reference Photo')}</span>
+                            </div>
+                            <ReferenceImageViewer
+                                imagePath={order.reference_image_path}
+                                orderNumber={order.order_number}
+                                theme={order.theme}
+                            />
+                        </div>
+                        <img
+                            src={imgUrl}
+                            alt={t('Referencia de pastel', 'Cake reference')}
+                            className="w-full h-32 object-cover"
+                            onError={(e) => {
+                                (e.currentTarget.closest('[data-ref-section="true"]') as HTMLElement | null)?.remove();
+                            }}
+                        />
+                    </div>
+                );
+            })()}
 
             {/* Actions */}
             <div className={cn("pt-4 border-t", variant === 'dark' ? "border-slate-700/50" : "border-gray-100")}>

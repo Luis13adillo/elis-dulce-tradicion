@@ -38,12 +38,14 @@ export const FloatingInput = ({ label, value, onChange, type = "text", placehold
 interface DetailsStepProps {
   theme: string;
   dedication: string;
+  decorationNotes: string;
   imagePreviewUrl: string | null;
   isUploadingImage: boolean;
   isMobile: boolean;
   fileInputRef: React.RefObject<HTMLInputElement>;
   onThemeChange: (theme: string) => void;
   onDedicationChange: (dedication: string) => void;
+  onDecorationNotesChange: (notes: string) => void;
   onImageChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onRemoveImage: (e: React.MouseEvent) => void;
   onCameraCapture: (imageDataUrl: string) => void;
@@ -66,12 +68,14 @@ export function validateDetailsStep(): string | null {
 const DetailsStep = ({
   theme,
   dedication,
+  decorationNotes,
   imagePreviewUrl,
   isUploadingImage,
   isMobile,
   fileInputRef,
   onThemeChange,
   onDedicationChange,
+  onDecorationNotesChange,
   onImageChange,
   onRemoveImage,
   onCameraCapture,
@@ -102,8 +106,8 @@ const DetailsStep = ({
           {t('Notas de Decoración', 'Decoration Notes')}
         </label>
         <textarea
-          value={theme}
-          onChange={(e) => onThemeChange(e.target.value)}
+          value={decorationNotes}
+          onChange={(e) => onDecorationNotesChange(e.target.value)}
           className="w-full bg-white/5 border border-white/10 focus:border-[#C6A649]/50 hover:bg-white/10 transition-all rounded-2xl p-4 text-white font-medium outline-none min-h-[100px] text-sm"
           placeholder={t('Describe tu visión... (colores, estilo, personajes)', 'Describe your vision... (colors, style, characters)')}
         />
