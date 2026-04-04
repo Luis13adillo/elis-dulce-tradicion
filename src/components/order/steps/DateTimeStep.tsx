@@ -38,7 +38,7 @@ const DateTimeStep = ({ dateNeeded, timeNeeded, timeOptions, onDateChange, onTim
           max={new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
           value={dateNeeded}
           onChange={(e) => onDateChange(e.target.value)}
-          className="w-full bg-white/5 border border-white/10 focus:border-[#C6A649]/50 hover:bg-white/10 transition-all rounded-3xl p-6 text-center text-2xl font-black text-white outline-none cursor-pointer"
+          className="w-full bg-white/5 border border-white/10 focus:border-[#C6A649]/50 hover:bg-white/10 transition-all rounded-3xl p-4 sm:p-6 text-center text-lg sm:text-2xl font-black text-white outline-none cursor-pointer"
         />
         <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-[#C6A649] group-hover/date:scale-110 transition-transform">
           <Calendar size={24} />
@@ -49,7 +49,7 @@ const DateTimeStep = ({ dateNeeded, timeNeeded, timeOptions, onDateChange, onTim
         <label className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] mb-4 block text-center opacity-70">
           {t('Hora de Entrega', 'Pickup Time')}
         </label>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
           {timeOptions.map(time => (
             <button
               key={time}

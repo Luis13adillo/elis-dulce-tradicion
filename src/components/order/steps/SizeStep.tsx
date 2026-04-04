@@ -47,12 +47,12 @@ const SizeStep = ({ cakeSize, activeCakeSizes, optionsLoading, isSpanish, onSize
         </div>
       ) : (
         /* Size Selection Grid */
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
           {activeCakeSizes.map(s => (
             <button
               key={s.value}
               onClick={() => onSizeChange(s.value)}
-              className={`relative p-6 rounded-[2rem] text-left transition-all duration-500 border overflow-hidden group/card ${
+              className={`relative p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] text-left transition-all duration-500 border overflow-hidden group/card ${
                 cakeSize === s.value
                   ? 'bg-white/10 border-[#C6A649]/50 shadow-[0_20px_50px_rgba(0,0,0,0.5)] scale-105'
                   : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/[0.08] hover:border-[#C6A649]/30'

@@ -98,7 +98,7 @@ const CakeSection = memo(() => {
     );
 
     return (
-        <section className="py-32 bg-black relative overflow-hidden">
+        <section className="py-16 md:py-24 lg:py-32 bg-black relative overflow-hidden">
             {/* Background Glows */}
             <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-[#C6A649]/5 rounded-full blur-[100px] pointer-events-none" />
             <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-amber-500/5 rounded-full blur-[100px] pointer-events-none" />
@@ -106,11 +106,11 @@ const CakeSection = memo(() => {
             <div className="container mx-auto px-4 max-w-7xl relative z-10">
 
                 {/* Section Header */}
-                <div className="mb-20 text-center animate-fade-in">
+                <div className="mb-10 md:mb-16 lg:mb-20 text-center animate-fade-in">
                     <span className="text-sm font-bold tracking-[0.3em] text-[#C6A649] uppercase mb-4 block">
                         {t('Arte en Azúcar', 'Sugar Artistry')}
                     </span>
-                    <h2 className="text-5xl md:text-7xl font-black text-white mb-6 tracking-tighter uppercase leading-none">
+                    <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-black text-white mb-6 tracking-tighter uppercase leading-none">
                         ELI'S <span className="text-[#C6A649] drop-shadow-[0_0_15px_rgba(198,166,73,0.3)]">PASTELES</span>
                     </h2>
                     <div className="h-1.5 w-32 bg-gradient-to-r from-transparent via-[#C6A649] to-transparent mx-auto rounded-full shadow-[0_0_10px_rgba(198,166,73,0.5)]"></div>
@@ -179,8 +179,8 @@ const CakeSection = memo(() => {
                 </div>
 
                 {/* Description & CTA */}
-                <div className="max-w-4xl mx-auto text-center space-y-12 animate-fade-in">
-                    <p className="text-gray-400 font-light leading-relaxed text-xl md:text-2xl italic font-serif">
+                <div className="max-w-4xl mx-auto text-center space-y-8 md:space-y-12 animate-fade-in">
+                    <p className="text-gray-400 font-light leading-relaxed text-base md:text-xl lg:text-2xl italic font-serif">
                         {t(
                             "Grandes pasteles de celebración son el alma de Eli's Bakery Cafe. Horneados y decorados con un toque auténtico mexicano. El centro de atención para tu fiesta o boda.",
                             "Great Celebration Cakes are the heart of Eli’s Bakery Cafe. Freshly baked and expertly decorated with authentic Mexican flair. The centerpiece for your birthday party, quinceañera, wedding, or special occasion."
@@ -190,7 +190,7 @@ const CakeSection = memo(() => {
                     <Button
                         asChild
                         size="lg"
-                        className="rounded-full bg-white text-black hover:bg-[#C6A649] px-14 py-8 font-black text-lg tracking-widest shadow-[0_0_30px_rgba(255,255,255,0.2)] transition-all hover:scale-105"
+                        className="rounded-full bg-white text-black hover:bg-[#C6A649] px-8 py-4 md:px-14 md:py-6 font-black text-sm md:text-lg tracking-widest shadow-[0_0_30px_rgba(255,255,255,0.2)] transition-all hover:scale-105"
                     >
                         <Link to="/order" className="flex items-center gap-4">
                             {t('ENCUENTRA TU PASTEL PERFECTO', 'FIND YOUR PERFECT CAKE')}

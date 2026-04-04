@@ -15,30 +15,30 @@ const AboutSection = () => {
   ];
 
   return (
-    <section className="relative overflow-hidden bg-black py-32">
+    <section className="relative overflow-hidden bg-black py-16 md:py-24 lg:py-32">
       <div className="container px-4 md:px-6 relative z-10">
-        <div className="grid gap-16 lg:grid-cols-2 lg:gap-12 items-center">
+        <div className="grid gap-10 lg:grid-cols-2 lg:gap-12 items-center">
 
           {/* Text Content Side */}
-          <div className="flex flex-col justify-center space-y-10 animate-fade-in">
+          <div className="flex flex-col justify-center space-y-6 md:space-y-10 animate-fade-in">
             <div className="space-y-6">
               <span className="text-sm font-bold tracking-[0.3em] text-[#C6A649] uppercase block">
                 {t('Nuestra Herencia', 'Our Heritage')}
               </span>
-              <h2 className="font-display text-5xl font-black tracking-tight text-white sm:text-6xl uppercase">
+              <h2 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-white uppercase">
                 {t('Sobre', 'About')} <span className="text-[#C6A649] drop-shadow-[0_0_15px_rgba(198,166,73,0.3)]">{t('Nosotros', 'Us')}</span>
               </h2>
               <div className="h-1.5 w-32 rounded-full bg-gradient-to-r from-[#C6A649] to-transparent shadow-[0_0_10px_rgba(198,166,73,0.5)]" />
             </div>
 
-            <div className="space-y-8 text-xl text-gray-400 font-light leading-relaxed">
+            <div className="space-y-6 text-base md:text-xl text-gray-400 font-light leading-relaxed">
               <p>
                 {t(
                   "En Eli's Bakery Cafe somos una pastelería y panadería familiar con raíces mexicanas. Nuestro compromiso es ofrecer productos frescos todos los días, desde nuestro famoso pastel de 3 leches, hasta pan dulce tradicional.",
                   "At Eli's Bakery Cafe, we are a family-owned bakery rooted in Mexican tradition. We take pride in offering freshly baked products daily — from our signature Tres Leches cake, to traditional sweet breads."
                 )}
               </p>
-              <p className="font-serif text-2xl italic text-[#C6A649]">
+              <p className="font-serif text-lg sm:text-xl md:text-2xl italic text-[#C6A649]">
                 {t(
                   "\"Porque en Eli's, cada celebración merece ser inolvidable.\"",
                   "\"Because at Eli's, every celebration deserves to be unforgettable.\""
@@ -47,7 +47,7 @@ const AboutSection = () => {
             </div>
 
             {/* Icons Grid - Simplified Premium */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 pt-4 md:pt-6">
               {offerings.map((item, index) => {
                 const Icon = item.icon;
                 return (
@@ -64,7 +64,7 @@ const AboutSection = () => {
             </div>
 
             <div className="pt-8">
-              <Button asChild className="rounded-full px-12 py-8 text-xl font-black shadow-[0_0_30px_rgba(198,166,73,0.3)] hover:scale-105 transition-all bg-[#C6A649] text-black hover:bg-white">
+              <Button asChild className="rounded-full px-8 py-4 md:px-12 md:py-8 text-base md:text-xl font-black shadow-[0_0_30px_rgba(198,166,73,0.3)] hover:scale-105 transition-all bg-[#C6A649] text-black hover:bg-white">
                 <Link to="/about" className="flex items-center gap-3">
                   {t('Nuestra Historia', 'Read Our Story')} <ArrowRight className="h-6 w-6" />
                 </Link>

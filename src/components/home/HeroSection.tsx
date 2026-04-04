@@ -43,7 +43,7 @@ const HeroSection = () => {
           <Button
             asChild
             size="lg"
-            className="group relative h-16 overflow-hidden rounded-full border border-[#C6A649]/50 bg-[#C6A649]/20 px-12 text-white backdrop-blur-md transition-all duration-500 hover:border-[#C6A649] hover:bg-[#C6A649]/30 hover:shadow-[0_0_50px_rgba(198,166,73,0.5)] hover:-translate-y-1"
+            className="group relative h-12 md:h-16 overflow-hidden rounded-full border border-[#C6A649]/50 bg-[#C6A649]/20 px-8 md:px-12 text-white backdrop-blur-md transition-all duration-500 hover:border-[#C6A649] hover:bg-[#C6A649]/30 hover:shadow-[0_0_50px_rgba(198,166,73,0.5)] hover:-translate-y-1"
           >
             <Link to="/order" className="flex items-center gap-3">
               <span className="absolute inset-0 bg-gradient-to-r from-transparent via-[#C6A649]/20 to-transparent -translate-x-full group-hover:animate-shimmer" />

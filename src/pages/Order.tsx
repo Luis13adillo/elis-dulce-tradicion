@@ -621,7 +621,7 @@ const Order = () => {
       <main className="flex-1 flex flex-col justify-center items-center p-5 relative z-10 w-full max-w-md mx-auto min-h-[60vh]">
 
         {/* Step Title */}
-        <div className="w-full mb-12 text-center">
+        <div className="w-full mb-6 sm:mb-8 md:mb-12 text-center">
           <motion.div
             key={currentStep}
             initial={{ y: 20, opacity: 0 }}
@@ -629,7 +629,7 @@ const Order = () => {
             className="inline-block space-y-2"
           >
             <span className="text-xs font-black tracking-[0.4em] text-[#C6A649] uppercase block mb-2">Eli's Tradition</span>
-            <h2 className="text-5xl font-black text-white uppercase tracking-tighter leading-tight">{STEPS[currentStep].title}</h2>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white uppercase tracking-tighter leading-tight">{STEPS[currentStep].title}</h2>
             <p className="text-gray-400 font-medium italic font-serif text-lg">{STEPS[currentStep].subtitle}</p>
           </motion.div>
         </div>
@@ -658,7 +658,7 @@ const Order = () => {
             animate="center"
             exit="exit"
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="w-full bg-white/5 backdrop-blur-3xl p-8 sm:p-10 rounded-[3rem] shadow-[0_30px_60px_rgba(0,0,0,0.5)] border border-white/10 min-h-[400px] flex flex-col justify-center relative overflow-hidden group"
+            className="w-full bg-white/5 backdrop-blur-3xl p-4 sm:p-6 md:p-8 lg:p-10 rounded-[2rem] sm:rounded-[3rem] shadow-[0_30px_60px_rgba(0,0,0,0.5)] border border-white/10 min-h-[400px] flex flex-col justify-center relative overflow-hidden group"
           >
             <div className="absolute top-0 right-0 w-40 h-40 bg-[#C6A649]/5 rounded-full blur-3xl pointer-events-none" />
 

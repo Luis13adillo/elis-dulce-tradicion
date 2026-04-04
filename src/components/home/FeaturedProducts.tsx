@@ -35,7 +35,7 @@ const FeaturedProducts = memo(() => {
   ];
 
   return (
-    <section className="py-32 bg-black relative overflow-hidden">
+    <section className="py-16 md:py-24 lg:py-32 bg-black relative overflow-hidden">
       {/* Background Glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#C6A649]/5 rounded-full blur-[120px] pointer-events-none" />
 
@@ -46,7 +46,7 @@ const FeaturedProducts = memo(() => {
           <span className="text-sm font-bold tracking-[0.3em] text-[#C6A649] uppercase mb-4 block">
             {t('Lo Más Vendido', 'Best Sellers')}
           </span>
-          <h2 className="text-5xl md:text-7xl font-black text-white mb-6 tracking-tighter uppercase">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-black text-white mb-6 tracking-tighter uppercase">
             ELI'S <span className="text-[#C6A649] drop-shadow-[0_0_15px_rgba(198,166,73,0.3)]">PAN DULCE</span>
           </h2>
           <div className="h-1.5 w-32 bg-gradient-to-r from-transparent via-[#C6A649] to-transparent mx-auto rounded-full shadow-[0_0_10px_rgba(198,166,73,0.5)]"></div>
@@ -56,7 +56,7 @@ const FeaturedProducts = memo(() => {
         </div>
 
         {/* Products Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-20">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6 lg:gap-8 mb-12 md:mb-16 lg:mb-20">
           {products.map((product) => (
             <div key={product.id} className="flex flex-col group cursor-pointer animate-fade-in">
               {/* Card Image Area (Sprite) */}
@@ -83,7 +83,7 @@ const FeaturedProducts = memo(() => {
         </div>
 
         {/* Description & CTA */}
-        <div className="max-w-4xl mx-auto text-center space-y-12 animate-fade-in">
+        <div className="max-w-4xl mx-auto text-center space-y-8 md:space-y-12 animate-fade-in">
           <p className="text-gray-400 font-light leading-relaxed text-xl md:text-2xl italic font-serif">
             {t(
               "El Pan Dulce de Eli’s Bakery Cafe es algo especial – nos inspiramos en los panes dulces tradicionales mexicanos para crear la experiencia definitiva. Fresco, auténtico y hecho con los mejores ingredientes.",
@@ -94,7 +94,7 @@ const FeaturedProducts = memo(() => {
           <Button
             asChild
             size="lg"
-            className="rounded-full bg-white text-black hover:bg-[#C6A649] px-14 py-8 font-black text-lg tracking-widest shadow-[0_0_30px_rgba(255,255,255,0.2)] transition-all hover:scale-105"
+            className="rounded-full bg-white text-black hover:bg-[#C6A649] px-8 py-4 md:px-14 md:py-8 font-black text-base md:text-lg tracking-widest shadow-[0_0_30px_rgba(255,255,255,0.2)] transition-all hover:scale-105"
           >
             <Link to="/order" className="flex items-center gap-4">
               {t('PAN DULCE FRESCO MAÑANA', 'NEXT DAY FRESH PAN DULCE')}

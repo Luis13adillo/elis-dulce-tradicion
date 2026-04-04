@@ -6,30 +6,30 @@ import storefrontImage from '@/assets/gallery/2_M3wfgx3WZRpTbrc5cQDbCM_176703393
 export const VisitUs = () => {
     const { t } = useLanguage();
     return (
-        <section className="py-32 bg-black relative overflow-hidden">
+        <section className="py-16 md:py-24 lg:py-32 bg-black relative overflow-hidden">
             {/* Background Glows */}
             <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-[500px] h-[500px] bg-[#C6A649]/5 rounded-full blur-[120px] pointer-events-none" />
 
             <div className="container mx-auto px-4 max-w-7xl relative z-10">
 
                 {/* Header */}
-                <div className="text-center mb-20 animate-fade-in">
+                <div className="text-center mb-10 md:mb-16 lg:mb-20 animate-fade-in">
                     <span className="text-sm font-bold tracking-[0.3em] text-[#C6A649] uppercase mb-4 block">
                         {t('Ubicación', 'Location')}
                     </span>
-                    <h2 className="text-5xl md:text-7xl font-black text-white mb-6 uppercase tracking-tight">
+                    <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-black text-white mb-6 uppercase tracking-tight">
                         {t('Ven a', 'Come')} <span className="text-[#C6A649] drop-shadow-[0_0_15px_rgba(198,166,73,0.3)]">{t('Visitarnos', 'Visit Us')}</span>
                     </h2>
                     <div className="h-1.5 w-32 bg-gradient-to-r from-transparent via-[#C6A649] to-transparent mx-auto rounded-full shadow-[0_0_10px_rgba(198,166,73,0.5)]"></div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-20 items-stretch">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 lg:gap-16 xl:gap-20 items-stretch">
 
                     {/* Left Column: Contact Info & Map */}
                     <div className="space-y-8 flex flex-col h-full animate-fade-in">
 
                         {/* Address Card */}
-                        <div className="flex items-start gap-6 p-8 rounded-3xl bg-white/5 border border-white/10 hover:border-[#C6A649]/30 hover:bg-white/[0.08] transition-all duration-500 group shadow-2xl">
+                        <div className="flex items-start gap-4 md:gap-6 p-5 sm:p-6 md:p-8 rounded-3xl bg-white/5 border border-white/10 hover:border-[#C6A649]/30 hover:bg-white/[0.08] transition-all duration-500 group shadow-2xl">
                             <div className="bg-[#C6A649]/10 p-4 rounded-2xl group-hover:scale-110 group-hover:bg-[#C6A649]/20 transition-all duration-500 flex-shrink-0 border border-[#C6A649]/20">
                                 <MapPin className="w-6 h-6 text-[#C6A649]" />
                             </div>
@@ -51,7 +51,7 @@ export const VisitUs = () => {
                         </div>
 
                         {/* Hours Card */}
-                        <div className="flex items-start gap-6 p-8 rounded-3xl bg-white/5 border border-white/10 hover:border-[#C6A649]/30 hover:bg-white/[0.08] transition-all duration-500 group shadow-2xl">
+                        <div className="flex items-start gap-4 md:gap-6 p-5 sm:p-6 md:p-8 rounded-3xl bg-white/5 border border-white/10 hover:border-[#C6A649]/30 hover:bg-white/[0.08] transition-all duration-500 group shadow-2xl">
                             <div className="bg-[#C6A649]/10 p-4 rounded-2xl group-hover:scale-110 group-hover:bg-[#C6A649]/20 transition-all duration-500 flex-shrink-0 border border-[#C6A649]/20">
                                 <Clock className="w-6 h-6 text-[#C6A649]" />
                             </div>
@@ -69,7 +69,7 @@ export const VisitUs = () => {
                         </div>
 
                         {/* Phone Card */}
-                        <div className="flex items-start gap-6 p-8 rounded-3xl bg-white/5 border border-white/10 hover:border-[#C6A649]/30 hover:bg-white/[0.08] transition-all duration-500 group shadow-2xl relative overflow-hidden">
+                        <div className="flex items-start gap-4 md:gap-6 p-5 sm:p-6 md:p-8 rounded-3xl bg-white/5 border border-white/10 hover:border-[#C6A649]/30 hover:bg-white/[0.08] transition-all duration-500 group shadow-2xl relative overflow-hidden">
                             <div className="absolute -right-10 -bottom-10 h-40 w-40 bg-[#C6A649]/5 rounded-full blur-3xl" />
 
                             <div className="bg-[#C6A649]/10 p-4 rounded-2xl group-hover:scale-110 group-hover:bg-[#C6A649]/20 transition-all duration-500 flex-shrink-0 border border-[#C6A649]/20 relative z-10">
@@ -116,7 +116,7 @@ export const VisitUs = () => {
                     </div>
 
                     {/* Right Column: Storefront Image (Dominant Visual) */}
-                    <div className="relative h-full min-h-[600px] group animate-fade-in">
+                    <div className="relative h-full min-h-[300px] sm:min-h-[400px] lg:min-h-[600px] group animate-fade-in">
                         <div className="absolute -inset-4 bg-[#C6A649]/20 blur-3xl rounded-[3rem] opacity-0 group-hover:opacity-30 transition-opacity duration-1000" />
                         <div className="relative w-full h-full rounded-[3rem] overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10">
                             <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80 z-10 transition-opacity group-hover:opacity-60"></div>
@@ -127,13 +127,13 @@ export const VisitUs = () => {
                             />
 
                             {/* Overlay Text */}
-                            <div className="absolute bottom-0 left-0 right-0 p-12 z-20">
+                            <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8 md:p-12 z-20">
                                 <span className="text-[#C6A649] font-black tracking-[0.3em] uppercase text-sm mb-4 block animate-fade-in">
                                     {t('Bienvenido a', 'Welcome To')}
                                 </span>
-                                <h3 className="text-white text-4xl md:text-5xl font-black uppercase tracking-tighter leading-none mb-6">Eli's Bakery Cafe</h3>
+                                <h3 className="text-white text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black uppercase tracking-tighter leading-none mb-4 md:mb-6">Eli's Bakery Cafe</h3>
                                 <div className="h-1 w-20 bg-[#C6A649] mb-6" />
-                                <p className="text-gray-300 text-xl font-light leading-relaxed max-w-md">
+                                <p className="text-gray-300 text-base md:text-xl font-light leading-relaxed max-w-md">
                                     {t(
                                         'Busca nuestro edificio de ladrillos en West Marshall Street. Un lugar donde la tradición te invita a entrar.',
                                         'Look for our brick storefront on West Marshall Street. A place where tradition invites you in.'
