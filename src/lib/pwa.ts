@@ -1,34 +1,16 @@
 /**
  * PWA utilities for service worker and push notifications
  */
-import { Workbox } from 'workbox-window';
-
-let wb: Workbox | null = null;
+import { registerSW } from 'virtual:pwa-register';
 
 /**
- * Initialize service worker
+ * Initialize service worker with immediate auto-update.
+ * When a new SW activates (skipWaiting + clientsClaim), the controllerchange
+ * handler in index.html triggers an automatic page reload.
  */
 export function initServiceWorker() {
   if ('serviceWorker' in navigator) {
-    wb = new Workbox('/sw.js');
-
-    wb.addEventListener('controlling', () => {
-      window.location.reload();
-    });
-
-    wb.register().then((registration) => {
-      console.log('Service Worker registered:', registration);
-    }).catch((error) => {
-      console.error('Service Worker registration failed:', error);
-    });
-
-    // Listen for updates
-    wb.addEventListener('waiting', () => {
-      // Show update prompt
-      if (confirm('A new version is available. Reload to update?')) {
-        wb?.messageSkipWaiting();
-      }
-    });
+    registerSW({ immediate: true });
   }
 }
 
@@ -59,8 +41,8 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
 export function showNotification(title: string, options?: NotificationOptions) {
   if (Notification.permission === 'granted') {
     new Notification(title, {
-      icon: '/pwa-icon-192.png',
-      badge: '/pwa-icon-192.png',
+      icon: '/android-chrome-192x192.png',
+      badge: '/android-chrome-192x192.png',
       ...options,
     });
   }

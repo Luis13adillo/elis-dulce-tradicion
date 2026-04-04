@@ -51,7 +51,9 @@ const FrontDesk = () => {
     isConnected,
     isConnecting,
     connectionError,
-    reconnect
+    reconnect,
+    updateOrderOptimistically,
+    activityFeed,
   } = useOrdersFeed(undefined, { soundEnabled: isSoundEnabled });
 
   // Notification State
@@ -150,7 +152,7 @@ const FrontDesk = () => {
 
   // Auth is enforced by ProtectedRoute (requiredRole={['baker', 'owner']})
 
-  const handleOrderAction = async (orderId: number, action: 'confirm' | 'start' | 'ready' | 'delivery' | 'complete') => {
+  const handleOrderAction = async (orderId: number, action: 'confirm' | 'start' | 'ready' | 'delivery' | 'complete' | 'markDelivered') => {
     let status = '';
     let successMsg = '';
 
@@ -175,6 +177,10 @@ const FrontDesk = () => {
         status = 'ready';
         successMsg = t('Orden lista', 'Order marked ready');
         break;
+      case 'markDelivered':
+        status = 'delivered';
+        successMsg = t('Orden entregada', 'Order delivered');
+        break;
     }
 
     if (!status) return;
@@ -185,12 +191,14 @@ const FrontDesk = () => {
 
     try {
       await api.updateOrderStatus(orderId, status);
+      updateOrderOptimistically(orderId, status);
       toast.success(successMsg);
 
       // Send Email Notifications
       if (action === 'confirm') {
+        // Send "order confirmed / in production queue" — distinct from the payment confirmation email
         toast.info(t('Enviando correo...', 'Sending email...'));
-        api.sendOrderConfirmation(targetOrder).then(({ success }) => {
+        api.sendStatusUpdate(targetOrder, 'pending', 'confirmed').then(({ success }) => {
           if (success) toast.success(t('Correo enviado', 'Email sent'));
           else toast.error(t('Error al enviar correo', 'Failed to send email'));
         });
@@ -201,9 +209,15 @@ const FrontDesk = () => {
           else toast.error(t('Error al enviar correo', 'Failed to send email'));
         });
       } else if (action === 'delivery' || action === 'complete') {
-        const finalStatus = action === 'delivery' ? 'delivered' : 'completed';
+        const finalStatus = action === 'delivery' ? 'out_for_delivery' : 'completed';
         toast.info(t('Enviando correo...', 'Sending email...'));
         api.sendStatusUpdate(targetOrder, oldStatus, finalStatus).then(({ success }) => {
+          if (success) toast.success(t('Correo enviado', 'Email sent'));
+          else toast.error(t('Error al enviar correo', 'Failed to send email'));
+        });
+      } else if (action === 'markDelivered') {
+        toast.info(t('Enviando correo...', 'Sending email...'));
+        api.sendStatusUpdate(targetOrder, oldStatus, 'delivered').then(({ success }) => {
           if (success) toast.success(t('Correo enviado', 'Email sent'));
           else toast.error(t('Error al enviar correo', 'Failed to send email'));
         });
@@ -225,37 +239,41 @@ const FrontDesk = () => {
   };
 
   // Filter Logic logic...
-  const filteredOrders = useMemo(() => orders.filter((order: Order) => {
-    // 1. Tab Filter
-    if (activeTab === 'active' && !['pending', 'confirmed', 'in_progress', 'ready'].includes(order.status)) return false;
-    if (activeTab === 'today') {
-      if (['delivered', 'completed', 'cancelled'].includes(order.status)) return false;
-      const todayStr = new Date().toISOString().split('T')[0];
-      if (order.date_needed !== todayStr) return false;
-    }
-    if (activeTab === 'pickup' && (order.status !== 'ready' || order.delivery_option !== 'pickup')) return false;
-    if (activeTab === 'delivery' && (order.status !== 'ready' || order.delivery_option !== 'delivery')) return false;
-    if (activeTab === 'done' && !['delivered', 'completed', 'cancelled'].includes(order.status)) return false;
-    if (activeTab === 'new' && order.status !== 'pending') return false;
-    if (activeTab === 'preparing' && !['confirmed', 'in_progress'].includes(order.status)) return false;
+  const filteredOrders = useMemo(() => {
+    const filtered = orders.filter((order: Order) => {
+      // 1. Tab Filter
+      if (activeTab === 'active' && !['pending', 'confirmed', 'in_progress', 'ready'].includes(order.status)) return false;
+      if (activeTab === 'today') {
+        if (['delivered', 'completed', 'cancelled'].includes(order.status)) return false;
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (order.date_needed !== todayStr) return false;
+      }
+      if (activeTab === 'pickup' && (order.status !== 'ready' || order.delivery_option !== 'pickup')) return false;
+      if (activeTab === 'delivery' && (order.status !== 'ready' || order.delivery_option !== 'delivery')) return false;
+      if (activeTab === 'done' && !['delivered', 'completed', 'cancelled'].includes(order.status)) return false;
+      if (activeTab === 'new' && order.status !== 'pending') return false;
+      if (activeTab === 'preparing' && !['confirmed', 'in_progress'].includes(order.status)) return false;
 
-    // 2. Search Filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      return (
-        order.customer_name?.toLowerCase().includes(query) ||
-        order.order_number?.toLowerCase().includes(query) ||
-        order.customer_phone?.toLowerCase().includes(query) ||
-        order.customer_email?.toLowerCase().includes(query)
-      );
-    }
-    return true;
-  }).sort((a, b) => {
-    // Sort by Due Date/Time (Ascending - Earliest due first)
-    const dateA = new Date(`${a.date_needed}T${a.time_needed}`);
-    const dateB = new Date(`${b.date_needed}T${b.time_needed}`);
-    return dateA.getTime() - dateB.getTime();
-  }), [orders, activeTab, searchQuery]);
+      // 2. Search Filter
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        return (
+          order.customer_name?.toLowerCase().includes(query) ||
+          order.order_number?.toLowerCase().includes(query) ||
+          order.customer_phone?.toLowerCase().includes(query) ||
+          order.customer_email?.toLowerCase().includes(query)
+        );
+      }
+      return true;
+    });
+
+    // Pre-compute sort keys once — avoids O(n log n) Date constructions per comparison
+    const sortKeys = new Map(
+      filtered.map(o => [o.id, new Date(`${o.date_needed}T${o.time_needed || '00:00'}`).getTime()])
+    );
+
+    return filtered.sort((a, b) => (sortKeys.get(a.id) ?? 0) - (sortKeys.get(b.id) ?? 0));
+  }, [orders, activeTab, searchQuery]);
 
   // Separate current orders from overdue orders
   // Memoize these derived lists to prevent recalculation on every render (e.g. clock ticks)
@@ -737,6 +755,7 @@ const FrontDesk = () => {
         markAsRead={markAsRead}
         markAllAsRead={markAllAsRead}
         isUnread={isUnread}
+        activityFeed={activityFeed}
       />
 
       {renderContent()}

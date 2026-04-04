@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { OwnerSidebar } from '@/components/dashboard/OwnerSidebar';
@@ -51,9 +51,9 @@ import { useRealtimeOrders } from '@/hooks/useRealtimeOrders';
 import { OrderListWithSearch } from '@/components/order/OrderListWithSearch';
 import { OwnerCalendar } from '@/components/dashboard/OwnerCalendar';
 import { PrintPreviewModal } from '@/components/print/PrintPreviewModal';
-import MenuManager from '@/components/dashboard/MenuManager';
-import InventoryManager from '@/components/dashboard/InventoryManager';
-import ReportsManager from '@/components/dashboard/ReportsManager';
+const MenuManager = lazy(() => import('@/components/dashboard/MenuManager'));
+const InventoryManager = lazy(() => import('@/components/dashboard/InventoryManager'));
+const ReportsManager = lazy(() => import('@/components/dashboard/ReportsManager'));
 import TodayScheduleSummary from '@/components/dashboard/TodayScheduleSummary';
 import { BusinessSettingsManager } from '@/components/admin/BusinessSettingsManager';
 import { BusinessHoursManager } from '@/components/admin/BusinessHoursManager';
@@ -281,15 +281,22 @@ const OwnerDashboard = () => {
     }
   }, [user, authLoading]);
 
+  // Debounced re-fetch — collapses rapid realtime events into a single batch
+  const refetchTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const debouncedLoadData = useCallback(() => {
+    if (refetchTimerRef.current) clearTimeout(refetchTimerRef.current);
+    refetchTimerRef.current = setTimeout(() => loadDashboardData(), 1500);
+  }, [loadDashboardData]);
+
   // Real-time Listener (Supabase)
   useRealtimeOrders({
     filterByUserId: false,
     onOrderInsert: () => {
       toast.info('New Order Received! 🔔');
-      loadDashboardData();
+      debouncedLoadData();
     },
-    onOrderUpdate: () => loadDashboardData(),
-    onOrderDelete: () => loadDashboardData(),
+    onOrderUpdate: () => debouncedLoadData(),
+    onOrderDelete: () => debouncedLoadData(),
   });
 
   // --- 3. GLOBAL SEARCH ---
@@ -656,17 +663,23 @@ const OwnerDashboard = () => {
 
             {/* --- TAB: PRODUCTS --- */}
             <TabsContent value="products" className="animate-in fade-in slide-in-from-bottom-5 duration-500">
-              <MenuManager />
+              <Suspense fallback={<div className="flex items-center justify-center h-48 text-muted-foreground">Loading...</div>}>
+                <MenuManager />
+              </Suspense>
             </TabsContent>
 
             {/* --- TAB: INVENTORY --- */}
             <TabsContent value="inventory" className="animate-in fade-in slide-in-from-bottom-5 duration-500">
-              <InventoryManager />
+              <Suspense fallback={<div className="flex items-center justify-center h-48 text-muted-foreground">Loading...</div>}>
+                <InventoryManager />
+              </Suspense>
             </TabsContent>
 
             {/* --- TAB: REPORTS --- */}
             <TabsContent value="reports" className="animate-in fade-in slide-in-from-bottom-5 duration-500">
-              <ReportsManager />
+              <Suspense fallback={<div className="flex items-center justify-center h-48 text-muted-foreground">Loading...</div>}>
+                <ReportsManager />
+              </Suspense>
             </TabsContent>
 
             {/* --- TAB: SETTINGS --- */}

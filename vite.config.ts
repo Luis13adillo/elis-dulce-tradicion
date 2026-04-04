@@ -21,47 +21,7 @@ export default defineConfig(({ mode }) => ({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'sitemap.xml'],
-      manifest: {
-        name: "Eli's Bakery Cafe",
-        short_name: "Eli's Bakery",
-        description: "Order custom cakes, traditional Mexican pastries, and fresh baked goods",
-        theme_color: '#f8cc4a',
-        background_color: '#1a1a1a',
-        display: 'standalone',
-        orientation: 'portrait',
-        scope: '/',
-        start_url: '/',
-        icons: [
-          {
-            src: '/pwa-icon-192.png',
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'any maskable'
-          },
-          {
-            src: '/pwa-icon-512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any maskable'
-          }
-        ],
-        shortcuts: [
-          {
-            name: 'Order Cake',
-            short_name: 'Order',
-            description: 'Place a new cake order',
-            url: '/order',
-            icons: [{ src: '/pwa-icon-192.png', sizes: '192x192' }]
-          },
-          {
-            name: 'Menu',
-            short_name: 'Menu',
-            description: 'View our menu',
-            url: '/menu',
-            icons: [{ src: '/pwa-icon-192.png', sizes: '192x192' }]
-          }
-        ]
-      },
+      manifest: false,
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [

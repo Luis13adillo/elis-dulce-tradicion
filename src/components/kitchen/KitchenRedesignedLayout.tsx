@@ -2,9 +2,31 @@ import { KitchenSidebar } from "./KitchenSidebar";
 import { cn } from "@/lib/utils";
 import { Search, Clock, Sun, Moon, Bell, RefreshCw, Volume2, VolumeX } from "lucide-react";
 import { format } from "date-fns";
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
+// Isolated clock — React.memo prevents 60s timer from re-rendering the entire layout
+const ClockDisplay = memo(({ darkMode }: { darkMode: boolean }) => {
+    const [currentTime, setCurrentTime] = useState(new Date());
+
+    useEffect(() => {
+        const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+        return () => clearInterval(timer);
+    }, []);
+
+    return (
+        <div className={cn(
+            "flex items-center gap-2 px-4 py-2 rounded-full shadow-sm transition-colors",
+            darkMode ? "bg-slate-800 text-slate-300" : "bg-white text-gray-500"
+        )}>
+            <Clock className="h-4 w-4" />
+            <span className="font-medium text-sm">
+                {format(currentTime, 'EEE, d MMM • h:mm a')}
+            </span>
+        </div>
+    );
+});
 
 interface KitchenRedesignedLayoutProps {
     children: React.ReactNode;
@@ -45,13 +67,6 @@ export function KitchenRedesignedLayout({
     onToggleSound,
     userName = 'Staff'
 }: KitchenRedesignedLayoutProps) {
-    const [currentTime, setCurrentTime] = useState(new Date());
-
-    useEffect(() => {
-        const timer = setInterval(() => setCurrentTime(new Date()), 60000);
-        return () => clearInterval(timer);
-    }, []);
-
     const isDarkMode = darkMode;
 
     return (
@@ -176,16 +191,8 @@ export function KitchenRedesignedLayout({
                             )}
                         </Button>
 
-                        {/* Time Display */}
-                        <div className={cn(
-                            "flex items-center gap-2 px-4 py-2 rounded-full shadow-sm transition-colors",
-                            isDarkMode ? "bg-slate-800 text-slate-300" : "bg-white text-gray-500"
-                        )}>
-                            <Clock className="h-4 w-4" />
-                            <span className="font-medium text-sm">
-                                {format(currentTime, 'EEE, d MMM • h:mm a')}
-                            </span>
-                        </div>
+                        {/* Time Display — isolated component, won't re-render siblings */}
+                        <ClockDisplay darkMode={isDarkMode} />
 
                         {/* User Profile */}
                         <Avatar className="h-10 w-10 border-2 border-white shadow-sm cursor-pointer">

@@ -117,6 +117,17 @@ class ApiClient extends BaseApiClient {
     }
 
     async createPaymentIntent(amount: number, metadata?: any) {
+        const apiUrl = import.meta.env.VITE_API_URL;
+        if (apiUrl) {
+            // In development, use local backend (test Stripe key)
+            const res = await fetch(`${apiUrl}/api/payments/create-intent`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount, currency: 'usd', metadata }),
+            });
+            if (!res.ok) throw new Error(await res.text());
+            return res.json();
+        }
         const sb = this.ensureSupabase();
         if (!sb) throw new Error('Supabase not available');
         const { data, error } = await sb.functions.invoke('create-payment-intent', { body: { amount, currency: 'usd', metadata } });

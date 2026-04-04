@@ -70,40 +70,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      // Create a timeout promise
-      const timeoutPromise = new Promise<{ timeout: true }>((resolve) => {
-        setTimeout(() => resolve({ timeout: true }), 5000); // 5s timeout to allow slow networks
-      });
-
-      // Race against the timeout
-      const profilePromise = getUserProfile(authUser.id);
-      const result = await Promise.race([profilePromise, timeoutPromise]);
-
-      if ((result as any).timeout) {
-        console.warn('Profile fetch timed out, using fallback');
+      const profile = await getUserProfile(authUser.id);
+      if (profile) {
+        setUser({
+          id: authUser.id,
+          email: authUser.email || '',
+          profile,
+        });
+        return profile;
+      } else {
         setUser({
           id: authUser.id,
           email: authUser.email || '',
           profile: null,
         });
         return null;
-      } else {
-        const profile = result as UserProfile | null;
-        if (profile) {
-          setUser({
-            id: authUser.id,
-            email: authUser.email || '',
-            profile,
-          });
-          return profile;
-        } else {
-          setUser({
-            id: authUser.id,
-            email: authUser.email || '',
-            profile: null,
-          });
-          return null;
-        }
       }
     } catch (error) {
       console.error('Error loading user profile:', error);

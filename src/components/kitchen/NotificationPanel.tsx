@@ -2,8 +2,9 @@ import { useMemo } from 'react';
 import { Order } from '@/types/order';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { parseISO, format } from 'date-fns';
-import { Bell, CheckCheck, AlertTriangle, Clock, CalendarDays, Inbox } from 'lucide-react';
+import { parseISO, format, formatDistanceToNow } from 'date-fns';
+import { Bell, CheckCheck, AlertTriangle, Clock, CalendarDays, Inbox, ShoppingBag, CheckCircle, Cog, Star, Truck, XCircle } from 'lucide-react';
+import { StatusChangeEvent } from '@/hooks/useOrdersFeed';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ interface NotificationPanelProps {
   markAsRead: (orderId: number) => void;
   markAllAsRead: (orderIds: number[]) => void;
   isUnread: (orderId: number) => boolean;
+  activityFeed: StatusChangeEvent[];
 }
 
 const ACTIVE_STATUSES = ['pending', 'confirmed', 'in_progress', 'ready'];
@@ -27,6 +29,17 @@ interface CategorizedOrder {
   order: Order;
   category: NotificationCategory;
 }
+
+const STATUS_META: Record<string, { icon: React.ReactNode; label: string; labelEs: string; color: string }> = {
+  pending:          { icon: <ShoppingBag className="h-3.5 w-3.5" />, label: 'New order',       labelEs: 'Nueva orden',        color: 'text-green-400' },
+  confirmed:        { icon: <CheckCircle className="h-3.5 w-3.5" />, label: 'Confirmed',        labelEs: 'Confirmada',         color: 'text-yellow-400' },
+  in_progress:      { icon: <Cog className="h-3.5 w-3.5" />,         label: 'Preparing',        labelEs: 'Preparando',         color: 'text-amber-400' },
+  ready:            { icon: <Star className="h-3.5 w-3.5" />,         label: 'Ready',            labelEs: 'Lista',              color: 'text-green-400' },
+  out_for_delivery: { icon: <Truck className="h-3.5 w-3.5" />,       label: 'Out for delivery', labelEs: 'En camino',          color: 'text-blue-400' },
+  delivered:        { icon: <CheckCircle className="h-3.5 w-3.5" />, label: 'Delivered',        labelEs: 'Entregada',          color: 'text-gray-400' },
+  completed:        { icon: <CheckCircle className="h-3.5 w-3.5" />, label: 'Completed',        labelEs: 'Completada',         color: 'text-gray-400' },
+  cancelled:        { icon: <XCircle className="h-3.5 w-3.5" />,     label: 'Cancelled',        labelEs: 'Cancelada',          color: 'text-red-400' },
+};
 
 export function NotificationPanel({
   isOpen,
@@ -37,8 +50,9 @@ export function NotificationPanel({
   markAsRead,
   markAllAsRead,
   isUnread,
+  activityFeed,
 }: NotificationPanelProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const { overdue, dueToday, upcoming, activeOrderIds, unreadCount } = useMemo(() => {
     const now = new Date();
@@ -184,7 +198,50 @@ export function NotificationPanel({
 
         {/* Body */}
         <ScrollArea className="flex-1 px-4 py-4">
-          {totalOrders === 0 ? (
+          {/* Recent Activity Feed */}
+          {activityFeed.length > 0 && (
+            <div className="mb-5">
+              <div className={cn('flex items-center gap-2 px-3 py-2 rounded-lg mb-2', darkMode ? 'bg-slate-700/50 text-slate-300' : 'bg-gray-100 text-gray-600')}>
+                <Clock className="h-4 w-4" />
+                <span className="font-semibold text-sm">{t('Actividad Reciente', 'Recent Activity')}</span>
+              </div>
+              <div className="space-y-1.5">
+                {activityFeed.slice(0, 8).map((event, idx) => {
+                  const meta = STATUS_META[event.toStatus];
+                  const statusLabel = meta
+                    ? (language === 'es' ? meta.labelEs : meta.label)
+                    : event.toStatus;
+                  return (
+                    <div
+                      key={`${event.orderId}-${idx}`}
+                      className={cn(
+                        'flex items-start gap-2.5 px-3 py-2 rounded-lg text-xs',
+                        darkMode ? 'bg-slate-800/60 text-slate-300' : 'bg-white border border-gray-100 text-gray-600'
+                      )}
+                    >
+                      <span className={cn('mt-0.5 flex-shrink-0', meta?.color ?? 'text-gray-400')}>
+                        {meta?.icon ?? <Clock className="h-3.5 w-3.5" />}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <span className={cn('font-medium', darkMode ? 'text-white' : 'text-gray-800')}>
+                          {event.customerName}
+                        </span>
+                        {' '}
+                        <span className="opacity-70">#{event.orderNumber}</span>
+                        {' — '}
+                        <span className={meta?.color ?? ''}>{statusLabel}</span>
+                      </div>
+                      <span className={cn('flex-shrink-0 opacity-50 whitespace-nowrap', darkMode ? 'text-slate-400' : 'text-gray-400')}>
+                        {formatDistanceToNow(event.timestamp, { addSuffix: true })}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {totalOrders === 0 && activityFeed.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <Inbox className={cn('h-12 w-12 mb-3', darkMode ? 'text-slate-600' : 'text-gray-300')} />
               <p className={cn('text-sm font-medium', darkMode ? 'text-slate-400' : 'text-gray-500')}>
@@ -194,7 +251,7 @@ export function NotificationPanel({
                 {t('Las nuevas órdenes aparecerán aquí', 'New orders will appear here')}
               </p>
             </div>
-          ) : (
+          ) : totalOrders === 0 ? null : (
             <>
               {renderSection(
                 t('Atrasadas', 'Overdue'),

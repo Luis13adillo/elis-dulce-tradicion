@@ -249,14 +249,10 @@ export class OrdersApi extends BaseApiClient {
         const sb = this.ensureSupabase();
         if (!sb) return { verified: false, orderNumber: '' };
 
-        const { data, error } = await sb
-            .from('orders')
-            .select('order_number')
-            .eq('stripe_payment_id', paymentId)
-            .single();
+        const { data, error } = await sb.rpc('verify_stripe_payment', { p_payment_id: paymentId });
 
         if (error || !data) return { verified: false, orderNumber: '' };
-        return { verified: true, orderNumber: data.order_number };
+        return { verified: data.verified, orderNumber: data.order_number };
     }
 
     async searchOrders(query: string) {

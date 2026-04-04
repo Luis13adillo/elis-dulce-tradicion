@@ -6,6 +6,15 @@ import { UserRole } from '@/types/auth';
 import { useRealtimeOrders } from './useRealtimeOrders';
 import { useAuth } from '@/contexts/AuthContext';
 
+export interface StatusChangeEvent {
+  orderId: number;
+  orderNumber: string;
+  customerName: string;
+  fromStatus: string;
+  toStatus: string;
+  timestamp: Date;
+}
+
 const SLASH = String.fromCharCode(47);
 
 export const useOrdersFeed = (role?: UserRole, options?: { soundEnabled?: boolean }) => {
@@ -15,6 +24,7 @@ export const useOrdersFeed = (role?: UserRole, options?: { soundEnabled?: boolea
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [latestOrder, setLatestOrder] = useState<Order | null>(null);
   const [newOrderAlert, setNewOrderAlert] = useState(false);
+  const [activityFeed, setActivityFeed] = useState<StatusChangeEvent[]>([]);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const ordersMapRef = useRef<Map<number, Order>>(new Map());
@@ -74,10 +84,29 @@ export const useOrdersFeed = (role?: UserRole, options?: { soundEnabled?: boolea
       }
       return updated;
     });
+    setActivityFeed(prev => [{
+      orderId: newOrder.id,
+      orderNumber: newOrder.order_number,
+      customerName: newOrder.customer_name,
+      fromStatus: '',
+      toStatus: 'pending',
+      timestamp: new Date(),
+    }, ...prev].slice(0, 20));
   }, [isAdmin, options?.soundEnabled]);
 
   const handleOrderUpdate = useCallback((updatedOrder: Order) => {
     setOrders((prev) => {
+      const prevOrder = ordersMapRef.current.get(updatedOrder.id);
+      if (prevOrder && prevOrder.status !== updatedOrder.status) {
+        setActivityFeed(feed => [{
+          orderId: updatedOrder.id,
+          orderNumber: updatedOrder.order_number,
+          customerName: updatedOrder.customer_name,
+          fromStatus: prevOrder.status,
+          toStatus: updatedOrder.status,
+          timestamp: new Date(),
+        }, ...feed].slice(0, 20));
+      }
       const index = prev.findIndex((o) => o.id === updatedOrder.id);
       if (index === -1) {
         ordersMapRef.current.set(updatedOrder.id, updatedOrder);
@@ -88,6 +117,16 @@ export const useOrdersFeed = (role?: UserRole, options?: { soundEnabled?: boolea
       updated[index] = updatedOrder;
       return updated;
     });
+  }, []);
+
+  const updateOrderOptimistically = useCallback((orderId: number, newStatus: string) => {
+    setOrders(prev => prev.map(o =>
+      o.id === orderId ? { ...o, status: newStatus as Order['status'] } : o
+    ));
+    const existing = ordersMapRef.current.get(orderId);
+    if (existing) {
+      ordersMapRef.current.set(orderId, { ...existing, status: newStatus as Order['status'] });
+    }
   }, []);
 
   const handleOrderDelete = useCallback((deletedOrder: Order) => {
@@ -137,7 +176,9 @@ export const useOrdersFeed = (role?: UserRole, options?: { soundEnabled?: boolea
     isConnected,
     isConnecting,
     connectionError,
-    reconnect
+    reconnect,
+    updateOrderOptimistically,
+    activityFeed,
   };
 };
 

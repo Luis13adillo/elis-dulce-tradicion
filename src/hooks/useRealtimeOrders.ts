@@ -3,7 +3,6 @@ import { supabase } from '@/lib/supabase';
 import { Order } from '@/types/order';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { useAuth } from '@/contexts/AuthContext';
-import { UserRole } from '@/types/auth';
 
 export interface RealtimeOrderEvent {
   type: 'INSERT' | 'UPDATE' | 'DELETE';
@@ -40,6 +39,7 @@ export function useRealtimeOrders(
   const channelRef = useRef<RealtimeChannel | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastUpdateRef = useRef<Map<number, number>>(new Map());
+  const reconnectAttemptsRef = useRef(0);
   const debounceMs = options.debounceMs || 300;
 
   const {
@@ -48,6 +48,16 @@ export function useRealtimeOrders(
     onOrderDelete,
     filterByUserId = false,
   } = options;
+
+  // Stable refs for callbacks — decouples them from the subscription effect
+  // so the channel doesn't unsubscribe/resubscribe on every parent render
+  const insertCallbackRef = useRef(onOrderInsert);
+  const updateCallbackRef = useRef(onOrderUpdate);
+  const deleteCallbackRef = useRef(onOrderDelete);
+
+  useEffect(() => { insertCallbackRef.current = onOrderInsert; }, [onOrderInsert]);
+  useEffect(() => { updateCallbackRef.current = onOrderUpdate; }, [onOrderUpdate]);
+  useEffect(() => { deleteCallbackRef.current = onOrderDelete; }, [onOrderDelete]);
 
   // Debounce function
   const debounce = useCallback(
@@ -80,10 +90,13 @@ export function useRealtimeOrders(
     setIsConnecting(true);
     setConnectionError(null);
 
-    // Increment trigger after delay to force useEffect to recreate the channel
+    // Exponential backoff: 1s, 2s, 4s, 8s, 16s, capped at 30s
+    const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
+    reconnectAttemptsRef.current += 1;
+
     reconnectTimeoutRef.current = setTimeout(() => {
       setReconnectTrigger(t => t + 1);
-    }, 1000);
+    }, delay);
   }, []);
 
   useEffect(() => {
@@ -142,12 +155,12 @@ export function useRealtimeOrders(
           // Debounce rapid updates
           debounce(order.id, () => {
             if (payload.eventType === 'INSERT') {
-              onOrderInsert?.(order);
+              insertCallbackRef.current?.(order);
             } else if (payload.eventType === 'UPDATE') {
               const oldOrder = payload.old as Order;
-              onOrderUpdate?.(order, oldOrder);
+              updateCallbackRef.current?.(order, oldOrder);
             } else if (payload.eventType === 'DELETE') {
-              onOrderDelete?.(order);
+              deleteCallbackRef.current?.(order);
             }
           });
         }
@@ -155,6 +168,7 @@ export function useRealtimeOrders(
       .subscribe((status) => {
         setIsConnecting(false);
         if (status === 'SUBSCRIBED') {
+          reconnectAttemptsRef.current = 0; // Reset backoff on successful connect
           setIsConnected(true);
           setConnectionError(null);
         } else if (status === 'CHANNEL_ERROR') {
@@ -184,7 +198,9 @@ export function useRealtimeOrders(
       setIsConnected(false);
       setIsConnecting(false);
     };
-  }, [user?.id, filterByUserId, onOrderInsert, onOrderUpdate, onOrderDelete, debounce, reconnect, reconnectTrigger]);
+    // Callbacks intentionally omitted — accessed via stable refs above
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, filterByUserId, debounce, reconnect, reconnectTrigger]);
 
   return {
     isConnected,

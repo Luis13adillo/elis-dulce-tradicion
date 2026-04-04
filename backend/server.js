@@ -80,8 +80,13 @@ app.use(validateInput);
 // Webhooks use raw body + Stripe signature, not JSON, so must be registered before body parser
 // The doubleCsrfProtection middleware only applies to POST/PUT/PATCH/DELETE
 app.use((req, res, next) => {
-  // Exclude webhook routes from CSRF
-  if (req.path.startsWith('/api/v1/webhooks') || req.path.startsWith('/api/webhooks')) {
+  // Exclude webhook and payment intent routes from CSRF
+  if (
+    req.path.startsWith('/api/v1/webhooks') ||
+    req.path.startsWith('/api/webhooks') ||
+    req.path === '/api/payments/create-intent' ||
+    req.path === '/api/v1/payments/create-intent'
+  ) {
     return next();
   }
   return doubleCsrfProtection(req, res, next);

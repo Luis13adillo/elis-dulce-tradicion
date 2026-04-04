@@ -1,3 +1,4 @@
+import { memo, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Order } from "@/types/order";
@@ -8,7 +9,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 interface ModernOrderCardProps {
     order: Order;
-    onAction: (orderId: number, action: 'confirm' | 'start' | 'ready' | 'delivery' | 'complete') => void;
+    onAction: (orderId: number, action: 'confirm' | 'start' | 'ready' | 'delivery' | 'complete' | 'markDelivered') => void;
     onShowDetails?: (order: Order) => void;
     onCancel?: (order: Order) => void;
     isReadOnly?: boolean;
@@ -16,7 +17,7 @@ interface ModernOrderCardProps {
     variant?: 'default' | 'dark';
 }
 
-export function ModernOrderCard({
+export const ModernOrderCard = memo(function ModernOrderCard({
     order,
     onAction,
     onShowDetails,
@@ -27,17 +28,18 @@ export function ModernOrderCard({
 }: ModernOrderCardProps) {
     const { t } = useLanguage();
 
-    // Calculate urgency / elapsed time
-    const getUrgency = () => {
+    // Memoize urgency — avoid re-parsing ISO strings on every render
+    const urgencyMinutes = useMemo(() => {
         try {
             const dueDateTime = parseISO(`${order.date_needed}T${order.time_needed}`);
-            const now = new Date();
-            const minutesUntilDue = differenceInMinutes(dueDateTime, now);
-            return minutesUntilDue;
+            return differenceInMinutes(dueDateTime, new Date());
         } catch {
             return 0;
         }
-    };
+    }, [order.date_needed, order.time_needed]);
+
+    // Keep a stable function reference for JSX that still calls the memoized value
+    const getUrgency = () => urgencyMinutes;
 
     // Status color mapping
     const getStatusColor = (status: string) => {
@@ -51,6 +53,7 @@ export function ModernOrderCard({
                     : 'bg-green-500 text-white hover:bg-green-600'; // "Pickup"
             case 'out_for_delivery': return 'bg-blue-600 text-white hover:bg-blue-700';
             case 'delivered': return 'bg-gray-500 text-white';
+            case 'completed': return 'bg-gray-400 text-white';
             default: return 'bg-gray-200 text-gray-700';
         }
     };
@@ -62,7 +65,8 @@ export function ModernOrderCard({
             case 'in_progress': return t('Preparando', 'Preparing');
             case 'ready': return order.delivery_option === 'delivery' ? t('Entrega', 'Delivery') : t('Recoger', 'Pickup');
             case 'out_for_delivery': return t('En Camino', 'On Way');
-            case 'delivered': return t('Completada', 'Done');
+            case 'delivered': return t('Entregada', 'Delivered');
+            case 'completed': return t('Completada', 'Done');
             default: return status;
         }
     };
@@ -105,6 +109,12 @@ export function ModernOrderCard({
             actionButton = (
                 <Button onClick={() => onAction(order.id, order.delivery_option === 'delivery' ? 'delivery' : 'complete')} className="flex-1 bg-orange-500 text-white hover:bg-orange-600 rounded-xl h-10">
                     {order.delivery_option === 'delivery' ? t('Enviar Repartidor', 'Dispatch Driver') : t('Completar Recoger', 'Complete Pickup')}
+                </Button>
+            );
+        } else if (order.status === 'out_for_delivery') {
+            actionButton = (
+                <Button onClick={() => onAction(order.id, 'markDelivered')} className="flex-1 bg-blue-600 text-white hover:bg-blue-700 rounded-xl h-10">
+                    {t('Marcar Entregada', 'Mark Delivered')}
                 </Button>
             );
         }
@@ -306,4 +316,4 @@ export function ModernOrderCard({
             </div>
         </div>
     );
-}
+});

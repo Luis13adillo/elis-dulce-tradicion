@@ -11,7 +11,7 @@ export const queryClient = new QueryClient({
       staleTime: 1000 * 60 * 5, // 5 minutes - data is fresh for 5 min
       gcTime: 1000 * 60 * 30, // 30 minutes - cache garbage collection (formerly cacheTime)
       refetchOnWindowFocus: false, // Don't refetch on window focus (better UX)
-      refetchOnMount: true, // Refetch when component mounts
+      refetchOnMount: false, // Data is fresh for 5 min — don't double-fetch on mount
       refetchOnReconnect: true, // Refetch when network reconnects
       retry: 1, // Retry failed requests once
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
