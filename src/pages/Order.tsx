@@ -4,7 +4,6 @@ import { Loader2, AlertCircle, ChevronRight, ChevronLeft } from 'lucide-react';
 import logoImage from '@/assets/brand/logo.png';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
-import { validateOrderDateTimeComplete } from '@/lib/validation';
 import { useNavigate } from 'react-router-dom';
 import { uploadReferenceImage } from '@/lib/storage';
 import { isValidImageType, isValidFileSize, compressImage } from '@/lib/imageCompression';
@@ -204,9 +203,12 @@ const Order = () => {
 
   // Fetch order form options from DB on mount
   useEffect(() => {
-    api.getOrderFormOptions()
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), 8000)
+    );
+    Promise.race([api.getOrderFormOptions(), timeout])
       .then((options) => {
-        setOrderOptions(options);
+        setOrderOptions(options as Awaited<ReturnType<typeof api.getOrderFormOptions>>);
       })
       .catch(() => {
         toast.warning(
@@ -227,27 +229,27 @@ const Order = () => {
     price: s.price,
     serves: s.serves,
     featured: s.featured,
-  })) ?? FALLBACK_CAKE_SIZES;
+  })) || FALLBACK_CAKE_SIZES;
 
   const activeBreadTypes = orderOptions?.breadTypes.map(b => ({
     value: b.value,
     label: b.label_en,
     desc: b.description,
-  })) ?? FALLBACK_BREAD_TYPES;
+  })) || FALLBACK_BREAD_TYPES;
 
   const activeFillings = orderOptions?.fillings.map(f => ({
     value: f.value,
     label: f.label_en,
     sub: f.sub_label,
     premium: f.is_premium,
-  })) ?? FALLBACK_FILLINGS;
+  })) || FALLBACK_FILLINGS;
 
   const activePremiumOptions = orderOptions?.premiumUpcharges.map(u => ({
     value: u.size_value,
     label: u.label_en,
     labelEs: u.label_es,
     upcharge: u.upcharge,
-  })) ?? FALLBACK_PREMIUM_FILLING_OPTIONS;
+  })) || FALLBACK_PREMIUM_FILLING_OPTIONS;
 
   const { pricingBreakdown, isLoading: isCalculatingPrice } = useOptimizedPricing({
     size: formData.cakeSize,
@@ -411,12 +413,6 @@ const Order = () => {
       const syncError = validateDateTimeStep(formData.dateNeeded, formData.timeNeeded, t);
       if (syncError) {
         setValidationError(syncError);
-        return false;
-      }
-      // Also run async full validation
-      const validation = await validateOrderDateTimeComplete(formData.dateNeeded, formData.timeNeeded);
-      if (!validation.isValid) {
-        setValidationError(validation.errors.join(', '));
         return false;
       }
     }
