@@ -4,7 +4,7 @@ import Footer from '@/components/Footer';
 import HeroSection from '@/components/home/HeroSection';
 import AboutSection from '@/components/home/AboutSection';
 import CustomCakeBanner from '@/components/home/CustomCakeBanner';
-import FeaturedProducts from '@/components/home/FeaturedProducts';
+import InstagramReelsSection from '@/components/home/InstagramReelsSection';
 import CakeSection from '@/components/home/CakeSection';
 
 import { VisitUs } from '@/components/home/VisitUs';
@@ -56,7 +56,7 @@ const Index = () => {
       <HeroSection />
       <AboutSection />
       <CustomCakeBanner />
-      <FeaturedProducts />
+      <InstagramReelsSection />
       <CakeSection />
       <TestimonialCarousel />
       <VisitUs />

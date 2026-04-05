@@ -412,9 +412,9 @@ const FrontDesk = () => {
 
     if (activeView === 'upcoming') {
       return (
-        <div className="flex flex-col h-full overflow-hidden">
+        <div className={cn("flex flex-col h-full overflow-hidden", isDarkMode ? 'dark' : '')}>
           <div className="flex-none pb-4">
-            <TodayScheduleSummary orders={orders} />
+            <TodayScheduleSummary orders={orders} darkMode={isDarkMode} />
           </div>
           <div className="flex-1 overflow-hidden">
             <OrderScheduler
@@ -434,6 +434,7 @@ const FrontDesk = () => {
             orders={orders}
             onOrderClick={(order) => setSelectedOrder(order)}
             maxDailyCapacity={maxDailyCapacity}
+            darkMode={isDarkMode}
           />
         </div>
       );

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { format, startOfWeek, addDays, isSameDay, startOfMonth, endOfMonth, getDay, addMonths, set, isSameMonth } from 'date-fns';
+import { format, startOfWeek, addDays, isSameDay, startOfMonth, endOfMonth, addMonths, set, isSameMonth } from 'date-fns';
 import { enUS, es } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ChevronLeft, ChevronRight, Clock } from 'lucide-react';
@@ -14,11 +14,12 @@ interface OwnerCalendarProps {
     businessStartHour?: number;
     businessEndHour?: number;
     maxDailyCapacity?: number;
+    darkMode?: boolean;
 }
 
 type ViewMode = 'Month' | 'Week' | 'Day';
 
-export function OwnerCalendar({ orders, onOrderClick, businessStartHour, businessEndHour, maxDailyCapacity }: OwnerCalendarProps) {
+export function OwnerCalendar({ orders, onOrderClick, businessStartHour, businessEndHour, maxDailyCapacity, darkMode = false }: OwnerCalendarProps) {
     const { t, language } = useLanguage();
     const locale = language === 'es' ? es : enUS;
 
@@ -111,7 +112,6 @@ export function OwnerCalendar({ orders, onOrderClick, businessStartHour, busines
         const weeks: Date[][] = [];
         let day = calendarStart;
 
-        // Generate enough weeks to cover the month
         for (let w = 0; w < 6; w++) {
             const week: Date[] = [];
             for (let d = 0; d < 7; d++) {
@@ -119,7 +119,6 @@ export function OwnerCalendar({ orders, onOrderClick, businessStartHour, busines
                 day = addDays(day, 1);
             }
             weeks.push(week);
-            // Stop if we've passed the end of the month and finished the week
             if (day > monthEnd && w >= 3) break;
         }
 
@@ -139,16 +138,25 @@ export function OwnerCalendar({ orders, onOrderClick, businessStartHour, busines
             });
     }, [orders, currentDate, startHour]);
 
+    // Dark mode color helpers
+    const bg = darkMode ? "bg-[#1f2937]" : "bg-white";
+    const deepBg = darkMode ? "bg-[#13141f]" : "bg-[#FAFAFA]";
+    const border = darkMode ? "border-slate-700" : "border-gray-100";
+    const divideColor = darkMode ? "divide-slate-700" : "divide-gray-100";
+    const titleColor = darkMode ? "text-white" : "text-gray-900";
+    const mutedText = darkMode ? "text-slate-400" : "text-gray-500";
+    const subText = darkMode ? "text-slate-500" : "text-gray-400";
+
     return (
-        <div className="flex flex-col h-full bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden font-sans">
+        <div className={cn("flex flex-col h-full rounded-2xl shadow-sm border overflow-hidden font-sans transition-colors duration-300", bg, border)}>
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-100 bg-white sticky top-0 z-20">
+            <div className={cn("flex items-center justify-between p-6 border-b sticky top-0 z-20 transition-colors", bg, border)}>
                 <div className="flex items-center gap-6">
-                    <h2 className="text-2xl font-bold text-gray-900 tracking-tight first-letter:capitalize">
+                    <h2 className={cn("text-2xl font-bold tracking-tight first-letter:capitalize", titleColor)}>
                         {format(currentDate, viewMode === 'Day' ? 'EEEE, MMMM d, yyyy' : 'MMMM, yyyy', { locale })}
                     </h2>
 
-                    <div className="flex bg-gray-100 rounded-lg p-1">
+                    <div className={cn("flex rounded-lg p-1", darkMode ? "bg-slate-700" : "bg-gray-100")}>
                         {(['Month', 'Week', 'Day'] as ViewMode[]).map(mode => (
                             <button
                                 key={mode}
@@ -156,8 +164,8 @@ export function OwnerCalendar({ orders, onOrderClick, businessStartHour, busines
                                 className={cn(
                                     "px-4 py-1.5 text-sm font-medium rounded-md transition-all",
                                     viewMode === mode
-                                        ? "bg-white text-gray-900 shadow-sm"
-                                        : "text-gray-500 hover:text-gray-900"
+                                        ? darkMode ? "bg-slate-600 text-white shadow-sm" : "bg-white text-gray-900 shadow-sm"
+                                        : darkMode ? "text-slate-400 hover:text-white" : "text-gray-500 hover:text-gray-900"
                                 )}
                             >
                                 {t(mode === 'Month' ? 'Mes' : mode === 'Week' ? 'Semana' : 'Día', mode)}
@@ -167,14 +175,28 @@ export function OwnerCalendar({ orders, onOrderClick, businessStartHour, busines
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200">
-                        <Button variant="ghost" size="icon" onClick={() => navigate('prev')} className="hover:bg-white rounded-l-lg text-gray-600">
+                    <div className={cn("flex items-center rounded-lg border", darkMode ? "bg-slate-700 border-slate-600" : "bg-gray-50 border-gray-200")}>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => navigate('prev')}
+                            className={cn("hover:bg-opacity-80 rounded-l-lg", darkMode ? "text-slate-300 hover:bg-slate-600" : "text-gray-600 hover:bg-white")}
+                        >
                             <ChevronLeft className="h-5 w-5" />
                         </Button>
-                        <Button variant="ghost" onClick={() => setCurrentDate(new Date())} className="px-4 font-medium text-gray-700 hover:bg-white border-x border-gray-200 rounded-none h-9">
+                        <Button
+                            variant="ghost"
+                            onClick={() => setCurrentDate(new Date())}
+                            className={cn("px-4 font-medium border-x rounded-none h-9", darkMode ? "text-slate-300 border-slate-600 hover:bg-slate-600" : "text-gray-700 border-gray-200 hover:bg-white")}
+                        >
                             {t('Hoy', 'Today')}
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => navigate('next')} className="hover:bg-white rounded-r-lg text-gray-600">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => navigate('next')}
+                            className={cn("hover:bg-opacity-80 rounded-r-lg", darkMode ? "text-slate-300 hover:bg-slate-600" : "text-gray-600 hover:bg-white")}
+                        >
                             <ChevronRight className="h-5 w-5" />
                         </Button>
                     </div>
@@ -183,11 +205,11 @@ export function OwnerCalendar({ orders, onOrderClick, businessStartHour, busines
 
             {/* --- MONTH VIEW --- */}
             {viewMode === 'Month' && (
-                <div className="flex-1 overflow-auto p-4">
+                <div className={cn("flex-1 overflow-auto p-4", deepBg)}>
                     {/* Day-of-week headers */}
                     <div className="grid grid-cols-7 gap-1 mb-2">
                         {[1, 2, 3, 4, 5, 6, 0].map(dow => (
-                            <div key={dow} className="text-center text-xs font-semibold text-gray-400 uppercase py-2">
+                            <div key={dow} className={cn("text-center text-xs font-semibold uppercase py-2", subText)}>
                                 {format(addDays(startOfWeek(new Date(), { weekStartsOn: 1 }), dow === 0 ? 6 : dow - 1), 'EEE', { locale })}
                             </div>
                         ))}
@@ -215,25 +237,29 @@ export function OwnerCalendar({ orders, onOrderClick, businessStartHour, busines
                                             onClick={() => setExpandedDate(isExpanded ? null : dateKey)}
                                             className={cn(
                                                 "relative min-h-[80px] p-2 rounded-xl border transition-all text-left hover:border-[#C6A649]/40",
-                                                isCurrentMonth ? "bg-white border-gray-100" : "bg-gray-50/50 border-transparent",
-                                                isToday && "ring-2 ring-[#C6A649]/30",
+                                                isCurrentMonth
+                                                    ? darkMode ? "bg-[#1f2937] border-slate-700" : "bg-white border-gray-100"
+                                                    : darkMode ? "bg-[#13141f] border-transparent" : "bg-gray-50/50 border-transparent",
+                                                isToday && (darkMode ? "ring-2 ring-[#C6A649]/40" : "ring-2 ring-[#C6A649]/30"),
                                                 isPast && "opacity-40",
-                                                isExpanded && "bg-amber-50 border-amber-200"
+                                                isExpanded && (darkMode ? "bg-[#C6A649]/10 border-[#C6A649]/30" : "bg-amber-50 border-amber-200")
                                             )}
                                         >
                                             <span className={cn(
                                                 "text-sm font-bold",
-                                                isToday ? "text-[#C6A649]" : isCurrentMonth ? "text-gray-900" : "text-gray-300"
+                                                isToday ? "text-[#C6A649]" :
+                                                isCurrentMonth ? (darkMode ? "text-slate-200" : "text-gray-900") :
+                                                darkMode ? "text-slate-600" : "text-gray-300"
                                             )}>
                                                 {format(day, 'd')}
                                             </span>
                                             {counts && counts.total > 0 && (
                                                 <div className="mt-1 space-y-0.5">
-                                                    <span className="text-xs font-bold text-gray-600">
+                                                    <span className={cn("text-xs font-bold", darkMode ? "text-slate-400" : "text-gray-600")}>
                                                         {counts.total} {counts.total === 1 ? t('pedido', 'order') : t('pedidos', 'orders')}
                                                     </span>
                                                     {maxDailyCapacity && (
-                                                        <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                                        <div className={cn("w-full rounded-full h-1.5", darkMode ? "bg-slate-700" : "bg-gray-200")}>
                                                             <div
                                                                 className={cn('h-1.5 rounded-full transition-all', barColor)}
                                                                 style={{ width: `${fillPct}%` }}
@@ -251,23 +277,30 @@ export function OwnerCalendar({ orders, onOrderClick, businessStartHour, busines
 
                     {/* Expanded Day Order Panel */}
                     {expandedDate && (() => {
-                        const dayOrders = orders.filter(o => o.date_needed === expandedDate);
-                        if (dayOrders.length === 0) return null;
+                        const panelOrders = orders.filter(o => o.date_needed === expandedDate);
+                        if (panelOrders.length === 0) return null;
                         return (
-                            <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                                <h4 className="text-sm font-bold text-gray-700 mb-3">
-                                    {format(new Date(expandedDate + 'T12:00:00'), 'MMMM d', { locale })} — {dayOrders.length} {t('pedidos', 'orders')}
+                            <div className={cn("mt-4 p-4 rounded-xl border", darkMode ? "bg-[#1f2937] border-slate-700" : "bg-gray-50 border-gray-200")}>
+                                <h4 className={cn("text-sm font-bold mb-3", darkMode ? "text-slate-300" : "text-gray-700")}>
+                                    {format(new Date(expandedDate + 'T12:00:00'), 'MMMM d', { locale })} — {panelOrders.length} {t('pedidos', 'orders')}
                                 </h4>
                                 <div className="space-y-2">
-                                    {dayOrders.map(order => (
+                                    {panelOrders.map(order => (
                                         <div
                                             key={order.id}
-                                            className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100 cursor-pointer hover:border-[#C6A649] transition-colors"
+                                            className={cn(
+                                                "flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:border-[#C6A649] transition-colors",
+                                                darkMode ? "bg-[#13141f] border-slate-700" : "bg-white border-gray-100"
+                                            )}
                                             onClick={() => onOrderClick?.(order)}
                                         >
                                             <div>
-                                                <p className="text-sm font-semibold text-gray-800">{order.customer_name}</p>
-                                                <p className="text-xs text-gray-500">{order.time_needed} · {order.cake_size} · {order.filling}</p>
+                                                <p className={cn("text-sm font-semibold", darkMode ? "text-white" : "text-gray-800")}>
+                                                    {order.customer_name}
+                                                </p>
+                                                <p className={cn("text-xs", darkMode ? "text-slate-400" : "text-gray-500")}>
+                                                    {order.time_needed} · {order.cake_size} · {order.filling}
+                                                </p>
                                             </div>
                                             <span className={cn(
                                                 "text-xs px-2 py-0.5 rounded-full font-medium",
@@ -288,14 +321,14 @@ export function OwnerCalendar({ orders, onOrderClick, businessStartHour, busines
 
             {/* --- WEEK VIEW --- */}
             {viewMode === 'Week' && (
-                <div className="flex-1 overflow-auto bg-[#FAFAFA]">
-                    <div className="flex min-w-[800px]">
+                <div className={cn("flex-1 overflow-auto", deepBg)}>
+                    <div className={cn("flex min-w-[800px] divide-x", divideColor)}>
                         {/* Time Axis (Left) */}
-                        <div className="w-16 flex-shrink-0 bg-white border-r border-gray-100 sticky left-0 z-10">
-                            <div className="h-20 border-b border-gray-100" />
+                        <div className={cn("w-16 flex-shrink-0 border-r sticky left-0 z-10", bg, border)}>
+                            <div className={cn("h-20 border-b", border)} />
                             {timeSlots.map(hour => (
                                 <div key={hour} className="h-20 border-b border-transparent relative flex justify-center">
-                                    <span className="text-xs font-medium text-gray-400 absolute -top-2 bg-[#FAFAFA] px-1">
+                                    <span className={cn("text-xs font-medium absolute -top-2 px-1", subText, deepBg)}>
                                         {format(set(new Date(), { hours: hour }), 'h aa')}
                                     </span>
                                 </div>
@@ -303,21 +336,23 @@ export function OwnerCalendar({ orders, onOrderClick, businessStartHour, busines
                         </div>
 
                         {/* Columns (Days) */}
-                        <div className="flex-1 grid grid-cols-7 divide-x divide-gray-100">
+                        <div className={cn("flex-1 grid grid-cols-7 divide-x", divideColor)}>
                             {weekDays.map(day => {
                                 const isToday = isSameDay(day, new Date());
                                 const dayOrd = getDayOrders(day);
 
                                 return (
-                                    <div key={day.toISOString()} className="flex flex-col min-w-[120px] bg-white group">
+                                    <div key={day.toISOString()} className={cn("flex flex-col min-w-[120px] group", bg)}>
                                         {/* Column Header */}
                                         <div className={cn(
-                                            "h-20 p-3 flex flex-col items-center justify-center border-b border-gray-100 sticky top-0 bg-white z-10",
-                                            isToday && "bg-orange-50/50"
+                                            "h-20 p-3 flex flex-col items-center justify-center border-b sticky top-0 z-10",
+                                            border,
+                                            bg,
+                                            isToday && (darkMode ? "bg-[#C6A649]/10" : "bg-orange-50/50")
                                         )}>
                                             <span className={cn(
                                                 "text-xs font-medium mb-1",
-                                                isToday ? "text-[#C6A649]" : "text-gray-500"
+                                                isToday ? "text-[#C6A649]" : mutedText
                                             )}>
                                                 {format(day, 'EEEE', { locale })}
                                             </span>
@@ -325,16 +360,18 @@ export function OwnerCalendar({ orders, onOrderClick, businessStartHour, busines
                                                 "h-10 w-10 flex items-center justify-center rounded-full text-xl font-bold transition-all",
                                                 isToday
                                                     ? "bg-[#C6A649] text-white shadow-md shadow-[#C6A649]/20"
-                                                    : "text-gray-900 group-hover:bg-gray-50"
+                                                    : darkMode
+                                                        ? "text-slate-200 group-hover:bg-slate-700"
+                                                        : "text-gray-900 group-hover:bg-gray-50"
                                             )}>
                                                 {format(day, 'd')}
                                             </div>
                                         </div>
 
                                         {/* Order Blocks Grid */}
-                                        <div className="flex-1 relative bg-white">
+                                        <div className={cn("flex-1 relative", bg)}>
                                             {timeSlots.map(hour => (
-                                                <div key={hour} className="h-20 border-b border-gray-50" />
+                                                <div key={hour} className={cn("h-20 border-b", darkMode ? "border-slate-800" : "border-gray-50")} />
                                             ))}
                                             {dayOrd.map(({ order, top, height }) => (
                                                 <motion.div
@@ -369,13 +406,13 @@ export function OwnerCalendar({ orders, onOrderClick, businessStartHour, busines
 
             {/* --- DAY VIEW --- */}
             {viewMode === 'Day' && (
-                <div className="flex-1 overflow-auto bg-[#FAFAFA]">
+                <div className={cn("flex-1 overflow-auto", deepBg)}>
                     <div className="flex min-w-[400px]">
                         {/* Time Axis */}
-                        <div className="w-16 flex-shrink-0 bg-white border-r border-gray-100 sticky left-0 z-10">
+                        <div className={cn("w-16 flex-shrink-0 border-r sticky left-0 z-10", bg, border)}>
                             {timeSlots.map(hour => (
                                 <div key={hour} className="h-20 border-b border-transparent relative flex justify-center">
-                                    <span className="text-xs font-medium text-gray-400 absolute -top-2 bg-[#FAFAFA] px-1">
+                                    <span className={cn("text-xs font-medium absolute -top-2 px-1", subText, deepBg)}>
                                         {format(set(new Date(), { hours: hour }), 'h aa')}
                                     </span>
                                 </div>
@@ -383,9 +420,9 @@ export function OwnerCalendar({ orders, onOrderClick, businessStartHour, busines
                         </div>
 
                         {/* Single Day Column */}
-                        <div className="flex-1 relative bg-white">
+                        <div className={cn("flex-1 relative", bg)}>
                             {timeSlots.map(hour => (
-                                <div key={hour} className="h-20 border-b border-gray-50" />
+                                <div key={hour} className={cn("h-20 border-b", darkMode ? "border-slate-800" : "border-gray-50")} />
                             ))}
                             {dayOrders.map(({ order, top, height }) => (
                                 <motion.div
@@ -411,7 +448,7 @@ export function OwnerCalendar({ orders, onOrderClick, businessStartHour, busines
                                 </motion.div>
                             ))}
                             {dayOrders.length === 0 && (
-                                <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
+                                <div className={cn("absolute inset-0 flex items-center justify-center text-sm", subText)}>
                                     {t('Sin pedidos para este día', 'No orders for this day')}
                                 </div>
                             )}
