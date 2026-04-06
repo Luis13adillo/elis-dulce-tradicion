@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { Resend } from "npm:resend@^4.0.0";
-import { getBusinessInfo } from "../_shared/emailTemplates.ts";
+import { buildEmailHtml, getBusinessInfo } from "../_shared/emailTemplates.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -10,6 +10,7 @@ const CRON_SECRET = Deno.env.get("CRON_SECRET");
 const FROM_EMAIL = Deno.env.get("FROM_EMAIL") || "orders@elisbakery.com";
 const FROM_NAME = Deno.env.get("FROM_NAME") || "Eli's Bakery";
 const OWNER_EMAIL = Deno.env.get("OWNER_EMAIL") || "owner@elisbakery.com";
+const FRONTEND_URL = Deno.env.get("FRONTEND_URL") || "https://elisbakery.com";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -181,96 +182,82 @@ function generateReportEmail(metrics: DailyMetrics): { html: string; text: strin
     )
     .join("");
 
-  const html = `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background-color:#f7fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <div style="max-width:600px;margin:0 auto;padding:20px;">
+  const reportBodyContent = `
+    <p style="color:#888;font-size:13px;text-align:center;margin:0 0 20px;">${metrics.dateLabel}</p>
 
-    <!-- Header -->
-    <div style="background:linear-gradient(135deg,#D4A574,#C4956A);border-radius:16px 16px 0 0;padding:32px 24px;text-align:center;">
-      <h1 style="color:#ffffff;font-size:24px;margin:0 0 8px;">Reporte Diario</h1>
-      <p style="color:rgba(255,255,255,0.9);font-size:14px;margin:0;">${metrics.dateLabel}</p>
-    </div>
+    <!-- Summary Cards -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+      <tr>
+        <td style="padding:4px;">
+          <div style="background:#faf8f4;border-radius:10px;padding:14px 10px;text-align:center;border:1px solid #e8dcc8;">
+            <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Ingresos / Revenue</div>
+            <div style="font-size:24px;font-weight:700;color:#1A1A2E;">${formatCurrency(metrics.totalRevenue)}</div>
+          </div>
+        </td>
+        <td style="padding:4px;">
+          <div style="background:#faf8f4;border-radius:10px;padding:14px 10px;text-align:center;border:1px solid #e8dcc8;">
+            <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Ordenes / Orders</div>
+            <div style="font-size:24px;font-weight:700;color:#1A1A2E;">${metrics.orderCount}</div>
+          </div>
+        </td>
+        <td style="padding:4px;">
+          <div style="background:#faf8f4;border-radius:10px;padding:14px 10px;text-align:center;border:1px solid #e8dcc8;">
+            <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Promedio / Avg</div>
+            <div style="font-size:24px;font-weight:700;color:#1A1A2E;">${formatCurrency(metrics.avgOrderValue)}</div>
+          </div>
+        </td>
+      </tr>
+    </table>
 
-    <!-- Body -->
-    <div style="background:#ffffff;padding:32px 24px;border-radius:0 0 16px 16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+    <!-- Status Breakdown -->
+    <h3 style="font-size:14px;color:#1A1A2E;margin:0 0 10px;padding-bottom:8px;border-bottom:2px solid #C6A649;font-family:'Playfair Display',Georgia,serif;">
+      Por Estado / By Status
+    </h3>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+      ${statusRows || '<tr><td style="padding:12px;color:#aaa;text-align:center;font-size:14px;">Sin ordenes / No orders</td></tr>'}
+    </table>
 
-      <!-- Summary Cards -->
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
-        <tr>
-          <td style="padding:4px;">
-            <div style="background:#f0fff4;border-radius:12px;padding:16px;text-align:center;">
-              <div style="font-size:12px;color:#276749;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Ingresos / Revenue</div>
-              <div style="font-size:28px;font-weight:700;color:#22543d;">${formatCurrency(metrics.totalRevenue)}</div>
-            </div>
-          </td>
-          <td style="padding:4px;">
-            <div style="background:#ebf8ff;border-radius:12px;padding:16px;text-align:center;">
-              <div style="font-size:12px;color:#2a4365;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Ordenes / Orders</div>
-              <div style="font-size:28px;font-weight:700;color:#2b6cb0;">${metrics.orderCount}</div>
-            </div>
-          </td>
-          <td style="padding:4px;">
-            <div style="background:#faf5ff;border-radius:12px;padding:16px;text-align:center;">
-              <div style="font-size:12px;color:#553c9a;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Promedio / Avg</div>
-              <div style="font-size:28px;font-weight:700;color:#6b46c1;">${formatCurrency(metrics.avgOrderValue)}</div>
-            </div>
-          </td>
-        </tr>
-      </table>
+    <!-- Top Products -->
+    ${metrics.topProducts.length > 0 ? `
+    <h3 style="font-size:14px;color:#1A1A2E;margin:0 0 10px;padding-bottom:8px;border-bottom:2px solid #C6A649;font-family:'Playfair Display',Georgia,serif;">
+      Top Productos / Top Products
+    </h3>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+      <tr style="background:#faf8f4;">
+        <th style="padding:8px 12px;text-align:left;font-size:11px;color:#888;text-transform:uppercase;font-weight:600;">Producto</th>
+        <th style="padding:8px 12px;text-align:right;font-size:11px;color:#888;text-transform:uppercase;font-weight:600;">Ingresos</th>
+        <th style="padding:8px 12px;text-align:right;font-size:11px;color:#888;text-transform:uppercase;font-weight:600;">Ordenes</th>
+      </tr>
+      ${productRows}
+    </table>
+    ` : ""}
 
-      <!-- Status Breakdown -->
-      <h3 style="font-size:16px;color:#2d3748;margin:0 0 12px;padding-bottom:8px;border-bottom:2px solid #e2e8f0;">
-        Por Estado / By Status
-      </h3>
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
-        ${statusRows || '<tr><td style="padding:12px;color:#a0aec0;text-align:center;">Sin ordenes / No orders</td></tr>'}
-      </table>
+    <!-- Delivery vs Pickup -->
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td style="padding:4px;" width="50%">
+          <div style="background:#faf8f4;border-radius:10px;padding:14px;text-align:center;border:1px solid #e8dcc8;">
+            <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Entregas / Deliveries</div>
+            <div style="font-size:22px;font-weight:700;color:#C6A649;">${metrics.deliveryCount}</div>
+          </div>
+        </td>
+        <td style="padding:4px;" width="50%">
+          <div style="background:#faf8f4;border-radius:10px;padding:14px;text-align:center;border:1px solid #e8dcc8;">
+            <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Recolecciones / Pickups</div>
+            <div style="font-size:22px;font-weight:700;color:#C6A649;">${metrics.pickupCount}</div>
+          </div>
+        </td>
+      </tr>
+    </table>
+  `;
 
-      <!-- Top Products -->
-      ${metrics.topProducts.length > 0 ? `
-      <h3 style="font-size:16px;color:#2d3748;margin:0 0 12px;padding-bottom:8px;border-bottom:2px solid #e2e8f0;">
-        Top Productos / Top Products
-      </h3>
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
-        <tr style="background:#f7fafc;">
-          <th style="padding:8px 12px;text-align:left;font-size:12px;color:#718096;text-transform:uppercase;">Producto</th>
-          <th style="padding:8px 12px;text-align:right;font-size:12px;color:#718096;text-transform:uppercase;">Ingresos</th>
-          <th style="padding:8px 12px;text-align:right;font-size:12px;color:#718096;text-transform:uppercase;">Ordenes</th>
-        </tr>
-        ${productRows}
-      </table>
-      ` : ""}
-
-      <!-- Delivery vs Pickup -->
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
-        <tr>
-          <td style="padding:4px;" width="50%">
-            <div style="background:#fff5f5;border-radius:12px;padding:14px;text-align:center;">
-              <div style="font-size:12px;color:#9b2c2c;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Entregas / Deliveries</div>
-              <div style="font-size:24px;font-weight:700;color:#c53030;">${metrics.deliveryCount}</div>
-            </div>
-          </td>
-          <td style="padding:4px;" width="50%">
-            <div style="background:#fffff0;border-radius:12px;padding:14px;text-align:center;">
-              <div style="font-size:12px;color:#975a16;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Recolecciones / Pickups</div>
-              <div style="font-size:24px;font-weight:700;color:#b7791f;">${metrics.pickupCount}</div>
-            </div>
-          </td>
-        </tr>
-      </table>
-    </div>
-
-    <!-- Footer -->
-    <div style="text-align:center;padding:24px 0;color:#a0aec0;font-size:12px;">
-      <p style="margin:0;">${FROM_NAME} &middot; ${biz.phone}</p>
-      <p style="margin:4px 0 0;">${biz.email}</p>
-    </div>
-  </div>
-</body>
-</html>`;
+  const html = buildEmailHtml({
+    titleEmoji: '📊',
+    title: 'Reporte Diario',
+    titleBandStyle: 'gold',
+    bodyContent: reportBodyContent,
+    frontendUrl: FRONTEND_URL,
+  });
 
   // Plain text version
   const statusText = Object.entries(metrics.byStatus)

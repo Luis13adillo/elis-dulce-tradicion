@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { Resend } from "npm:resend@^4.0.0";
-import { getBusinessInfo } from "../_shared/emailTemplates.ts";
+import { buildEmailHtml, getBusinessInfo } from "../_shared/emailTemplates.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const FRONTEND_URL = Deno.env.get("FRONTEND_URL") || "https://elisbakery.com";
@@ -122,55 +122,54 @@ function generateReadyEmail(order: ReadyNotificationData, trackingUrl: string, i
     thanks: isSpanish ? "¡Gracias por elegir Eli's Bakery!" : "Thank you for choosing Eli's Bakery!"
   };
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-    <h1 style="color: #fff; margin: 0; font-size: 32px;">🎉 ${labels.title}</h1>
-  </div>
-  
-  <div style="background: #fff; padding: 30px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 10px 10px;">
-    <p style="font-size: 18px; font-weight: bold;">${labels.greeting} ${escapeHtml(order.customer_name)},</p>
-    
-    <p style="font-size: 16px;">${labels.intro}</p>
-    
-    <div style="background: #f0f9ff; border-left: 4px solid #28a745; padding: 20px; margin: 20px 0; border-radius: 4px;">
-      <h2 style="color: #28a745; margin-top: 0;">${isDelivery ? `🚗 ${labels.deliveryInfo}` : `📍 ${labels.pickupInfo}`}</h2>
-      <p><strong>${labels.orderNumber}</strong> ${order.order_number}</p>
-      ${isDelivery ? `
-        <p><strong>${labels.deliveryAddress}</strong> ${escapeHtml(order.delivery_address)}${order.delivery_apartment ? `, ${escapeHtml(order.delivery_apartment)}` : ''}</p>
-        <p style="color: #666; font-size: 14px;">${labels.deliveryNote}</p>
-      ` : `
-        <p style="color: #666; font-size: 14px;">${labels.pickupNote}</p>
-        <p><strong>${labels.pickupLocation}</strong><br>
-        Eli's Bakery<br>
-        324 W Marshall St, Norristown, PA 19401<br>
-        ${labels.phone} ${biz.phone}</p>
-      `}
+  const bodyContent = `
+    <p style="font-size:16px;color:#333;margin:0 0 8px;">${labels.greeting} <strong>${escapeHtml(order.customer_name)}</strong>,</p>
+    <p style="font-size:15px;color:#555;margin:0 0 24px;">${labels.intro}</p>
+
+    <div style="background:#faf8f4;border-radius:10px;padding:24px 28px;margin:0 0 24px;border-left:4px solid #22a15e;">
+      <h2 style="color:#1a6b3c;font-family:'Playfair Display',Georgia,serif;font-size:16px;font-weight:700;margin:0 0 14px;">
+        ${isDelivery ? `🚗 ${labels.deliveryInfo}` : `📍 ${labels.pickupInfo}`}
+      </h2>
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+        <tr>
+          <td style="padding:7px 0;color:#777;font-size:13px;width:44%;border-bottom:1px solid #f0ead8;">${labels.orderNumber}</td>
+          <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:700;border-bottom:1px solid #f0ead8;">${escapeHtml(order.order_number)}</td>
+        </tr>
+        ${isDelivery ? `
+        <tr>
+          <td style="padding:7px 0;color:#777;font-size:13px;border-bottom:1px solid #f0ead8;">${labels.deliveryAddress}</td>
+          <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;border-bottom:1px solid #f0ead8;">${escapeHtml(order.delivery_address)}${order.delivery_apartment ? `, ${escapeHtml(order.delivery_apartment)}` : ''}</td>
+        </tr>` : `
+        <tr>
+          <td style="padding:7px 0;color:#777;font-size:13px;border-bottom:1px solid #f0ead8;">${labels.pickupLocation}</td>
+          <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;border-bottom:1px solid #f0ead8;">324 W Marshall St, Norristown, PA 19401</td>
+        </tr>
+        <tr>
+          <td style="padding:7px 0;color:#777;font-size:13px;">${labels.phone}</td>
+          <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;">${biz.phone}</td>
+        </tr>`}
+      </table>
+      <p style="color:#555;font-size:13px;margin:14px 0 0;padding-top:12px;border-top:1px solid #e8dcc8;">
+        ${isDelivery ? labels.deliveryNote : labels.pickupNote}
+      </p>
     </div>
-    
-    <div style="text-align: center; margin: 30px 0;">
-      <a href="${trackingUrl}" style="background: #28a745; color: #fff; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-        ${labels.viewDetails}
+
+    <div style="text-align:center;margin:28px 0 16px;">
+      <a href="${trackingUrl}" style="background:linear-gradient(135deg,#C6A649 0%,#d4af37 100%);color:#1A1A2E;padding:14px 36px;text-decoration:none;border-radius:7px;display:inline-block;font-weight:700;font-size:15px;letter-spacing:0.5px;font-family:'Nunito',Arial,sans-serif;">
+        ${labels.viewDetails} &rarr;
       </a>
     </div>
-    
-    <p style="font-size: 14px; color: #666;">
-      <strong>${labels.questions}</strong> ${labels.contactUs} ${biz.phone} ${labels.or} ${biz.email}
-    </p>
-    
-    <p style="font-size: 16px; font-weight: bold; color: #28a745; text-align: center; margin-top: 30px;">
-      ${labels.thanks} 🎂
-    </p>
-  </div>
-</body>
-</html>
+
+    <p style="font-size:14px;color:#888;text-align:center;margin:0;">${labels.thanks}</p>
   `;
+
+  return buildEmailHtml({
+    titleEmoji: '🎉',
+    title: labels.title,
+    titleBandStyle: 'success',
+    bodyContent,
+    frontendUrl: FRONTEND_URL,
+  });
 }
 
 function generateReadyText(order: ReadyNotificationData, trackingUrl: string, isSpanish: boolean): string {

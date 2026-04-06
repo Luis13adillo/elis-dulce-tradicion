@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { Resend } from "npm:resend@^4.0.0";
+import { buildEmailHtml } from "../_shared/emailTemplates.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const FRONTEND_URL = Deno.env.get("FRONTEND_URL") || "https://elisbakery.com";
@@ -71,101 +72,125 @@ Deno.serve(async (req) => {
 
       // 1. Send notification to owner
       const ownerSubject = `🚨 Order Issue Reported: ${issue.order_number} - ${issue.issue_category}`;
-                   const ownerHtml = `
-                         <!DOCTYPE html>
-                               <html>
-                                     <head>
-                                             <meta charset="utf-8">
-                                                     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                                                           </head>
-                                                                 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-                                                                         <div style="background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-                                                                                   <h1 style="color: #fff; margin: 0; font-size: 28px;">🚨 Order Issue Reported</h1>
-                                                                                           </div>
-                                                                                                   <div style="background: #fff; padding: 30px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 10px 10px;">
-                                                                                                             <div style="background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0; border-radius: 4px;">
-                                                                                                                         <p style="margin: 0;"><strong>Priority:</strong> <span style="background: ${priorityColors[issue.priority] || '#6c757d'}; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 12px; text-transform: uppercase;">${issue.priority}</span></p>
-                                                                                                                                   </div>
-                                                                                                                                             <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                                                                                                                                                         <h2 style="color: #dc3545; margin-top: 0;">Issue Details</h2>
-                                                                                                                                                                     <p><strong>Order Number:</strong> ${issue.order_number}</p>
-                                                                                                                                                                                 <p><strong>Customer:</strong> ${escapeHtml(issue.customer_name)}</p>
-                                                                                                                                                                                             <p><strong>Email:</strong> ${escapeHtml(issue.customer_email)}</p>
-                                                                                                                                                                                                         ${issue.customer_phone ? `<p><strong>Phone:</strong> ${escapeHtml(issue.customer_phone)}</p>` : ''}
-                                                                                                                                                                                                                     <p><strong>Category:</strong> ${escapeHtml(issue.issue_category)}</p>
-                                                                                                                                                                                                                                 <p><strong>Description:</strong></p>
-                                                                                                                                                                                                                                             <div style="background: #fff; padding: 15px; border-left: 3px solid #dc3545; margin: 10px 0;">
-                                                                                                                                                                                                                                                           ${escapeHtml(issue.issue_description).replace(/\n/g, '<br>')}
-                                                                                                                                                                                                                                                                       </div>
-                                                                                                                                                                                                                                                                                   ${issue.photo_urls && issue.photo_urls.length > 0 ? `
-                                                                                                                                                                                                                                                                                                 <p><strong>Photos:</strong></p>
-                                                                                                                                                                                                                                                                                                               <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                                                                                                                                                                                                                                                                                                                               ${issue.photo_urls.map(url => `<a href="${url}" style="display: inline-block;"><img src="${url}" style="max-width: 100px; max-height: 100px; border-radius: 4px; border: 1px solid #ddd;" /></a>`).join('')}
-                                                                                                                                                                                                                                                                                                                                             </div>
-                                                                                                                                                                                                                                                                                                                                                         ` : ''}
-                                                                                                                                                                                                                                                                                                                                                                     <p><strong>Reported:</strong> ${new Date(issue.created_at).toLocaleString()}</p>
-                                                                                                                                                                                                                                                                                                                                                                               </div>
-                                                                                                                                                                                                                                                                                                                                                                                         <div style="text-align: center; margin: 30px 0;">
-                                                                                                                                                                                                                                                                                                                                                                                                     <a href="${FRONTEND_URL}/owner-dashboard" style="background: #dc3545; color: #fff; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-                                                                                                                                                                                                                                                                                                                                                                                                                   View in Dashboard
-                                                                                                                                                                                                                                                                                                                                                                                                                               </a>
-                                                                                                                                                                                                                                                                                                                                                                                                                                         </div>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                 </div>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                       </body>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                             </html>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                 `;
+      const ownerBodyContent = `
+        <div style="background:#fff3cd;padding:14px 18px;border-left:4px solid #ffc107;margin:0 0 20px;border-radius:6px;">
+          <p style="margin:0;font-size:14px;"><strong>Priority:</strong>
+            <span style="background:${priorityColors[issue.priority] || '#6c757d'};color:#fff;padding:3px 10px;border-radius:12px;font-size:11px;text-transform:uppercase;margin-left:6px;">${escapeHtml(issue.priority)}</span>
+          </p>
+        </div>
+
+        <div style="background:#faf8f4;border-radius:10px;padding:24px 28px;margin:0 0 20px;border-left:4px solid #b03030;">
+          <h2 style="color:#7b1a1a;font-family:'Playfair Display',Georgia,serif;font-size:16px;font-weight:700;margin:0 0 14px;">Issue Details</h2>
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+            <tr>
+              <td style="padding:7px 0;color:#777;font-size:13px;width:44%;border-bottom:1px solid #f0ead8;">Order Number:</td>
+              <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:700;border-bottom:1px solid #f0ead8;">${escapeHtml(issue.order_number)}</td>
+            </tr>
+            <tr>
+              <td style="padding:7px 0;color:#777;font-size:13px;border-bottom:1px solid #f0ead8;">Customer:</td>
+              <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;border-bottom:1px solid #f0ead8;">${escapeHtml(issue.customer_name)}</td>
+            </tr>
+            <tr>
+              <td style="padding:7px 0;color:#777;font-size:13px;border-bottom:1px solid #f0ead8;">Email:</td>
+              <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;border-bottom:1px solid #f0ead8;">${escapeHtml(issue.customer_email)}</td>
+            </tr>
+            ${issue.customer_phone ? `
+            <tr>
+              <td style="padding:7px 0;color:#777;font-size:13px;border-bottom:1px solid #f0ead8;">Phone:</td>
+              <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;border-bottom:1px solid #f0ead8;">${escapeHtml(issue.customer_phone)}</td>
+            </tr>` : ''}
+            <tr>
+              <td style="padding:7px 0;color:#777;font-size:13px;border-bottom:1px solid #f0ead8;">Category:</td>
+              <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;border-bottom:1px solid #f0ead8;">${escapeHtml(issue.issue_category)}</td>
+            </tr>
+            <tr>
+              <td style="padding:7px 0;color:#777;font-size:13px;">Reported:</td>
+              <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;">${new Date(issue.created_at).toLocaleString()}</td>
+            </tr>
+          </table>
+          <div style="margin-top:16px;padding-top:14px;border-top:1px solid #e8dcc8;">
+            <p style="color:#777;font-size:13px;margin:0 0 8px;"><strong>Description:</strong></p>
+            <div style="background:#fff;padding:12px 16px;border-left:3px solid #b03030;border-radius:4px;font-size:14px;color:#333;line-height:1.6;">
+              ${escapeHtml(issue.issue_description).replace(/\n/g, '<br>')}
+            </div>
+          </div>
+          ${issue.photo_urls && issue.photo_urls.length > 0 ? `
+          <div style="margin-top:14px;">
+            <p style="color:#777;font-size:13px;margin:0 0 8px;"><strong>Photos:</strong></p>
+            <div>${issue.photo_urls.map(url => `<a href="${url}" style="display:inline-block;margin:4px;"><img src="${url}" width="90" height="90" style="border-radius:6px;border:1px solid #e8dcc8;object-fit:cover;" /></a>`).join('')}</div>
+          </div>` : ''}
+        </div>
+
+        <div style="text-align:center;margin:24px 0 0;">
+          <a href="${FRONTEND_URL}/owner-dashboard" style="background:linear-gradient(135deg,#b03030 0%,#c0392b 100%);color:#fff;padding:14px 36px;text-decoration:none;border-radius:7px;display:inline-block;font-weight:700;font-size:15px;letter-spacing:0.5px;">
+            View in Dashboard &rarr;
+          </a>
+        </div>
+      `;
+
+      const ownerHtml = buildEmailHtml({
+        titleEmoji: '🚨',
+        title: 'Order Issue Reported',
+        titleBandStyle: 'alert',
+        bodyContent: ownerBodyContent,
+        frontendUrl: FRONTEND_URL,
+      });
 
       await resend.emails.send({
-              from: `${FROM_NAME} <${FROM_EMAIL}>`,
-              to: OWNER_EMAIL,
-              subject: ownerSubject,
-              html: ownerHtml,
+        from: `${FROM_NAME} <${FROM_EMAIL}>`,
+        to: OWNER_EMAIL,
+        subject: ownerSubject,
+        html: ownerHtml,
       });
 
       // 2. Send confirmation to customer
       const customerSubject = `We've received your issue report - Order ${issue.order_number}`;
-                   const customerHtml = `
-                         <!DOCTYPE html>
-                               <html>
-                                     <head>
-                                             <meta charset="utf-8">
-                                                     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                                                           </head>
-                                                                 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-                                                                         <div style="background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-                                                                                   <h1 style="color: #fff; margin: 0; font-size: 28px;">📋 Issue Report Received</h1>
-                                                                                           </div>
-                                                                                                   <div style="background: #fff; padding: 30px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 10px 10px;">
-                                                                                                             <p style="font-size: 16px;">Dear ${escapeHtml(issue.customer_name)},</p>
-                                                                                                                       <p style="font-size: 16px;">We've received your issue report regarding order <strong>${issue.order_number}</strong>. We take all customer concerns seriously and will investigate this matter promptly.</p>
-                                                                                                                                 <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                                                                                                                                             <p style="margin: 0 0 10px 0;"><strong>Issue Category:</strong> ${escapeHtml(issue.issue_category)}</p>
-                                                                                                                                                         <p style="margin: 0;"><strong>Your Description:</strong></p>
-                                                                                                                                                                     <p style="margin: 5px 0 0 0;">${escapeHtml(issue.issue_description)}</p>
-                                                                                                                                                                               </div>
-                                                                                                                                                                                         <p style="font-size: 14px; color: #666;">Our team will review your report and contact you within 24 hours to discuss the next steps and resolution.</p>
-                                                                                                                                                                                                   <div style="text-align: center; margin: 30px 0;">
-                                                                                                                                                                                                               <a href="${FRONTEND_URL}/order-tracking?orderNumber=${encodeURIComponent(issue.order_number)}" style="background: #d4af37; color: #fff; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-                                                                                                                                                                                                                             Track Your Order
-                                                                                                                                                                                                                                         </a>
-                                                                                                                                                                                                                                                   </div>
-                                                                                                                                                                                                                                                             <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
-                                                                                                                                                                                                                                                                       <p style="font-size: 14px; color: #666;">
-                                                                                                                                                                                                                                                                                   <strong>Contact Us:</strong><br>
-                                                                                                                                                                                                                                                                                               📞 Phone: (610) 279-6200<br>
-                                                                                                                                                                                                                                                                                                           📧 Email: ${FROM_EMAIL}<br>
-                                                                                                                                                                                                                                                                                                                       🌐 Website: ${FRONTEND_URL}
-                                                                                                                                                                                                                                                                                                                                 </p>
-                                                                                                                                                                                                                                                                                                                                         </div>
-                                                                                                                                                                                                                                                                                                                                               </body>
-                                                                                                                                                                                                                                                                                                                                                     </html>
-                                                                                                                                                                                                                                                                                                                                                         `;
+      const customerBodyContent = `
+        <p style="font-size:16px;color:#333;margin:0 0 8px;">Dear <strong>${escapeHtml(issue.customer_name)}</strong>,</p>
+        <p style="font-size:15px;color:#555;margin:0 0 24px;">
+          We've received your issue report regarding order <strong>#${escapeHtml(issue.order_number)}</strong>.
+          We take all customer concerns seriously and will investigate this matter promptly.
+        </p>
+
+        <div style="background:#faf8f4;border-radius:10px;padding:24px 28px;margin:0 0 24px;border-left:4px solid #C6A649;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+            <tr>
+              <td style="padding:7px 0;color:#777;font-size:13px;width:44%;border-bottom:1px solid #f0ead8;">Issue Category:</td>
+              <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;border-bottom:1px solid #f0ead8;">${escapeHtml(issue.issue_category)}</td>
+            </tr>
+            <tr>
+              <td colspan="2" style="padding:10px 0 0;">
+                <p style="color:#777;font-size:13px;margin:0 0 8px;"><strong>Your Description:</strong></p>
+                <p style="color:#333;font-size:14px;margin:0;line-height:1.6;">${escapeHtml(issue.issue_description)}</p>
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <p style="font-size:14px;color:#888;margin:0 0 24px;">
+          Our team will review your report and contact you within 24 hours to discuss the next steps and resolution.
+        </p>
+
+        <div style="text-align:center;margin:0;">
+          <a href="${FRONTEND_URL}/order-tracking?orderNumber=${encodeURIComponent(issue.order_number)}" style="background:linear-gradient(135deg,#C6A649 0%,#d4af37 100%);color:#1A1A2E;padding:14px 36px;text-decoration:none;border-radius:7px;display:inline-block;font-weight:700;font-size:15px;letter-spacing:0.5px;">
+            Track Your Order &rarr;
+          </a>
+        </div>
+      `;
+
+      const customerHtml = buildEmailHtml({
+        titleEmoji: '📋',
+        title: 'Issue Report Received',
+        titleBandStyle: 'gold',
+        bodyContent: customerBodyContent,
+        frontendUrl: FRONTEND_URL,
+      });
 
       await resend.emails.send({
-              from: `${FROM_NAME} <${FROM_EMAIL}>`,
-              to: issue.customer_email,
-              subject: customerSubject,
-              html: customerHtml,
+        from: `${FROM_NAME} <${FROM_EMAIL}>`,
+        to: issue.customer_email,
+        subject: customerSubject,
+        html: customerHtml,
       });
 
       return new Response(

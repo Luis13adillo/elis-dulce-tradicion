@@ -2,8 +2,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { Resend } from "npm:resend@^4.0.0";
 import {
+  buildEmailHtml,
   formatDate,
-  getBusinessInfo,
   OrderData
 } from "../_shared/emailTemplates.ts";
 
@@ -93,7 +93,6 @@ Deno.serve(async (req) => {
 });
 
 function generateConfirmationEmail(order: OrderData, trackingUrl: string, isSpanish: boolean): string {
-  const biz = getBusinessInfo(isSpanish ? 'es' : 'en');
   const lang = isSpanish ? 'es' : 'en';
 
   // Sanitize all user-provided fields to prevent XSS
@@ -135,58 +134,71 @@ function generateConfirmationEmail(order: OrderData, trackingUrl: string, isSpan
     website: isSpanish ? 'Sitio Web:' : 'Website:'
   };
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-    <h1 style="color: #fff; margin: 0; font-size: 28px;">🎂 ${labels.title}</h1>
-  </div>
-  
-  <div style="background: #fff; padding: 30px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 10px 10px;">
-    <p style="font-size: 16px;">${labels.greeting} ${escapeHtml(order.customer_name)},</p>
-    
-    <p style="font-size: 16px;">${labels.intro}</p>
-    
-    <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
-      <h2 style="color: #d4af37; margin-top: 0;">${labels.detailsHeader}</h2>
-      <p><strong>${labels.orderNumber}</strong> ${order.order_number}</p>
-      <p><strong>${labels.dateNeeded}</strong> ${formatDate(order.date_needed, lang)} ${labels.at} ${order.time_needed}</p>
-      <p><strong>${labels.size}</strong> ${order.cake_size}</p>
-      <p><strong>${labels.filling}</strong> ${order.filling}</p>
-      <p><strong>${labels.theme}</strong> ${escapeHtml(order.theme)}</p>
-      ${order.dedication ? `<p><strong>${labels.dedication}</strong> "${escapeHtml(order.dedication)}"</p>` : ''}
-      <p><strong>${labels.delivery}</strong> ${order.delivery_option === 'delivery' ? labels.deliveryHome : labels.deliveryPickup}</p>
-      ${order.delivery_address ? `<p><strong>${labels.address}</strong> ${escapeHtml(order.delivery_address)}${order.delivery_apartment ? `, ${escapeHtml(order.delivery_apartment)}` : ''}</p>` : ''}
-      <p style="font-size: 20px; font-weight: bold; color: #d4af37; margin-top: 15px;">
-        ${labels.total} $${order.total_amount.toFixed(2)}
-      </p>
+  const bodyContent = `
+    <p style="font-size:16px;color:#333;margin:0 0 8px;">${labels.greeting} <strong>${safeName}</strong>,</p>
+    <p style="font-size:15px;color:#555;margin:0 0 24px;">${labels.intro}</p>
+
+    <div style="background:#faf8f4;border-radius:10px;padding:24px 28px;margin:0 0 24px;border-left:4px solid #C6A649;">
+      <h2 style="color:#1A1A2E;font-family:'Playfair Display',Georgia,serif;font-size:17px;font-weight:700;margin:0 0 16px;padding-bottom:12px;border-bottom:1px solid #e8dcc8;">
+        ${labels.detailsHeader}
+      </h2>
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+        <tr>
+          <td style="padding:7px 0;color:#777;font-size:13px;width:44%;border-bottom:1px solid #f0ead8;">${labels.orderNumber}</td>
+          <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:700;border-bottom:1px solid #f0ead8;">${safeOrderNumber}</td>
+        </tr>
+        <tr>
+          <td style="padding:7px 0;color:#777;font-size:13px;border-bottom:1px solid #f0ead8;">${labels.dateNeeded}</td>
+          <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;border-bottom:1px solid #f0ead8;">${formatDate(order.date_needed, lang)} ${labels.at} ${order.time_needed}</td>
+        </tr>
+        <tr>
+          <td style="padding:7px 0;color:#777;font-size:13px;border-bottom:1px solid #f0ead8;">${labels.size}</td>
+          <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;border-bottom:1px solid #f0ead8;">${safeCakeSize}</td>
+        </tr>
+        <tr>
+          <td style="padding:7px 0;color:#777;font-size:13px;border-bottom:1px solid #f0ead8;">${labels.filling}</td>
+          <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;border-bottom:1px solid #f0ead8;">${safeFilling}</td>
+        </tr>
+        <tr>
+          <td style="padding:7px 0;color:#777;font-size:13px;border-bottom:1px solid #f0ead8;">${labels.theme}</td>
+          <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;border-bottom:1px solid #f0ead8;">${safeTheme}</td>
+        </tr>
+        ${order.dedication ? `
+        <tr>
+          <td style="padding:7px 0;color:#777;font-size:13px;border-bottom:1px solid #f0ead8;">${labels.dedication}</td>
+          <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;font-style:italic;border-bottom:1px solid #f0ead8;">"${safeDedication}"</td>
+        </tr>` : ''}
+        <tr>
+          <td style="padding:7px 0;color:#777;font-size:13px;border-bottom:1px solid #f0ead8;">${labels.delivery}</td>
+          <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;border-bottom:1px solid #f0ead8;">${order.delivery_option === 'delivery' ? labels.deliveryHome : labels.deliveryPickup}</td>
+        </tr>
+        ${order.delivery_address ? `
+        <tr>
+          <td style="padding:7px 0;color:#777;font-size:13px;border-bottom:1px solid #f0ead8;">${labels.address}</td>
+          <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;border-bottom:1px solid #f0ead8;">${safeDeliveryAddress}${order.delivery_apartment ? `, ${safeDeliveryApartment}` : ''}</td>
+        </tr>` : ''}
+      </table>
+      <div style="background:linear-gradient(135deg,#C6A649 0%,#d4af37 100%);border-radius:7px;padding:12px 16px;margin-top:18px;text-align:right;">
+        <span style="color:#1A1A2E;font-size:20px;font-weight:700;">${labels.total} $${order.total_amount.toFixed(2)}</span>
+      </div>
     </div>
-    
-    <div style="text-align: center; margin: 30px 0;">
-      <a href="${trackingUrl}" style="background: #d4af37; color: #fff; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-        ${labels.trackBtn}
+
+    <div style="text-align:center;margin:28px 0 20px;">
+      <a href="${trackingUrl}" style="background:linear-gradient(135deg,#C6A649 0%,#d4af37 100%);color:#1A1A2E;padding:14px 36px;text-decoration:none;border-radius:7px;display:inline-block;font-weight:700;font-size:15px;letter-spacing:0.5px;font-family:'Nunito',Arial,sans-serif;">
+        ${labels.trackBtn} &rarr;
       </a>
     </div>
-    
-    <p style="font-size: 14px; color: #666;">${labels.notify}</p>
-    
-    <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
-    
-    <p style="font-size: 14px; color: #666;">
-      <strong>${labels.contactTitle}</strong><br>
-      📞 ${labels.phone} ${biz.phone}<br>
-      📧 Email: ${biz.email}<br>
-      🌐 ${labels.website} ${biz.website}
-    </p>
-  </div>
-</body>
-</html>
+
+    <p style="font-size:13px;color:#888;text-align:center;margin:0;">${labels.notify}</p>
   `;
+
+  return buildEmailHtml({
+    titleEmoji: '🎂',
+    title: labels.title,
+    titleBandStyle: 'gold',
+    bodyContent,
+    frontendUrl: FRONTEND_URL,
+  });
 }
 
 function generateConfirmationText(order: OrderData, trackingUrl: string, isSpanish: boolean): string {

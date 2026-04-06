@@ -2,9 +2,10 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { Resend } from "npm:resend@^4.0.0";
 import {
+  buildEmailHtml,
   formatDate,
   formatStatus,
-  getBusinessInfo
+  getBusinessInfo,
 } from "../_shared/emailTemplates.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
@@ -111,7 +112,6 @@ Deno.serve(async (req) => {
 });
 
 function generateStatusUpdateEmail(order: StatusUpdateData, trackingUrl: string, isSpanish: boolean): string {
-  const biz = getBusinessInfo(isSpanish ? 'es' : 'en');
   const lang = isSpanish ? 'es' : 'en';
 
   const statusMessages: Record<string, { title: string; message: string }> = {
@@ -179,45 +179,50 @@ function generateStatusUpdateEmail(order: StatusUpdateData, trackingUrl: string,
     website: isSpanish ? 'Sitio Web:' : 'Website:'
   };
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-    <h1 style="color: #fff; margin: 0; font-size: 28px;">📦 ${statusInfo.title}</h1>
-  </div>
-  
-  <div style="background: #fff; padding: 30px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 10px 10px;">
-    <p style="font-size: 16px;">${labels.greeting} ${escapeHtml(order.customer_name)},</p>
-    
-    <p style="font-size: 16px;">${statusInfo.message}</p>
-    
-    <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
-      <p><strong>${labels.orderNumber}</strong> ${order.order_number}</p>
-      <p><strong>${labels.status}</strong> <span style="color: #d4af37; font-weight: bold;">${formatStatus(order.new_status, lang)}</span></p>
-      <p><strong>${labels.dateNeeded}</strong> ${formatDate(order.date_needed, lang)} ${labels.at} ${order.time_needed}</p>
-      ${order.notes ? `<p><strong>${labels.notes}</strong> ${escapeHtml(order.notes)}</p>` : ''}
+  const bodyContent = `
+    <p style="font-size:16px;color:#333;margin:0 0 8px;">${labels.greeting} <strong>${escapeHtml(order.customer_name)}</strong>,</p>
+    <p style="font-size:15px;color:#555;margin:0 0 24px;">${statusInfo.message}</p>
+
+    <div style="background:#faf8f4;border-radius:10px;padding:24px 28px;margin:0 0 24px;border-left:4px solid #C6A649;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+        <tr>
+          <td style="padding:7px 0;color:#777;font-size:13px;width:44%;border-bottom:1px solid #f0ead8;">${labels.orderNumber}</td>
+          <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:700;border-bottom:1px solid #f0ead8;">${escapeHtml(order.order_number)}</td>
+        </tr>
+        <tr>
+          <td style="padding:7px 0;color:#777;font-size:13px;border-bottom:1px solid #f0ead8;">${labels.status}</td>
+          <td style="padding:7px 0;font-size:13px;font-weight:700;border-bottom:1px solid #f0ead8;">
+            <span style="background:linear-gradient(135deg,#C6A649 0%,#d4af37 100%);color:#1A1A2E;padding:3px 10px;border-radius:12px;font-size:12px;">
+              ${formatStatus(order.new_status, lang)}
+            </span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:7px 0;color:#777;font-size:13px;border-bottom:1px solid #f0ead8;">${labels.dateNeeded}</td>
+          <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;border-bottom:1px solid #f0ead8;">${formatDate(order.date_needed, lang)} ${labels.at} ${order.time_needed}</td>
+        </tr>
+        ${order.notes ? `
+        <tr>
+          <td style="padding:7px 0;color:#777;font-size:13px;">${labels.notes}</td>
+          <td style="padding:7px 0;color:#1A1A2E;font-size:13px;">${escapeHtml(order.notes)}</td>
+        </tr>` : ''}
+      </table>
     </div>
-    
-    <div style="text-align: center; margin: 30px 0;">
-      <a href="${trackingUrl}" style="background: #d4af37; color: #fff; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-        ${labels.viewDetails}
+
+    <div style="text-align:center;margin:28px 0 20px;">
+      <a href="${trackingUrl}" style="background:linear-gradient(135deg,#C6A649 0%,#d4af37 100%);color:#1A1A2E;padding:14px 36px;text-decoration:none;border-radius:7px;display:inline-block;font-weight:700;font-size:15px;letter-spacing:0.5px;font-family:'Nunito',Arial,sans-serif;">
+        ${labels.viewDetails} &rarr;
       </a>
     </div>
-    
-    <p style="font-size: 14px; color: #666;">
-      <strong>${labels.contactTitle}</strong><br>
-      📞 ${labels.phone} ${biz.phone}<br>
-      📧 Email: ${biz.email}
-    </p>
-  </div>
-</body>
-</html>
   `;
+
+  return buildEmailHtml({
+    titleEmoji: '📦',
+    title: statusInfo.title,
+    titleBandStyle: 'gold',
+    bodyContent,
+    frontendUrl: FRONTEND_URL,
+  });
 }
 
 function generateStatusUpdateText(order: StatusUpdateData, trackingUrl: string, isSpanish: boolean): string {
