@@ -2,14 +2,13 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
-import heroVideo from "@/assets/Eli'sHero.mp4";
 import heroLogo from '@/assets/brand/logo.png';
 
 const HeroSection = () => {
   const { t } = useLanguage();
 
   return (
-    <section className="relative flex min-h-screen w-full items-center justify-center overflow-hidden">
+    <section className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-black">
       {/* Full-width video background */}
       <div className="absolute inset-0 z-0">
         <video
@@ -18,9 +17,11 @@ const HeroSection = () => {
           muted
           playsInline
           preload="auto"
+          // @ts-expect-error fetchpriority is a valid HTML attribute not yet in React types
+          fetchpriority="high"
           className="absolute inset-0 h-full w-full object-cover"
         >
-          <source src={heroVideo} type="video/mp4" />
+          <source src="/videos/hero-video.mp4" type="video/mp4" />
         </video>
         {/* Premium gradient overlay */}
         <div className="absolute inset-0 bg-black/40" />
