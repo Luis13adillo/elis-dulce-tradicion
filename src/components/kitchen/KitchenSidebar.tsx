@@ -5,8 +5,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import TransparentLogo from '@/assets/brand/logo.png';
 
 interface KitchenSidebarProps {
-    activeView: 'queue' | 'upcoming' | 'calendar' | 'inventory' | 'deliveries' | 'reports';
-    onChangeView: (view: 'queue' | 'upcoming' | 'calendar' | 'inventory' | 'deliveries' | 'reports') => void;
+    activeView: 'queue' | 'upcoming' | 'inventory' | 'deliveries' | 'reports';
+    onChangeView: (view: 'queue' | 'upcoming' | 'inventory' | 'deliveries' | 'reports') => void;
     onLogout: () => void;
     compact?: boolean;
     darkMode?: boolean;

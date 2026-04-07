@@ -1,20 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Search, Settings, ShoppingBag, Package, Boxes, X, LogOut } from 'lucide-react';
+import { Search, ShoppingBag, Package, Boxes, X, LogOut } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from '@/components/ui/sheet';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { BusinessSettingsManager } from '@/components/admin/BusinessSettingsManager';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -38,7 +29,6 @@ export const DashboardHeader = ({ onSearch, onNavigateTab }: DashboardHeaderProp
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [showResults, setShowResults] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -201,34 +191,6 @@ export const DashboardHeader = ({ onSearch, onNavigateTab }: DashboardHeaderProp
 
       {/* Actions */}
       <div className="flex items-center gap-4">
-        {/* Settings Gear → Opens Sheet */}
-        <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
-          <Button
-            size="icon"
-            variant="ghost"
-            className="rounded-full hover:bg-gray-100"
-            onClick={() => setSettingsOpen(true)}
-          >
-            <Settings className="h-5 w-5 text-gray-600" />
-          </Button>
-          <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
-            <SheetHeader>
-              <SheetTitle>
-                {t('Configuración del Negocio', 'Business Settings')}
-              </SheetTitle>
-              <SheetDescription>
-                {t(
-                  'Administra la información y configuración de tu negocio',
-                  'Manage your business information and settings'
-                )}
-              </SheetDescription>
-            </SheetHeader>
-            <div className="mt-6">
-              <BusinessSettingsManager />
-            </div>
-          </SheetContent>
-        </Sheet>
-
         <Popover>
           <PopoverTrigger asChild>
             <button className="flex items-center gap-3 pl-2 rounded-full hover:ring-2 hover:ring-[#C6A649]/20 transition-all cursor-pointer">

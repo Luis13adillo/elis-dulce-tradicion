@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useOrdersFeed } from '@/hooks/useOrdersFeed';
 import { useNotificationState } from '@/hooks/useNotificationState';
 import { api } from '@/lib/api';
-import { useBusinessSettings } from '@/lib/hooks/useCMS';
+import { useBusinessSettings, useBusinessHours } from '@/lib/hooks/useCMS';
 import { toast } from 'sonner';
 import { Order } from '@/types/order';
 import { parseISO } from 'date-fns';
@@ -16,7 +16,6 @@ import { KitchenRedesignedLayout } from '@/components/kitchen/KitchenRedesignedL
 import { KitchenNavTabs, KitchenTab } from '@/components/kitchen/KitchenNavTabs';
 import { ModernOrderCard } from '@/components/kitchen/ModernOrderCard';
 import { OrderScheduler } from '@/components/dashboard/OrderScheduler';
-import { OwnerCalendar } from '@/components/dashboard/OwnerCalendar';
 import { PrintPreviewModal } from '@/components/print/PrintPreviewModal';
 import TodayScheduleSummary from '@/components/dashboard/TodayScheduleSummary';
 import { FullScreenOrderAlert } from '@/components/kitchen/FullScreenOrderAlert';
@@ -24,10 +23,10 @@ import { NotificationPanel } from '@/components/kitchen/NotificationPanel';
 import CancelOrderModal from '@/components/order/CancelOrderModal';
 import { FrontDeskInventory } from '@/components/kitchen/FrontDeskInventory';
 import { DeliveryManagementPanel } from '@/components/kitchen/DeliveryManagementPanel';
-import ReportsManager from '@/components/dashboard/ReportsManager';
 import { QuickStatsWidget } from '@/components/dashboard/QuickStatsWidget';
 import { UrgentOrdersBanner } from '@/components/kitchen/UrgentOrdersBanner';
-import { Package, AlertTriangle, ChevronLeft, ChevronRight, WifiOff, Wifi, RefreshCw } from 'lucide-react';
+import { Package, AlertTriangle, ChevronLeft, ChevronRight, WifiOff, RefreshCw, PlusCircle } from 'lucide-react';
+import { WalkInOrderModal } from '@/components/kitchen/WalkInOrderModal';
 import { AuthenticatorAssuranceCheck } from '@/components/auth/AuthenticatorAssuranceCheck';
 import { useInactivityTimeout } from '@/hooks/useInactivityTimeout';
 import { SessionTimeoutModal } from '@/components/auth/SessionTimeoutModal';
@@ -63,6 +62,19 @@ const FrontDesk = () => {
   // Business Settings (for calendar capacity)
   const { data: businessSettings } = useBusinessSettings();
   const maxDailyCapacity = businessSettings?.max_daily_capacity || 10;
+
+  // Business Hours (for calendar grid range)
+  const { data: businessHours } = useBusinessHours();
+  const calendarHours = useMemo(() => {
+    if (!businessHours || !Array.isArray(businessHours) || businessHours.length === 0) {
+      return { start: undefined, end: undefined };
+    }
+    const openDays = businessHours.filter((h: any) => h.is_open && h.open_time && h.close_time);
+    if (openDays.length === 0) return { start: undefined, end: undefined };
+    const starts = openDays.map((h: any) => parseInt(h.open_time.split(':')[0]));
+    const ends = openDays.map((h: any) => parseInt(h.close_time.split(':')[0]));
+    return { start: Math.min(...starts), end: Math.max(...ends) };
+  }, [businessHours]);
 
   // --- SESSION TIMEOUT ---
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
@@ -120,6 +132,9 @@ const FrontDesk = () => {
   const ACTIVE_STATUSES = ['pending', 'confirmed', 'in_progress', 'ready'];
   const unreadCount = orders.filter(o => ACTIVE_STATUSES.includes(o.status) && isUnread(o.id)).length;
 
+  // Walk-In Order Modal
+  const [showWalkInModal, setShowWalkInModal] = useState(false);
+
   // Cancel Order State
   const [cancelTarget, setCancelTarget] = useState<Order | null>(null);
 
@@ -138,7 +153,7 @@ const FrontDesk = () => {
 
   // State
   const [activeTab, setActiveTab] = useState<KitchenTab>('active');
-  const [activeView, setActiveView] = useState<'queue' | 'upcoming' | 'calendar' | 'inventory' | 'deliveries' | 'reports'>('queue');
+  const [activeView, setActiveView] = useState<'queue' | 'upcoming' | 'inventory' | 'deliveries' | 'reports'>('queue');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(true); // Theme State
@@ -162,7 +177,7 @@ const FrontDesk = () => {
         successMsg = t('Enviada a domicilio', 'Dispatched for delivery');
         break;
       case 'complete':
-        status = 'delivered';
+        status = 'completed';
         successMsg = t('Orden completada', 'Order completed');
         break;
       case 'confirm':
@@ -224,6 +239,14 @@ const FrontDesk = () => {
       }
 
       refreshOrders();
+
+      // Auto-advance delivery orders: delivered → completed after 1.5s
+      if (action === 'markDelivered') {
+        setTimeout(async () => {
+          await api.updateOrderStatus(orderId, 'completed');
+          refreshOrders();
+        }, 1500);
+      }
     } catch {
       toast.error(t('Error al actualizar', 'Error updating status'));
     }
@@ -402,10 +425,7 @@ const FrontDesk = () => {
     if (activeView === 'reports') {
       return (
         <div className={isDarkMode ? 'dark' : ''}>
-          <div className="mb-6">
-            <QuickStatsWidget orders={orders} />
-          </div>
-          <ReportsManager />
+          <QuickStatsWidget orders={orders} />
         </div>
       );
     }
@@ -414,28 +434,17 @@ const FrontDesk = () => {
       return (
         <div className={cn("flex flex-col h-full overflow-hidden", isDarkMode ? 'dark' : '')}>
           <div className="flex-none pb-4">
-            <TodayScheduleSummary orders={orders} darkMode={isDarkMode} />
+            <TodayScheduleSummary orders={orders} darkMode={isDarkMode} maxDailyCapacity={maxDailyCapacity} />
           </div>
           <div className="flex-1 overflow-hidden">
             <OrderScheduler
               orders={orders}
               onOrderClick={(order) => setSelectedOrder(order)}
               darkMode={isDarkMode}
+              businessStartHour={calendarHours.start}
+              businessEndHour={calendarHours.end}
             />
           </div>
-        </div>
-      );
-    }
-
-    if (activeView === 'calendar') {
-      return (
-        <div className={cn("flex flex-col h-full overflow-hidden", isDarkMode ? 'dark' : '')}>
-          <OwnerCalendar
-            orders={orders}
-            onOrderClick={(order) => setSelectedOrder(order)}
-            maxDailyCapacity={maxDailyCapacity}
-            darkMode={isDarkMode}
-          />
         </div>
       );
     }
@@ -685,6 +694,22 @@ const FrontDesk = () => {
       soundEnabled={isSoundEnabled}
       onToggleSound={() => setIsSoundEnabled(!isSoundEnabled)}
       userName={user?.profile?.full_name || user?.email?.split('@')[0] || 'Staff'}
+      isConnected={isConnected}
+      connectionError={connectionError}
+      headerAction={
+        <button
+          onClick={() => setShowWalkInModal(true)}
+          className={cn(
+            'flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold shadow-sm transition-colors',
+            isDarkMode
+              ? 'bg-green-600/20 text-green-400 hover:bg-green-600/30 border border-green-500/30'
+              : 'bg-green-600 text-white hover:bg-green-700'
+          )}
+        >
+          <PlusCircle className="h-4 w-4" />
+          <span className="hidden sm:inline">{t('Nueva Orden', 'Walk-In Order')}</span>
+        </button>
+      }
     >
       {/* Connection Status Banner */}
       {!isConnected && !isConnecting && !feedLoading && (
@@ -725,6 +750,13 @@ const FrontDesk = () => {
           </button>
         </div>
       )}
+
+      <WalkInOrderModal
+        open={showWalkInModal}
+        onClose={() => setShowWalkInModal(false)}
+        onSuccess={refreshOrders}
+        darkMode={isDarkMode}
+      />
 
       <PrintPreviewModal
         isOpen={!!selectedOrder}

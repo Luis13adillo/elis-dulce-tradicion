@@ -30,8 +30,10 @@ const ClockDisplay = memo(({ darkMode }: { darkMode: boolean }) => {
 
 interface KitchenRedesignedLayoutProps {
     children: React.ReactNode;
-    activeView: 'queue' | 'upcoming' | 'calendar' | 'inventory' | 'deliveries' | 'reports';
-    onChangeView: (view: 'queue' | 'upcoming' | 'calendar' | 'inventory' | 'deliveries' | 'reports') => void;
+    activeView: 'queue' | 'upcoming' | 'inventory' | 'deliveries' | 'reports';
+    onChangeView: (view: 'queue' | 'upcoming' | 'inventory' | 'deliveries' | 'reports') => void;
+    isConnected?: boolean;
+    connectionError?: string | null;
     onLogout: () => void;
     title?: string;
     darkMode?: boolean;
@@ -46,6 +48,7 @@ interface KitchenRedesignedLayoutProps {
     soundEnabled?: boolean;
     onToggleSound?: () => void;
     userName?: string;
+    headerAction?: React.ReactNode;
 }
 
 export function KitchenRedesignedLayout({
@@ -65,7 +68,10 @@ export function KitchenRedesignedLayout({
     badgeCounts,
     soundEnabled = true,
     onToggleSound,
-    userName = 'Staff'
+    userName = 'Staff',
+    headerAction,
+    isConnected = true,
+    connectionError,
 }: KitchenRedesignedLayoutProps) {
     const isDarkMode = darkMode;
 
@@ -101,6 +107,9 @@ export function KitchenRedesignedLayout({
                     </div>
 
                     <div className="flex items-center gap-6">
+                        {/* Extra Header Action (e.g. Walk-In Order button) */}
+                        {headerAction}
+
                         {/* Search Bar */}
                         <div className="relative hidden md:block group">
                             <Search className={cn(
@@ -172,6 +181,23 @@ export function KitchenRedesignedLayout({
                                 <RefreshCw className={cn("h-5 w-5", isRefreshing && "animate-spin")} />
                             </Button>
                         )}
+
+                        {/* Connection Status Indicator */}
+                        <div
+                            title={isConnected ? 'Live feed connected' : (connectionError ?? 'Reconnecting...')}
+                            className={cn(
+                                "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold select-none",
+                                isConnected
+                                    ? isDarkMode ? "bg-green-500/20 text-green-400" : "bg-green-100 text-green-600"
+                                    : isDarkMode ? "bg-red-500/20 text-red-400 animate-pulse" : "bg-red-100 text-red-600 animate-pulse"
+                            )}
+                        >
+                            <span className={cn(
+                                "h-2 w-2 rounded-full",
+                                isConnected ? "bg-green-500" : "bg-red-500"
+                            )} />
+                            {isConnected ? "Live" : "Offline"}
+                        </div>
 
                         {/* Notification Bell */}
                         <Button

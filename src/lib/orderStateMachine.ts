@@ -36,6 +36,8 @@ export interface OrderData {
   date_needed?: string;
   time_needed?: string;
   ready_at?: string;
+  dispatched_at?: string;
+  delivered_at?: string;
   completed_at?: string;
   created_at: string;
   total_amount?: number;
@@ -66,6 +68,8 @@ type OrderStateEvent =
   | { type: 'CONFIRM'; context: TransitionContext }
   | { type: 'START'; context: TransitionContext }
   | { type: 'MARK_READY'; context: TransitionContext }
+  | { type: 'DISPATCH'; context: TransitionContext }
+  | { type: 'MARK_DELIVERED'; context: TransitionContext }
   | { type: 'COMPLETE'; context: TransitionContext }
   | { type: 'CANCEL'; context: TransitionContext; reason: string }
   | { type: 'ADMIN_OVERRIDE'; context: TransitionContext; targetStatus: OrderStatus };
@@ -94,7 +98,9 @@ export function canTransition(
       pending: ['confirmed', 'cancelled'],
       confirmed: ['in_progress', 'cancelled'],
       in_progress: ['ready', 'cancelled'],
-      ready: ['completed', 'cancelled'],
+      ready: ['out_for_delivery', 'completed', 'cancelled'],
+      out_for_delivery: ['delivered', 'cancelled'],
+      delivered: ['completed'],
       completed: [], // Cannot transition from completed
       cancelled: [], // Cannot transition from cancelled
     };
@@ -120,6 +126,8 @@ export function validateTransition(
     'confirmed',
     'in_progress',
     'ready',
+    'out_for_delivery',
+    'delivered',
     'completed',
   ];
   const fromIndex = forwardOrder.indexOf(from);
@@ -194,6 +202,8 @@ export function getAvailableTransitions(
     'confirmed',
     'in_progress',
     'ready',
+    'out_for_delivery',
+    'delivered',
     'completed',
     'cancelled',
   ];
@@ -286,6 +296,11 @@ export const orderStateMachine = createMachine<OrderStateContext, OrderStateEven
       },
       ready: {
         on: {
+          DISPATCH: {
+            target: 'out_for_delivery',
+            guard: 'canDispatch',
+            actions: 'onDispatch',
+          },
           COMPLETE: {
             target: 'completed',
             guard: 'canComplete',
@@ -295,6 +310,29 @@ export const orderStateMachine = createMachine<OrderStateContext, OrderStateEven
             target: 'cancelled',
             guard: 'hasReason',
             actions: 'onCancel',
+          },
+        },
+      },
+      out_for_delivery: {
+        on: {
+          MARK_DELIVERED: {
+            target: 'delivered',
+            guard: 'canMarkDelivered',
+            actions: 'onMarkDelivered',
+          },
+          CANCEL: {
+            target: 'cancelled',
+            guard: 'hasReason',
+            actions: 'onCancel',
+          },
+        },
+      },
+      delivered: {
+        on: {
+          COMPLETE: {
+            target: 'completed',
+            guard: 'canComplete',
+            actions: 'onComplete',
           },
         },
       },
@@ -348,10 +386,31 @@ export const orderStateMachine = createMachine<OrderStateContext, OrderStateEven
         );
         return validation.valid;
       },
-      canComplete: ({ context, event }) => {
-        if (event.type !== 'COMPLETE') return false;
+      canDispatch: ({ context, event }) => {
+        if (event.type !== 'DISPATCH') return false;
         const validation = validateTransition(
           'ready',
+          'out_for_delivery',
+          context.order,
+          event.context
+        );
+        return validation.valid;
+      },
+      canMarkDelivered: ({ context, event }) => {
+        if (event.type !== 'MARK_DELIVERED') return false;
+        const validation = validateTransition(
+          'out_for_delivery',
+          'delivered',
+          context.order,
+          event.context
+        );
+        return validation.valid;
+      },
+      canComplete: ({ context, event }) => {
+        if (event.type !== 'COMPLETE') return false;
+        const fromStatus = context.order.status === 'delivered' ? 'delivered' : 'ready';
+        const validation = validateTransition(
+          fromStatus,
           'completed',
           context.order,
           event.context
@@ -380,6 +439,20 @@ export const orderStateMachine = createMachine<OrderStateContext, OrderStateEven
           ...context.order,
           status: 'ready',
           ready_at: new Date().toISOString(),
+        }),
+      }),
+      onDispatch: assign({
+        order: ({ context }) => ({
+          ...context.order,
+          status: 'out_for_delivery',
+          dispatched_at: new Date().toISOString(),
+        }),
+      }),
+      onMarkDelivered: assign({
+        order: ({ context }) => ({
+          ...context.order,
+          status: 'delivered',
+          delivered_at: new Date().toISOString(),
         }),
       }),
       onComplete: assign({

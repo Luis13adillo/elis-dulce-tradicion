@@ -2,7 +2,7 @@ import { memo, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Order } from "@/types/order";
-import { Clock, MapPin, Calendar } from "lucide-react";
+import { Clock, MapPin, Calendar, Timer, Printer } from "lucide-react";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -24,7 +24,6 @@ export const ModernOrderCard = memo(function ModernOrderCard({
     onShowDetails,
     onCancel,
     isReadOnly,
-    isFrontDesk,
     variant = 'default'
 }: ModernOrderCardProps) {
     const { t } = useLanguage();
@@ -38,6 +37,21 @@ export const ModernOrderCard = memo(function ModernOrderCard({
             return 0;
         }
     }, [order.date_needed, order.time_needed]);
+
+    // Elapsed time since order was placed — shown as age timer
+    const minutesOld = useMemo(() => {
+        if (!order.created_at) return null;
+        return Math.floor((Date.now() - new Date(order.created_at).getTime()) / 60000);
+    }, [order.created_at]);
+
+    const timerColor = minutesOld === null ? ''
+        : minutesOld < 30 ? (variant === 'dark' ? 'text-green-400' : 'text-green-600')
+        : minutesOld < 60 ? (variant === 'dark' ? 'text-yellow-400' : 'text-yellow-600')
+        : minutesOld < 90 ? (variant === 'dark' ? 'text-orange-400' : 'text-orange-600')
+        : (variant === 'dark' ? 'text-red-400' : 'text-red-600');
+
+    const formatAge = (mins: number) =>
+        mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h ${mins % 60}m`;
 
     // Keep a stable function reference for JSX that still calls the memoized value
     const getUrgency = () => urgencyMinutes;
@@ -179,9 +193,33 @@ export const ModernOrderCard = memo(function ModernOrderCard({
                         <h3 className={cn("font-bold leading-tight", variant === 'dark' ? "text-white" : "text-gray-900")}>
                             {order.customer_name}
                         </h3>
-                        <p className={cn("text-xs", variant === 'dark' ? "text-slate-400" : "text-gray-500")}>
-                            #{order.order_number}
-                        </p>
+                        <div className="flex items-center gap-2">
+                            <p className={cn("text-xs", variant === 'dark' ? "text-slate-400" : "text-gray-500")}>
+                                #{order.order_number}
+                            </p>
+                            {/* Order source badge */}
+                            {order.payment_method === 'cash' ? (
+                                <span className={cn(
+                                    "text-[10px] font-semibold px-1.5 py-0.5 rounded-full",
+                                    variant === 'dark' ? "bg-amber-900/40 text-amber-400" : "bg-amber-100 text-amber-700"
+                                )}>
+                                    🚶 {t('En local', 'Walk-in')}
+                                </span>
+                            ) : (
+                                <span className={cn(
+                                    "text-[10px] font-semibold px-1.5 py-0.5 rounded-full",
+                                    variant === 'dark' ? "bg-blue-900/40 text-blue-400" : "bg-blue-100 text-blue-700"
+                                )}>
+                                    🌐 {t('En línea', 'Online')}
+                                </span>
+                            )}
+                            {minutesOld !== null && !['delivered', 'completed', 'cancelled'].includes(order.status) && (
+                                <span className={cn("flex items-center gap-0.5 text-[10px] font-bold", timerColor)}>
+                                    <Timer className="h-3 w-3" />
+                                    {formatAge(minutesOld)}
+                                </span>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -231,6 +269,30 @@ export const ModernOrderCard = memo(function ModernOrderCard({
                                     : `OVERDUE: ${Math.floor(Math.abs(getUrgency()) / 1440)}d ago`
                             }
                         </span>
+                    </div>
+                )}
+                {order.delivery_option === 'delivery' && order.delivery_address && (
+                    <div className="col-span-2 flex items-center gap-2 mt-1">
+                        <MapPin className="h-3.5 w-3.5 text-blue-400" />
+                        <span className="text-xs truncate">{order.delivery_address}</span>
+                        <a
+                            href={`https://maps.google.com/?q=${encodeURIComponent(order.delivery_address)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            className="text-blue-400 text-xs underline flex-shrink-0"
+                        >
+                            {t('Mapa', 'Map')}
+                        </a>
+                    </div>
+                )}
+                {order.driver_notes && (
+                    <div className={cn(
+                        "col-span-2 flex items-start gap-1.5 mt-1 text-[11px] italic truncate",
+                        variant === 'dark' ? "text-amber-400/80" : "text-amber-700"
+                    )}>
+                        <span className="flex-shrink-0">📝</span>
+                        <span className="truncate">{order.driver_notes}</span>
                     </div>
                 )}
             </div>
@@ -351,6 +413,31 @@ export const ModernOrderCard = memo(function ModernOrderCard({
             <div className={cn("pt-4 border-t", variant === 'dark' ? "border-slate-700/50" : "border-gray-100")}>
                 <div className="flex gap-2">
                     {!isReadOnly && renderActions()}
+                    {isReadOnly && onShowDetails && (
+                        <Button
+                            variant="outline"
+                            onClick={() => onShowDetails(order)}
+                            className="flex-1 bg-white text-black border-gray-200 hover:bg-gray-50 rounded-xl h-10"
+                        >
+                            {t('Ver Orden', 'View Order')}
+                        </Button>
+                    )}
+                    {onShowDetails && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => onShowDetails(order)}
+                            title={t('Imprimir ticket', 'Print Ticket')}
+                            className={cn(
+                                "rounded-xl h-10 w-10 flex-shrink-0",
+                                variant === 'dark'
+                                    ? "text-slate-400 hover:text-white hover:bg-slate-700"
+                                    : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                            )}
+                        >
+                            <Printer className="h-4 w-4" />
+                        </Button>
+                    )}
                 </div>
                 {onCancel && !['completed', 'cancelled', 'delivered'].includes(order.status) && (
                     <Button

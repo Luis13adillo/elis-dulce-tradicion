@@ -50,6 +50,7 @@ import CancelOrderModal from '@/components/order/CancelOrderModal';
 import { useRealtimeOrders } from '@/hooks/useRealtimeOrders';
 import { OrderListWithSearch } from '@/components/order/OrderListWithSearch';
 import { OwnerCalendar } from '@/components/dashboard/OwnerCalendar';
+import { CustomerListView, type CustomerStats } from '@/components/dashboard/CustomerListView';
 import { PrintPreviewModal } from '@/components/print/PrintPreviewModal';
 const MenuManager = lazy(() => import('@/components/dashboard/MenuManager'));
 const InventoryManager = lazy(() => import('@/components/dashboard/InventoryManager'));
@@ -62,6 +63,7 @@ import OrderIssuesManager from '@/components/admin/OrderIssuesManager';
 import { FAQManager } from '@/components/admin/FAQManager';
 import { GalleryManager } from '@/components/admin/GalleryManager';
 import { AnnouncementManager } from '@/components/admin/AnnouncementManager';
+import { DeliveryZoneManager } from '@/components/admin/DeliveryZoneManager';
 import { useBusinessSettings, useBusinessHours } from '@/lib/hooks/useCMS';
 import { AuthenticatorAssuranceCheck } from '@/components/auth/AuthenticatorAssuranceCheck';
 import { useInactivityTimeout } from '@/hooks/useInactivityTimeout';
@@ -110,7 +112,7 @@ const OwnerDashboard = () => {
 
   const [revenuePeriod, setRevenuePeriod] = useState<'today' | 'week' | 'month'>('today');
   const [settingsSubTab, setSettingsSubTab] = useState<'business' | 'hours' | 'contacts' | 'issues'>('business');
-  const [websiteSubTab, setWebsiteSubTab] = useState<'gallery' | 'faq' | 'announcements'>('gallery');
+  const [websiteSubTab, setWebsiteSubTab] = useState<'gallery' | 'faq' | 'announcements' | 'delivery'>('gallery');
 
   // --- SESSION TIMEOUT ---
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
@@ -188,6 +190,36 @@ const OwnerDashboard = () => {
     return { pct: Math.abs(pct), direction: pct >= 0 ? 'up' as const : 'down' as const };
   }, [allOrders]);
 
+  const deliveryWidget = useMemo(() => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const d = allOrders.filter(o => o.delivery_option === 'delivery' && o.date_needed === today);
+    return {
+      dispatched: d.filter(o => o.status === 'out_for_delivery').length,
+      delivered:  d.filter(o => o.status === 'delivered').length,
+      completed:  d.filter(o => o.status === 'completed' && o.dispatched_at).length,
+      total:      d.length,
+    };
+  }, [allOrders]);
+
+
+  // Customer CRM: derived from allOrders, no extra API calls
+  const customerList = useMemo((): CustomerStats[] => {
+    const map = new Map<string, CustomerStats>();
+    allOrders.forEach(order => {
+      const key = order.customer_email || order.customer_name || String(order.id);
+      const existing = map.get(key) || {
+        name: order.customer_name || '',
+        email: order.customer_email || '',
+        phone: order.customer_phone || '',
+        orders: [],
+        totalSpent: 0,
+      };
+      existing.orders.push(order);
+      existing.totalSpent += Number(order.total_amount) || 0;
+      map.set(key, existing);
+    });
+    return Array.from(map.values()).sort((a, b) => b.orders.length - a.orders.length);
+  }, [allOrders]);
 
   // --- 1. DATA LOADING (The "Brain") ---
   const loadDashboardData = async () => {
@@ -475,6 +507,45 @@ const OwnerDashboard = () => {
                     </motion.div>
                   ))}
                 </div>
+
+                {/* DELIVERY WIDGET */}
+                {deliveryWidget.total > 0 && (
+                  <motion.div
+                    variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
+                  >
+                    <Card className="border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] bg-white/70 backdrop-blur-xl rounded-3xl overflow-hidden">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+                            <Truck className="h-4 w-4" />
+                          </div>
+                          <CardTitle className="text-xs font-black uppercase tracking-[0.2em] text-gray-400">
+                            {t('Entregas de Hoy', "Today's Deliveries")} · {deliveryWidget.total} {t('total', 'total')}
+                          </CardTitle>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="flex flex-col items-center justify-center p-4 bg-blue-50 rounded-2xl">
+                            <Truck className="h-5 w-5 text-blue-500 mb-1" />
+                            <span className="text-2xl font-black text-blue-700">{deliveryWidget.dispatched}</span>
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400 mt-1">{t('En Camino', 'In Transit')}</span>
+                          </div>
+                          <div className="flex flex-col items-center justify-center p-4 bg-green-50 rounded-2xl">
+                            <CheckCircle2 className="h-5 w-5 text-green-500 mb-1" />
+                            <span className="text-2xl font-black text-green-700">{deliveryWidget.delivered}</span>
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-green-400 mt-1">{t('Entregado', 'Delivered')}</span>
+                          </div>
+                          <div className="flex flex-col items-center justify-center p-4 bg-gray-100 rounded-2xl">
+                            <Layers className="h-5 w-5 text-gray-400 mb-1" />
+                            <span className="text-2xl font-black text-gray-600">{deliveryWidget.completed}</span>
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mt-1">{t('Completado', 'Completed')}</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                )}
               </motion.div>
 
               {/* TODAY'S SCHEDULE SUMMARY */}
@@ -648,6 +719,14 @@ const OwnerDashboard = () => {
               />
             </TabsContent>
 
+            {/* --- TAB: CUSTOMERS --- */}
+            <TabsContent value="customers" className="animate-in fade-in slide-in-from-bottom-5 duration-500">
+              <CustomerListView
+                customers={customerList}
+                onOrderClick={(order) => setPrintOrder(order)}
+              />
+            </TabsContent>
+
             {/* --- TAB: CALENDAR --- */}
             <TabsContent value="calendar">
               <div className="h-[calc(100vh-140px)]">
@@ -731,6 +810,7 @@ const OwnerDashboard = () => {
                     { id: 'gallery' as const, label: t('Galería', 'Gallery') },
                     { id: 'faq' as const, label: t('Preguntas Frecuentes', 'FAQ') },
                     { id: 'announcements' as const, label: t('Anuncios', 'Announcements') },
+                    { id: 'delivery' as const, label: t('Zonas de Entrega', 'Delivery Zones') },
                   ]).map(tab => (
                     <button
                       key={tab.id}
@@ -750,6 +830,7 @@ const OwnerDashboard = () => {
                   {websiteSubTab === 'gallery' && <GalleryManager />}
                   {websiteSubTab === 'faq' && <FAQManager />}
                   {websiteSubTab === 'announcements' && <AnnouncementManager />}
+                  {websiteSubTab === 'delivery' && <DeliveryZoneManager />}
                 </div>
               </div>
             </TabsContent>

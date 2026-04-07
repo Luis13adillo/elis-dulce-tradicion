@@ -8,6 +8,8 @@ const VALID_STATUSES = [
   'confirmed',
   'in_progress',
   'ready',
+  'out_for_delivery',
+  'delivered',
   'completed',
   'cancelled',
 ];
@@ -32,7 +34,9 @@ function canTransition(from, to, role) {
       pending: ['confirmed', 'cancelled'],
       confirmed: ['in_progress', 'cancelled'],
       in_progress: ['ready', 'cancelled'],
-      ready: ['completed', 'cancelled'],
+      ready: ['out_for_delivery', 'completed', 'cancelled'],
+      out_for_delivery: ['delivered', 'cancelled'],
+      delivered: ['completed'],
       completed: [],
       cancelled: [],
     };
@@ -55,7 +59,7 @@ function validateTransition(from, to, order, context) {
   }
 
   // Business rule: Cannot go backwards (except admin override)
-  const forwardOrder = ['pending', 'confirmed', 'in_progress', 'ready', 'completed'];
+  const forwardOrder = ['pending', 'confirmed', 'in_progress', 'ready', 'out_for_delivery', 'delivered', 'completed'];
   const fromIndex = forwardOrder.indexOf(from);
   const toIndex = forwardOrder.indexOf(to);
 
@@ -155,7 +159,25 @@ function getSideEffects(from, to, order = {}) {
       sideEffects.updateMetrics = true;
       break;
 
+    case 'ready → out_for_delivery':
+      sideEffects.sendEmail = true;
+      sideEffects.emailType = 'out_for_delivery';
+      sideEffects.updateMetrics = true;
+      break;
+
+    case 'out_for_delivery → delivered':
+      sideEffects.sendEmail = true;
+      sideEffects.emailType = 'delivered';
+      sideEffects.updateMetrics = true;
+      break;
+
     case 'ready → completed':
+      sideEffects.sendEmail = true;
+      sideEffects.emailType = 'order_completed';
+      sideEffects.updateMetrics = true;
+      break;
+
+    case 'delivered → completed':
       sideEffects.sendEmail = true;
       sideEffects.emailType = 'order_completed';
       sideEffects.updateMetrics = true;

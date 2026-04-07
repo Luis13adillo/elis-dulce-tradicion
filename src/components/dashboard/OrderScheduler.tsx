@@ -14,11 +14,13 @@ interface OrderSchedulerProps {
     orders: Order[];
     onOrderClick?: (order: Order) => void;
     darkMode?: boolean;
+    businessStartHour?: number;
+    businessEndHour?: number;
 }
 
 type ViewMode = 'Month' | 'Week' | 'Day';
 
-export function OrderScheduler({ orders, onOrderClick, darkMode = false }: OrderSchedulerProps) {
+export function OrderScheduler({ orders, onOrderClick, darkMode = false, businessStartHour, businessEndHour }: OrderSchedulerProps) {
     const { t, language } = useLanguage();
     const locale = language === 'es' ? es : enUS;
 
@@ -27,9 +29,9 @@ export function OrderScheduler({ orders, onOrderClick, darkMode = false }: Order
     const [viewMode, setViewMode] = useState<ViewMode>('Week');
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
-    // Constants
-    const startHour = 6; // 6 AM
-    const endHour = 22;  // 10 PM
+    // Constants — use business hours from DB when available, fall back to defaults
+    const startHour = businessStartHour ?? 6;
+    const endHour = businessEndHour ?? 22;
     const timeSlots = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
 
     // Helper to get week days

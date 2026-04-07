@@ -4,6 +4,7 @@ import { enUS, es } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Order } from '@/types/order';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
@@ -26,7 +27,6 @@ export function OwnerCalendar({ orders, onOrderClick, businessStartHour, busines
     // State
     const [currentDate, setCurrentDate] = useState(new Date());
     const [viewMode, setViewMode] = useState<ViewMode>('Week');
-    const [expandedDate, setExpandedDate] = useState<string | null>(null);
 
     // Use business hours with fallback to defaults
     const startHour = businessStartHour ?? 6;
@@ -225,97 +225,118 @@ export function OwnerCalendar({ orders, onOrderClick, businessStartHour, busines
                                     const isToday = isSameDay(day, new Date());
                                     const today = new Date();
                                     const isPast = isCurrentMonth && !isToday && day < today;
-                                    const isExpanded = expandedDate === dateKey;
-                                    const fillPct = maxDailyCapacity && counts && counts.total > 0
-                                        ? Math.min(100, (counts.total / maxDailyCapacity) * 100)
+                                    const dayOrders = orders.filter(o => o.date_needed === dateKey);
+
+                                    // Gold intensity: 0 orders = transparent, max orders = deep gold
+                                    const maxForScale = maxDailyCapacity || 10;
+                                    const intensity = counts && counts.total > 0
+                                        ? Math.min(1, counts.total / maxForScale)
                                         : 0;
-                                    const barColor = fillPct >= 80 ? 'bg-red-500' : fillPct >= 50 ? 'bg-yellow-500' : 'bg-green-500';
+                                    // Interpolate from light gold (opacity 0.08) to deep gold (opacity 0.55)
+                                    const goldOpacity = intensity > 0 ? 0.08 + intensity * 0.47 : 0;
 
                                     return (
-                                        <button
-                                            key={dateKey}
-                                            onClick={() => setExpandedDate(isExpanded ? null : dateKey)}
-                                            className={cn(
-                                                "relative min-h-[80px] p-2 rounded-xl border transition-all text-left hover:border-[#C6A649]/40",
-                                                isCurrentMonth
-                                                    ? darkMode ? "bg-[#1f2937] border-slate-700" : "bg-white border-gray-100"
-                                                    : darkMode ? "bg-[#13141f] border-transparent" : "bg-gray-50/50 border-transparent",
-                                                isToday && (darkMode ? "ring-2 ring-[#C6A649]/40" : "ring-2 ring-[#C6A649]/30"),
-                                                isPast && "opacity-40",
-                                                isExpanded && (darkMode ? "bg-[#C6A649]/10 border-[#C6A649]/30" : "bg-amber-50 border-amber-200")
-                                            )}
-                                        >
-                                            <span className={cn(
-                                                "text-sm font-bold",
-                                                isToday ? "text-[#C6A649]" :
-                                                isCurrentMonth ? (darkMode ? "text-slate-200" : "text-gray-900") :
-                                                darkMode ? "text-slate-600" : "text-gray-300"
-                                            )}>
-                                                {format(day, 'd')}
-                                            </span>
-                                            {counts && counts.total > 0 && (
-                                                <div className="mt-1 space-y-0.5">
-                                                    <span className={cn("text-xs font-bold", darkMode ? "text-slate-400" : "text-gray-600")}>
-                                                        {counts.total} {counts.total === 1 ? t('pedido', 'order') : t('pedidos', 'orders')}
+                                        <Popover key={dateKey}>
+                                            <PopoverTrigger asChild>
+                                                <button
+                                                    disabled={!isCurrentMonth || dayOrders.length === 0}
+                                                    className={cn(
+                                                        "relative min-h-[76px] p-2 rounded-xl border transition-all text-left",
+                                                        isCurrentMonth
+                                                            ? darkMode ? "border-slate-700 hover:border-[#C6A649]/50" : "border-gray-100 hover:border-[#C6A649]/40"
+                                                            : darkMode ? "border-transparent opacity-30" : "border-transparent opacity-30",
+                                                        isToday && (darkMode ? "ring-2 ring-[#C6A649]/50" : "ring-2 ring-[#C6A649]/40"),
+                                                        isPast && "opacity-50",
+                                                        dayOrders.length > 0 && "cursor-pointer"
+                                                    )}
+                                                    style={{
+                                                        backgroundColor: goldOpacity > 0
+                                                            ? `rgba(198,166,73,${goldOpacity})`
+                                                            : undefined
+                                                    }}
+                                                >
+                                                    <span className={cn(
+                                                        "text-sm font-bold",
+                                                        isToday ? "text-[#C6A649]" :
+                                                        isCurrentMonth ? (darkMode ? "text-slate-200" : "text-gray-900") :
+                                                        darkMode ? "text-slate-600" : "text-gray-300"
+                                                    )}>
+                                                        {format(day, 'd')}
                                                     </span>
-                                                    {maxDailyCapacity && (
-                                                        <div className={cn("w-full rounded-full h-1.5", darkMode ? "bg-slate-700" : "bg-gray-200")}>
-                                                            <div
-                                                                className={cn('h-1.5 rounded-full transition-all', barColor)}
-                                                                style={{ width: `${fillPct}%` }}
-                                                            />
+                                                    {counts && counts.total > 0 && (
+                                                        <div className="mt-1.5">
+                                                            <span className={cn(
+                                                                "inline-flex items-center justify-center rounded-full text-[10px] font-black px-1.5 py-0.5 min-w-[20px]",
+                                                                intensity >= 0.8
+                                                                    ? "bg-[#C6A649] text-white"
+                                                                    : darkMode
+                                                                        ? "bg-[#C6A649]/20 text-[#C6A649]"
+                                                                        : "bg-[#C6A649]/15 text-[#9a7d30]"
+                                                            )}>
+                                                                {counts.total}
+                                                            </span>
                                                         </div>
                                                     )}
-                                                </div>
+                                                </button>
+                                            </PopoverTrigger>
+                                            {dayOrders.length > 0 && (
+                                                <PopoverContent
+                                                    className={cn(
+                                                        "w-72 p-0 rounded-xl border shadow-xl overflow-hidden",
+                                                        darkMode ? "bg-[#1f2937] border-slate-700" : "bg-white border-gray-100"
+                                                    )}
+                                                    align="center"
+                                                    side="bottom"
+                                                >
+                                                    <div className={cn("px-4 py-3 border-b", darkMode ? "border-slate-700" : "border-gray-100")}>
+                                                        <p className={cn("text-sm font-bold", darkMode ? "text-white" : "text-gray-800")}>
+                                                            {format(new Date(dateKey + 'T12:00:00'), 'MMMM d', { locale })}
+                                                        </p>
+                                                        <p className={cn("text-xs mt-0.5", darkMode ? "text-slate-400" : "text-gray-500")}>
+                                                            {dayOrders.length} {dayOrders.length === 1 ? t('pedido', 'order') : t('pedidos', 'orders')}
+                                                        </p>
+                                                    </div>
+                                                    <div className="max-h-60 overflow-y-auto divide-y divide-gray-50">
+                                                        {dayOrders.map(order => (
+                                                            <button
+                                                                key={order.id}
+                                                                className={cn(
+                                                                    "w-full flex items-center justify-between px-4 py-3 text-left transition-colors",
+                                                                    darkMode
+                                                                        ? "hover:bg-slate-700/50 divide-slate-700"
+                                                                        : "hover:bg-amber-50/60"
+                                                                )}
+                                                                onClick={() => onOrderClick?.(order)}
+                                                            >
+                                                                <div className="min-w-0">
+                                                                    <p className={cn("text-sm font-semibold truncate", darkMode ? "text-white" : "text-gray-800")}>
+                                                                        {order.customer_name}
+                                                                    </p>
+                                                                    <p className={cn("text-xs truncate mt-0.5", darkMode ? "text-slate-400" : "text-gray-500")}>
+                                                                        {order.time_needed && `${order.time_needed} · `}{order.cake_size}
+                                                                    </p>
+                                                                </div>
+                                                                <span className={cn(
+                                                                    "ml-3 flex-shrink-0 text-[10px] px-2 py-0.5 rounded-full font-semibold",
+                                                                    order.status === 'ready' || order.status === 'completed' || order.status === 'delivered'
+                                                                        ? "bg-green-100 text-green-700"
+                                                                        : order.status === 'cancelled'
+                                                                            ? "bg-red-100 text-red-700"
+                                                                            : "bg-amber-100 text-amber-700"
+                                                                )}>
+                                                                    {order.status}
+                                                                </span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </PopoverContent>
                                             )}
-                                        </button>
+                                        </Popover>
                                     );
                                 })}
                             </div>
                         ))}
                     </div>
-
-                    {/* Expanded Day Order Panel */}
-                    {expandedDate && (() => {
-                        const panelOrders = orders.filter(o => o.date_needed === expandedDate);
-                        if (panelOrders.length === 0) return null;
-                        return (
-                            <div className={cn("mt-4 p-4 rounded-xl border", darkMode ? "bg-[#1f2937] border-slate-700" : "bg-gray-50 border-gray-200")}>
-                                <h4 className={cn("text-sm font-bold mb-3", darkMode ? "text-slate-300" : "text-gray-700")}>
-                                    {format(new Date(expandedDate + 'T12:00:00'), 'MMMM d', { locale })} — {panelOrders.length} {t('pedidos', 'orders')}
-                                </h4>
-                                <div className="space-y-2">
-                                    {panelOrders.map(order => (
-                                        <div
-                                            key={order.id}
-                                            className={cn(
-                                                "flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:border-[#C6A649] transition-colors",
-                                                darkMode ? "bg-[#13141f] border-slate-700" : "bg-white border-gray-100"
-                                            )}
-                                            onClick={() => onOrderClick?.(order)}
-                                        >
-                                            <div>
-                                                <p className={cn("text-sm font-semibold", darkMode ? "text-white" : "text-gray-800")}>
-                                                    {order.customer_name}
-                                                </p>
-                                                <p className={cn("text-xs", darkMode ? "text-slate-400" : "text-gray-500")}>
-                                                    {order.time_needed} · {order.cake_size} · {order.filling}
-                                                </p>
-                                            </div>
-                                            <span className={cn(
-                                                "text-xs px-2 py-0.5 rounded-full font-medium",
-                                                order.status === 'ready' ? "bg-green-100 text-green-700" :
-                                                order.status === 'cancelled' ? "bg-red-100 text-red-700" :
-                                                "bg-amber-100 text-amber-700"
-                                            )}>
-                                                {order.status}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        );
-                    })()}
                 </div>
             )}
 

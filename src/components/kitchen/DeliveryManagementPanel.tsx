@@ -1,10 +1,10 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
-import { Order, DeliveryStatus } from '@/types/order';
+import { Order } from '@/types/order';
 import { cn } from '@/lib/utils';
-import { Truck, Package, Clock, RefreshCw, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Truck, Package, Clock, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DeliveryCard } from './DeliveryCard';
 
@@ -22,35 +22,7 @@ export function DeliveryManagementPanel({
   onShowDetails,
 }: DeliveryManagementPanelProps) {
   const { t } = useLanguage();
-  const [staffMembers, setStaffMembers] = useState<{ id: string; full_name: string; role: string }[]>([]);
-  const [loadingStaff, setLoadingStaff] = useState(true);
-  const [staffError, setStaffError] = useState(false);
   const [actionLoading, setActionLoading] = useState<Record<number, boolean>>({});
-
-  const fetchStaff = async () => {
-    setLoadingStaff(true);
-    setStaffError(false);
-    try {
-      const members = await api.getStaffMembers();
-      setStaffMembers(members);
-    } catch (err) {
-      setStaffError(true);
-      toast.error(t('Error al cargar personal', 'Error loading staff'), {
-        action: {
-          label: t('Reintentar', 'Retry'),
-          onClick: () => fetchStaff(),
-        },
-      });
-    } finally {
-      setLoadingStaff(false);
-    }
-  };
-
-  // Fetch staff members on mount
-  useEffect(() => {
-    fetchStaff();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Filter to today's delivery orders
   const todayDeliveries = useMemo(() => {
@@ -58,71 +30,52 @@ export function DeliveryManagementPanel({
     return orders
       .filter((o) => o.delivery_option === 'delivery' && o.date_needed === today)
       .sort((a, b) => {
-        // Sort: pending first, then assigned, in_transit, delivered, failed
         const statusOrder: Record<string, number> = {
-          pending: 0,
-          assigned: 1,
-          in_transit: 2,
-          failed: 3,
-          delivered: 4,
+          ready: 0,
+          out_for_delivery: 1,
+          delivered: 2,
+          completed: 3,
         };
-        const sa = statusOrder[(a.delivery_status as string) || 'pending'] ?? 0;
-        const sb = statusOrder[(b.delivery_status as string) || 'pending'] ?? 0;
+        const sa = statusOrder[a.status] ?? 0;
+        const sb = statusOrder[b.status] ?? 0;
         if (sa !== sb) return sa - sb;
-        // Then by time needed
         const timeA = a.time_needed || '23:59';
         const timeB = b.time_needed || '23:59';
         return timeA.localeCompare(timeB);
       });
   }, [orders]);
 
-  // Summary stats
+  // Summary stats — use order.status (not delivery_status)
   const stats = useMemo(() => ({
     total: todayDeliveries.length,
-    pending: todayDeliveries.filter((o) => !o.delivery_status || o.delivery_status === 'pending').length,
-    inTransit: todayDeliveries.filter((o) => o.delivery_status === 'assigned' || o.delivery_status === 'in_transit').length,
-    delivered: todayDeliveries.filter((o) => o.delivery_status === 'delivered').length,
-    failed: todayDeliveries.filter((o) => o.delivery_status === 'failed').length,
+    pending: todayDeliveries.filter(o => o.status === 'ready').length,
+    inTransit: todayDeliveries.filter(o => o.status === 'out_for_delivery').length,
+    delivered: todayDeliveries.filter(o => o.status === 'delivered').length,
   }), [todayDeliveries]);
 
-  const handleAssignDriver = async (orderId: number, driverId: string) => {
-    setActionLoading((prev) => ({ ...prev, [orderId]: true }));
+  const handleDispatch = async (orderId: number) => {
+    setActionLoading(prev => ({ ...prev, [orderId]: true }));
     try {
-      const result = await api.assignDelivery(orderId, driverId);
-      if (result.success) {
-        toast.success(t('Conductor asignado', 'Driver assigned'));
-        onRefresh();
-      } else {
-        toast.error(result.error || t('Error al asignar', 'Error assigning driver'));
-      }
+      await api.updateOrderStatus(orderId, 'out_for_delivery');
+      toast.success(t('Enviado a domicilio', 'Dispatched for delivery'));
+      onRefresh();
     } catch {
-      toast.error(t('Error al asignar', 'Error assigning driver'));
+      toast.error(t('Error al despachar', 'Error dispatching'));
     } finally {
-      setActionLoading((prev) => ({ ...prev, [orderId]: false }));
+      setActionLoading(prev => ({ ...prev, [orderId]: false }));
     }
   };
 
-  const handleStatusUpdate = async (orderId: number, newStatus: DeliveryStatus, notes?: string) => {
-    setActionLoading((prev) => ({ ...prev, [orderId]: true }));
+  const handleMarkDelivered = async (orderId: number) => {
+    setActionLoading(prev => ({ ...prev, [orderId]: true }));
     try {
-      const result = await api.updateDeliveryStatus(orderId, newStatus, notes);
-      if (result.success) {
-        const labels: Record<string, string> = {
-          pending: t('Pendiente', 'Pending'),
-          assigned: t('Asignado', 'Assigned'),
-          in_transit: t('En camino', 'In Transit'),
-          delivered: t('Entregado', 'Delivered'),
-          failed: t('Fallido', 'Failed'),
-        };
-        toast.success(labels[newStatus] || newStatus);
-        onRefresh();
-      } else {
-        toast.error(result.error || t('Error al actualizar', 'Error updating status'));
-      }
+      await api.updateOrderStatus(orderId, 'delivered');
+      toast.success(t('Orden entregada', 'Order delivered'));
+      onRefresh();
     } catch {
-      toast.error(t('Error al actualizar', 'Error updating status'));
+      toast.error(t('Error al marcar', 'Error marking delivered'));
     } finally {
-      setActionLoading((prev) => ({ ...prev, [orderId]: false }));
+      setActionLoading(prev => ({ ...prev, [orderId]: false }));
     }
   };
 
@@ -134,7 +87,7 @@ export function DeliveryManagementPanel({
       color: darkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600',
     },
     {
-      label: t('Pendientes', 'Pending'),
+      label: t('Listas', 'Ready'),
       value: stats.pending,
       icon: Clock,
       color: darkMode ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600',
@@ -215,40 +168,6 @@ export function DeliveryManagementPanel({
         ))}
       </div>
 
-      {/* Staff data error indicator */}
-      {staffError && (
-        <p className={cn(
-          "text-xs flex items-center gap-1 mb-4",
-          darkMode ? "text-red-400" : "text-red-500"
-        )}>
-          <AlertTriangle className="h-3 w-3" />
-          {t('Sin datos de personal', 'Staff data unavailable')}
-          <button
-            className="underline ml-1"
-            onClick={() => fetchStaff()}
-          >
-            {t('Reintentar', 'Retry')}
-          </button>
-        </p>
-      )}
-
-      {/* Failed deliveries alert */}
-      {stats.failed > 0 && (
-        <div
-          className={cn(
-            "flex items-center gap-3 px-4 py-3 rounded-xl border mb-6",
-            darkMode
-              ? "bg-red-900/20 border-red-500/30 text-red-400"
-              : "bg-red-50 border-red-200 text-red-700"
-          )}
-        >
-          <AlertTriangle className="h-5 w-5 flex-shrink-0" />
-          <span className="font-bold text-sm">
-            {stats.failed} {t('entrega(s) fallida(s)', 'failed delivery(ies)')}
-          </span>
-        </div>
-      )}
-
       {/* Delivery Cards Grid */}
       <div className="flex-1 overflow-y-auto pb-20">
         {todayDeliveries.length === 0 ? (
@@ -270,9 +189,8 @@ export function DeliveryManagementPanel({
               <DeliveryCard
                 key={order.id}
                 order={order}
-                staffMembers={staffMembers}
-                onAssignDriver={handleAssignDriver}
-                onStatusUpdate={handleStatusUpdate}
+                onDispatch={handleDispatch}
+                onMarkDelivered={handleMarkDelivered}
                 onShowDetails={onShowDetails}
                 isLoading={!!actionLoading[order.id]}
                 darkMode={darkMode}

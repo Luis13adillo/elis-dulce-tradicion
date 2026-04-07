@@ -7,7 +7,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle2, Clock, MapPin, Phone, Mail, Calendar, Package, UserPlus, Share2, CalendarPlus } from 'lucide-react';
+import { CheckCircle2, Clock, MapPin, Phone, Mail, Calendar, Package, UserPlus, Share2, CalendarPlus, Search } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { useShare } from '@/hooks/useShare';
@@ -313,6 +313,13 @@ const OrderConfirmation = () => {
 
             {/* Actions */}
             <div className="flex flex-col gap-4 sm:flex-row relative z-10">
+              <Button
+                onClick={() => navigate(`/order-tracking?orderNumber=${order.order_number}`)}
+                className="flex-1 min-h-[50px] rounded-full bg-[#C6A649] hover:bg-[#B59539] text-black font-bold"
+              >
+                <Search className="mr-2 h-4 w-4" />
+                {t('Rastrear Orden', 'Track My Order')}
+              </Button>
               <Button
                 onClick={() => navigate('/')}
                 variant="outline"

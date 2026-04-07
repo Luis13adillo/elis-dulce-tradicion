@@ -85,6 +85,8 @@ router.post(
         'confirmed',
         'in_progress',
         'ready',
+        'out_for_delivery',
+        'delivered',
         'completed',
         'cancelled',
       ];
@@ -155,6 +157,12 @@ router.post(
       // Set ready_at timestamp when marking as ready
       if (targetStatus === 'ready' && !order.ready_at) {
         updateFields.push(`ready_at = CURRENT_TIMESTAMP`);
+      }
+      if (targetStatus === 'out_for_delivery') {
+        updateFields.push(`dispatched_at = CURRENT_TIMESTAMP`);
+      }
+      if (targetStatus === 'delivered') {
+        updateFields.push(`delivered_at = CURRENT_TIMESTAMP`);
       }
 
       // Update time metrics

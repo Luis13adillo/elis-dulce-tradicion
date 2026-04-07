@@ -13,6 +13,7 @@ interface ContactStepProps {
   consentGiven: boolean;
   deliveryAddress: string;
   deliveryFee: number;
+  isAddressServiceable?: boolean;
   onNameChange: (name: string) => void;
   onPhoneChange: (phone: string) => void;
   onEmailChange: (email: string) => void;
@@ -34,12 +35,15 @@ export function validateContactStep(
   pickupType: string,
   deliveryAddress: string,
   consentGiven: boolean,
-  t: any
+  t: any,
+  isAddressServiceable?: boolean
 ): string | null {
   if (!customerName.trim()) return t('Por favor ingresa tu nombre', 'Please enter your name');
   if (!phone.trim()) return t('Por favor ingresa tu teléfono', 'Please enter your phone');
   if (!email.trim() || !email.includes('@')) return t('Por favor ingresa un email válido', 'Please enter a valid email');
   if (pickupType === 'delivery' && !deliveryAddress.trim()) return t('Por favor ingresa tu dirección', 'Please enter your delivery address');
+  if (pickupType === 'delivery' && deliveryAddress && isAddressServiceable === false)
+    return t('Dirección fuera de área de entrega (máx. 4.5 millas)', 'Address outside delivery area (max 4.5 miles)');
   if (!consentGiven) return t('Por favor acepta los términos', 'Please accept the terms');
   return null;
 }
@@ -52,6 +56,7 @@ const ContactStep = ({
   consentGiven,
   deliveryAddress,
   deliveryFee,
+  isAddressServiceable: _isAddressServiceable,
   onNameChange,
   onPhoneChange,
   onEmailChange,

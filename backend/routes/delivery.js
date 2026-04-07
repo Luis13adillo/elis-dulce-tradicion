@@ -4,6 +4,20 @@ import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
+const BAKERY_LAT = 40.1063;
+const BAKERY_LNG = -74.9526;
+const MAX_DELIVERY_MILES = 4.5;
+
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 3958.8;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lng2 - lng1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 /**
  * Validate delivery address
  * POST /api/delivery/validate-address
@@ -70,10 +84,22 @@ router.post('/validate-address', async (req, res) => {
  */
 router.get('/calculate-fee', async (req, res) => {
   try {
-    const { address, zipCode } = req.query;
+    const { address, zipCode, lat, lng } = req.query;
 
     if (!address && !zipCode) {
       return res.status(400).json({ error: 'Address or zip code is required' });
+    }
+
+    // Haversine check — runs first if coordinates are provided
+    if (lat !== undefined && lng !== undefined) {
+      const parsedLat = parseFloat(lat);
+      const parsedLng = parseFloat(lng);
+      if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+        const dist = haversine(BAKERY_LAT, BAKERY_LNG, parsedLat, parsedLng);
+        if (dist > MAX_DELIVERY_MILES) {
+          return res.json({ serviceable: false, fee: 0, distance: Math.round(dist * 10) / 10 });
+        }
+      }
     }
 
     const zip = zipCode || (address ? address.match(/\b\d{5}(-\d{4})?\b/)?.[0] : null);

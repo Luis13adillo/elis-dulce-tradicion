@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import {
   Clock,
@@ -20,7 +19,7 @@ interface TodayScheduleSummaryProps {
   darkMode?: boolean;
 }
 
-const TodayScheduleSummary = ({ orders, maxDailyCapacity = 20, darkMode = false }: TodayScheduleSummaryProps) => {
+const TodayScheduleSummary = ({ orders, maxDailyCapacity = 10, darkMode = false }: TodayScheduleSummaryProps) => {
   const { t } = useLanguage();
   const now = new Date();
   const todayStr = format(now, 'yyyy-MM-dd');

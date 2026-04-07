@@ -10,6 +10,7 @@ import {
     Calendar,
     Boxes,
     Globe,
+    Users,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -33,6 +34,7 @@ export const OwnerSidebar = ({ activeTab, setActiveTab, className }: OwnerSideba
             items: [
                 { id: 'overview', label: t('Resumen', 'Overview'), icon: LayoutDashboard },
                 { id: 'orders', label: t('Pedidos', 'Orders'), icon: ShoppingBag },
+                { id: 'customers', label: t('Clientes', 'Customers'), icon: Users },
                 { id: 'calendar', label: t('Calendario', 'Calendar'), icon: Calendar },
             ],
         },

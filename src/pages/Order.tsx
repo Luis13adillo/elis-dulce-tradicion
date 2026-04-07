@@ -109,6 +109,7 @@ const Order = () => {
   const [showCamera, setShowCamera] = useState(false);
   const [consentGiven, setConsentGiven] = useState(false);
   const [deliveryFee, setDeliveryFee] = useState(0);
+  const [isAddressServiceable, setIsAddressServiceable] = useState<boolean | undefined>(undefined);
 
   // DB-driven order form options (with fallback to hardcoded arrays)
   const [orderOptions, setOrderOptions] = useState<OrderFormOptions | null>(null);
@@ -385,6 +386,7 @@ const Order = () => {
 
   const handleAddressChange = (address: string, _isValid: boolean, _placeDetails?: any, deliveryInfo?: any) => {
     setFormData(prev => ({ ...prev, deliveryAddress: address }));
+    setIsAddressServiceable(deliveryInfo?.serviceable);
     if (deliveryInfo && !deliveryInfo.serviceable) {
       setFormData(prev => ({ ...prev, pickupType: 'pickup' }));
       setDeliveryFee(0);
@@ -446,7 +448,8 @@ const Order = () => {
         formData.pickupType,
         formData.deliveryAddress,
         consentGiven,
-        t
+        t,
+        isAddressServiceable
       );
       if (err) { setValidationError(err); return false; }
     }
@@ -742,6 +745,7 @@ const Order = () => {
                 consentGiven={consentGiven}
                 deliveryAddress={formData.deliveryAddress}
                 deliveryFee={deliveryFee}
+                isAddressServiceable={isAddressServiceable}
                 onNameChange={(name) => setFormData(prev => ({ ...prev, customerName: name }))}
                 onPhoneChange={handlePhoneChange}
                 onEmailChange={(email) => setFormData(prev => ({ ...prev, email }))}

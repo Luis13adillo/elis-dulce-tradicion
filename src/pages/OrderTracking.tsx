@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -22,6 +23,8 @@ import { Order } from '@/types/order';
 const OrderTracking = () => {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [orderNumber, setOrderNumber] = useState('');
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(false);
@@ -29,8 +32,9 @@ const OrderTracking = () => {
   const confettiRef = useRef<ConfettiRef>(null);
   const previousStatusRef = useRef<string | null>(null);
 
-  const handleSearch = async () => {
-    if (!orderNumber.trim()) {
+  const handleSearch = async (override?: string) => {
+    const searchValue = override || orderNumber;
+    if (!searchValue.trim()) {
       toast.error(t('Por favor ingrese un número de orden', 'Please enter an order number'));
       return;
     }
@@ -40,7 +44,7 @@ const OrderTracking = () => {
     try {
       // Security Fix: Fetch ONLY the specific order by number
       // Do NOT fetch all orders to filter client-side
-      const foundOrder = await api.getOrderByNumber(orderNumber.trim());
+      const foundOrder = await api.getOrderByNumber(searchValue.trim());
 
       if (foundOrder) {
         setOrder(foundOrder);
@@ -78,6 +82,14 @@ const OrderTracking = () => {
     }
 
   };
+
+  useEffect(() => {
+    const param = searchParams.get('orderNumber') || searchParams.get('order');
+    if (param) {
+      setOrderNumber(param);
+      handleSearch(param);
+    }
+  }, []); // mount only
 
   // Real-time subscription for the current order
   // Only subscribe when we have an order to track
@@ -164,7 +176,7 @@ const OrderTracking = () => {
                   </div>
                   <div className="flex items-end">
                     <Button
-                      onClick={handleSearch}
+                      onClick={() => handleSearch()}
                       disabled={loading}
                       className="bg-primary text-secondary"
                     >
@@ -213,7 +225,7 @@ const OrderTracking = () => {
                           {t('Total', 'Total')}
                         </p>
                         <p className="font-display text-xl font-bold text-primary">
-                          ${order.total_amount?.toFixed(2) || '0.00'}
+                          ${Number(order.total_amount)?.toFixed(2) || '0.00'}
                         </p>
                       </div>
                     </div>
@@ -233,6 +245,21 @@ const OrderTracking = () => {
                     />
                   </CardContent>
                 </Card>
+
+                {/* On the Way Card */}
+                {order.status === 'out_for_delivery' && (
+                  <Card className="border-blue-200 bg-blue-50">
+                    <CardContent className="pt-6 flex items-center gap-3">
+                      <Truck className="h-8 w-8 text-blue-600" />
+                      <div>
+                        <h3 className="font-bold">{t('¡Tu orden va en camino!', 'Your order is on the way!')}</h3>
+                        {order.estimated_delivery_time && (
+                          <p className="text-sm">{t('Llega alrededor de', 'Arriving around')}: {new Date(order.estimated_delivery_time).toLocaleTimeString()}</p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Delivery Status Card */}
                 {order.delivery_option === 'delivery' && (

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { api } from '@/lib/api';
+import { calculateDistance } from '@/lib/googleMaps';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 
@@ -148,6 +149,14 @@ const AddressAutocomplete = ({
         if (isValid && showDeliveryInfo && zipCode) {
           setIsCheckingDelivery(true);
           try {
+            const distance = await calculateDistance(place.formatted_address);
+            if (distance > 4.5) {
+              setIsValidAddress(false);
+              const outInfo = { serviceable: false, distance };
+              setDeliveryInfo(outInfo);
+              onChange(place.formatted_address, false, placeDetails, outInfo);
+              return;
+            }
             const deliveryData = await api.calculateDeliveryFee(formattedAddress, zipCode);
             setDeliveryInfo(deliveryData);
             onChange(formattedAddress, isValid, placeDetails, deliveryData);
