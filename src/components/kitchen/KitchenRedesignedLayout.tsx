@@ -49,6 +49,8 @@ interface KitchenRedesignedLayoutProps {
     onToggleSound?: () => void;
     userName?: string;
     headerAction?: React.ReactNode;
+    todayOrderCount?: number;
+    maxDailyCapacity?: number;
 }
 
 export function KitchenRedesignedLayout({
@@ -72,6 +74,8 @@ export function KitchenRedesignedLayout({
     headerAction,
     isConnected = true,
     connectionError,
+    todayOrderCount,
+    maxDailyCapacity,
 }: KitchenRedesignedLayoutProps) {
     const isDarkMode = darkMode;
 
@@ -99,11 +103,23 @@ export function KitchenRedesignedLayout({
             )}>
                 {/* Header Area */}
                 <header className="flex items-center justify-between mb-8">
-                    <div>
+                    <div className="flex items-center gap-4">
                         <h1 className={cn(
                             "text-3xl font-bold tracking-tight transition-colors",
                             isDarkMode ? "text-white" : "text-gray-900"
                         )}>{title}</h1>
+                        {todayOrderCount !== undefined && maxDailyCapacity !== undefined && (
+                            <div className={cn(
+                                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold",
+                                todayOrderCount >= maxDailyCapacity
+                                    ? isDarkMode ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-700"
+                                    : todayOrderCount >= maxDailyCapacity * 0.8
+                                        ? isDarkMode ? "bg-amber-500/20 text-amber-400" : "bg-amber-100 text-amber-700"
+                                        : isDarkMode ? "bg-green-500/20 text-green-400" : "bg-green-100 text-green-700"
+                            )}>
+                                <span>Today: {todayOrderCount} / {maxDailyCapacity}</span>
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex items-center gap-6">

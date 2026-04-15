@@ -31,19 +31,22 @@ export const isSupabaseConfigured = () => !!supabase;
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
   if (!supabase) return null;
 
-  // Optimized: Only select needed columns
-  const { data, error } = await supabase
+  // Race with a 5s timeout to prevent the auth loading spinner from
+  // hanging forever if Supabase is slow or temporarily unreachable.
+  const timeoutPromise = new Promise<null>((resolve) =>
+    setTimeout(() => { console.warn('getUserProfile timed out'); resolve(null); }, 5_000)
+  );
+  const queryPromise = supabase
     .from('user_profiles')
     .select('id, user_id, role, full_name, phone, preferred_language, created_at, updated_at')
     .eq('user_id', userId)
-    .single();
+    .single()
+    .then(({ data, error }) => {
+      if (error) { console.error('Error fetching user profile:', error); return null; }
+      return data as UserProfile;
+    });
 
-  if (error) {
-    console.error('Error fetching user profile:', error);
-    return null;
-  }
-
-  return data;
+  return Promise.race([queryPromise, timeoutPromise]);
 }
 
 /**

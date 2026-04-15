@@ -96,9 +96,19 @@ class ApiClient extends BaseApiClient {
         if (!sb) return { success: false };
         const { data: { user } } = await sb.auth.getUser();
         if (!user) return { success: false };
-        const { data, error } = await sb.from('order_notes').insert({ order_id: orderId, created_by: user.id, content: content.trim() }).select().single();
+        const { data: profile } = await sb.from('user_profiles').select('full_name').eq('user_id', user.id).single();
+        const authorName = profile?.full_name || user.email?.split('@')[0] || 'Staff';
+        const { data, error } = await sb.from('order_notes').insert({ order_id: orderId, created_by: user.id, author_name: authorName, content: content.trim() }).select().single();
         if (error) throw error;
         return { success: true, data };
+    }
+
+    async deleteOrderNote(noteId: number) {
+        const sb = this.ensureSupabase();
+        if (!sb) return { success: false, error: 'Not initialized' };
+        const { error } = await sb.from('order_notes').delete().eq('id', noteId);
+        if (error) return { success: false, error: error.message };
+        return { success: true };
     }
 
     async getBusinessHours(): Promise<BusinessHours[]> {

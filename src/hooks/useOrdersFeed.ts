@@ -37,7 +37,10 @@ export const useOrdersFeed = (role?: UserRole, options?: { soundEnabled?: boolea
   const loadOrders = useCallback(async (showLoading = false) => {
     try {
       if (showLoading) setIsRefreshing(true);
-      const data = await api.getAllOrders();
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Orders fetch timed out')), 10_000)
+      );
+      const data = await Promise.race([api.getAllOrders(), timeoutPromise]);
 
       if (Array.isArray(data)) {
         setOrders(data);
@@ -152,6 +155,32 @@ export const useOrdersFeed = (role?: UserRole, options?: { soundEnabled?: boolea
   // Dismiss Alert
   const dismissAlert = () => setNewOrderAlert(false);
 
+  // Trigger a demo/test notification without a real order
+  const triggerTestAlert = useCallback(() => {
+    const mockOrder: Order = {
+      id: 999999,
+      order_number: 'TEST-001',
+      status: 'pending',
+      customer_name: 'Demo Customer',
+      customer_phone: '(555) 000-0000',
+      cake_size: '10"',
+      filling: 'Fresa / Strawberry',
+      theme: 'Birthday',
+      date_needed: new Date().toISOString().split('T')[0],
+      time_needed: '3:00 PM',
+      delivery_option: 'pickup',
+      total_amount: 85,
+      created_at: new Date().toISOString(),
+    };
+    setLatestOrder(mockOrder);
+    setNewOrderAlert(true);
+    if (audioRef.current && options?.soundEnabled !== false) {
+      audioRef.current.loop = true;
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(() => {});
+    }
+  }, [options?.soundEnabled]);
+
   // Computed Stats
   const stats = {
     total: orders.length,
@@ -179,6 +208,7 @@ export const useOrdersFeed = (role?: UserRole, options?: { soundEnabled?: boolea
     reconnect,
     updateOrderOptimistically,
     activityFeed,
+    triggerTestAlert,
   };
 };
 

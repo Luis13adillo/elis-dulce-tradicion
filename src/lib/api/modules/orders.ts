@@ -94,6 +94,13 @@ export class OrdersApi extends BaseApiClient {
                 return { success: false, error: error.message };
             }
 
+            // Persist estimated_ready_at if provided (RPC doesn't handle custom fields)
+            if (metadata?.estimated_ready_at) {
+                await sb.from('orders')
+                    .update({ estimated_ready_at: metadata.estimated_ready_at })
+                    .eq('id', id);
+            }
+
             return data as { success: boolean; error?: string };
         } catch (err: any) {
             console.error(`Error updating order ${id} status:`, err);

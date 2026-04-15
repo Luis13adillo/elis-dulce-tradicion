@@ -1,8 +1,8 @@
-import { memo, useMemo } from "react";
+import { memo, useMemo, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Order } from "@/types/order";
-import { Clock, MapPin, Calendar, Timer, Printer } from "lucide-react";
+import { Clock, MapPin, Calendar, Timer, Printer, Phone, Mail } from "lucide-react";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -28,21 +28,41 @@ export const ModernOrderCard = memo(function ModernOrderCard({
 }: ModernOrderCardProps) {
     const { t } = useLanguage();
 
+    // Tick every 60 s so time-based values update live
+    const [now, setNow] = useState(() => Date.now());
+    useEffect(() => {
+        const id = setInterval(() => setNow(Date.now()), 60_000);
+        return () => clearInterval(id);
+    }, []);
+
     // Memoize urgency — avoid re-parsing ISO strings on every render
     const urgencyMinutes = useMemo(() => {
         try {
             const dueDateTime = parseISO(`${order.date_needed}T${order.time_needed}`);
-            return differenceInMinutes(dueDateTime, new Date());
+            return differenceInMinutes(dueDateTime, new Date(now));
         } catch {
             return 0;
         }
-    }, [order.date_needed, order.time_needed]);
+    }, [order.date_needed, order.time_needed, now]);
 
     // Elapsed time since order was placed — shown as age timer
     const minutesOld = useMemo(() => {
         if (!order.created_at) return null;
-        return Math.floor((Date.now() - new Date(order.created_at).getTime()) / 60000);
-    }, [order.created_at]);
+        return Math.floor((now - new Date(order.created_at).getTime()) / 60000);
+    }, [order.created_at, now]);
+
+    // Countdown to estimated_ready_at (minutes remaining, negative = overdue)
+    const readyCountdown = useMemo(() => {
+        if (!order.estimated_ready_at) return null;
+        return differenceInMinutes(new Date(order.estimated_ready_at), new Date(now));
+    }, [order.estimated_ready_at, now]);
+
+    const formattedTotal = useMemo(() => {
+        if (!order.total_amount) return null;
+        const n = typeof order.total_amount === 'string' ? parseFloat(order.total_amount) : order.total_amount;
+        if (isNaN(n)) return null;
+        return `$${n.toFixed(2)}`;
+    }, [order.total_amount]);
 
     const timerColor = minutesOld === null ? ''
         : minutesOld < 30 ? (variant === 'dark' ? 'text-green-400' : 'text-green-600')
@@ -189,11 +209,11 @@ export const ModernOrderCard = memo(function ModernOrderCard({
                             />
                         )}
                     </div>
-                    <div>
+                    <div className="min-w-0">
                         <h3 className={cn("font-bold leading-tight", variant === 'dark' ? "text-white" : "text-gray-900")}>
                             {order.customer_name}
                         </h3>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                             <p className={cn("text-xs", variant === 'dark' ? "text-slate-400" : "text-gray-500")}>
                                 #{order.order_number}
                             </p>
@@ -220,6 +240,54 @@ export const ModernOrderCard = memo(function ModernOrderCard({
                                 </span>
                             )}
                         </div>
+                        {/* Payment status + total */}
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            {order.payment_status && (
+                                <span className={cn(
+                                    "text-[10px] font-bold px-1.5 py-0.5 rounded-full",
+                                    order.payment_status === 'paid'
+                                        ? variant === 'dark' ? "bg-green-900/40 text-green-400" : "bg-green-100 text-green-700"
+                                        : order.payment_status === 'pending'
+                                            ? variant === 'dark' ? "bg-yellow-900/40 text-yellow-400" : "bg-yellow-100 text-yellow-700"
+                                            : variant === 'dark' ? "bg-red-900/40 text-red-400" : "bg-red-100 text-red-700"
+                                )}>
+                                    {order.payment_status === 'paid' ? '✓ ' : order.payment_status === 'pending' ? '⏳ ' : '✗ '}
+                                    {order.payment_status === 'paid' ? t('Pagado', 'Paid') : order.payment_status === 'pending' ? t('Pendiente', 'Pending') : order.payment_status}
+                                </span>
+                            )}
+                            {formattedTotal && (
+                                <span className={cn("text-[10px] font-bold", variant === 'dark' ? "text-slate-300" : "text-gray-700")}>
+                                    {formattedTotal}
+                                </span>
+                            )}
+                            {/* Contact buttons */}
+                            {order.customer_phone && (
+                                <a
+                                    href={`tel:${order.customer_phone}`}
+                                    onClick={e => e.stopPropagation()}
+                                    title={order.customer_phone}
+                                    className={cn(
+                                        "flex items-center justify-center h-5 w-5 rounded-full transition-colors",
+                                        variant === 'dark' ? "text-slate-400 hover:text-green-400 hover:bg-green-900/30" : "text-gray-400 hover:text-green-600 hover:bg-green-50"
+                                    )}
+                                >
+                                    <Phone className="h-3 w-3" />
+                                </a>
+                            )}
+                            {order.customer_email && (
+                                <a
+                                    href={`mailto:${order.customer_email}`}
+                                    onClick={e => e.stopPropagation()}
+                                    title={order.customer_email}
+                                    className={cn(
+                                        "flex items-center justify-center h-5 w-5 rounded-full transition-colors",
+                                        variant === 'dark' ? "text-slate-400 hover:text-blue-400 hover:bg-blue-900/30" : "text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                                    )}
+                                >
+                                    <Mail className="h-3 w-3" />
+                                </a>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -241,6 +309,25 @@ export const ModernOrderCard = memo(function ModernOrderCard({
                     <Clock className="h-3.5 w-3.5" />
                     <span>{format(parseISO(`2000-01-01T${order.time_needed}`), 'h:mm a')}</span>
                 </div>
+                {/* Estimated ready countdown */}
+                {readyCountdown !== null && !['ready', 'out_for_delivery', 'delivered', 'completed', 'cancelled'].includes(order.status) && (
+                    <div className={cn(
+                        "col-span-2 flex items-center gap-2 font-semibold mt-1 text-xs px-2 py-1.5 rounded-lg border",
+                        readyCountdown > 0
+                            ? variant === 'dark'
+                                ? "bg-blue-900/20 border-blue-500/30 text-blue-400"
+                                : "bg-blue-50 border-blue-200 text-blue-700"
+                            : variant === 'dark'
+                                ? "bg-red-900/20 border-red-500/30 text-red-400"
+                                : "bg-red-50 border-red-200 text-red-700"
+                    )}>
+                        <Timer className="h-3.5 w-3.5 flex-shrink-0" />
+                        {readyCountdown > 0
+                            ? `${t('Lista en', 'Ready in')} ${readyCountdown >= 60 ? `${Math.floor(readyCountdown / 60)}h ${readyCountdown % 60}m` : `${readyCountdown}m`}`
+                            : `${t('Pasó el tiempo', 'Prep overdue')} ${Math.abs(readyCountdown) >= 60 ? `${Math.floor(Math.abs(readyCountdown) / 60)}h ${Math.abs(readyCountdown) % 60}m` : `${Math.abs(readyCountdown)}m`}`
+                        }
+                    </div>
+                )}
                 {getUrgency() > 0 && getUrgency() < 60 && (
                     <div className="col-span-2 flex items-center gap-2 font-black mt-1 text-red-600 animate-pulse bg-red-50 p-2 rounded-lg border border-red-200">
                         <Clock className="h-4 w-4" />
@@ -411,6 +498,17 @@ export const ModernOrderCard = memo(function ModernOrderCard({
 
             {/* Actions */}
             <div className={cn("pt-4 border-t", variant === 'dark' ? "border-slate-700/50" : "border-gray-100")}>
+                {formattedTotal && (
+                    <div className={cn(
+                        "flex items-center justify-between text-sm font-bold mb-3",
+                        variant === 'dark' ? "text-slate-200" : "text-gray-800"
+                    )}>
+                        <span className={cn("text-xs font-medium", variant === 'dark' ? "text-slate-400" : "text-gray-500")}>
+                            {t('Total', 'Total')}
+                        </span>
+                        <span className="text-base">{formattedTotal}</span>
+                    </div>
+                )}
                 <div className="flex gap-2">
                     {!isReadOnly && renderActions()}
                     {isReadOnly && onShowDetails && (

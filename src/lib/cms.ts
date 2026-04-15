@@ -28,6 +28,8 @@ export interface BusinessSettings {
   about_us_content_es?: string;
   max_daily_capacity?: number;
   session_timeout_minutes?: number;
+  auto_confirm_enabled?: boolean;
+  auto_confirm_prep_minutes?: number;
 }
 
 export interface BusinessHours {

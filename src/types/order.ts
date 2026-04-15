@@ -89,6 +89,7 @@ export type Order = {
   updated_at?: string;
   confirmed_at?: string;
   ready_at?: string;
+  estimated_ready_at?: string;
   completed_at?: string;
 };
 

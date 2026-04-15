@@ -378,29 +378,39 @@ router.patch('/:id/status', requireAuth, validateOrderUpdate, asyncHandler(async
     await client.query('BEGIN');
     
     const { id } = req.params;
-    const { status, notes } = req.body;
-    
+    const { status, notes, estimated_ready_at } = req.body;
+
     // Validate status
     const validStatuses = ['pending', 'confirmed', 'in_progress', 'ready', 'completed', 'cancelled'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ error: 'Invalid status' });
     }
-    
+
     const updateFields = ['status = $1'];
-    const params = [status, id];
-    
+    const params = [status];
+    let paramIndex = 2;
+
+    // Store estimated_ready_at when confirming
+    if (status === 'confirmed' && estimated_ready_at) {
+      updateFields.push(`estimated_ready_at = $${paramIndex}`);
+      params.push(estimated_ready_at);
+      paramIndex++;
+    }
+
     // Update ready_at timestamp if status is 'ready'
     if (status === 'ready') {
       updateFields.push('ready_at = CURRENT_TIMESTAMP');
     }
-    
+
     // Update completed_at timestamp if status is 'completed'
     if (status === 'completed') {
       updateFields.push('completed_at = CURRENT_TIMESTAMP');
     }
-    
+
+    params.push(id);
+
     const result = await client.query(
-      `UPDATE orders SET ${updateFields.join(', ')} WHERE id = $2 RETURNING *`,
+      `UPDATE orders SET ${updateFields.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
       params
     );
     

@@ -26,8 +26,8 @@ export function FullScreenOrderAlert({ order, isOpen, onClose, onViewOrder }: Fu
 
     useEffect(() => {
         if (isOpen && order) {
-            // Play sound looping or at least once loudly
             if (audioRef.current) {
+                audioRef.current.loop = true;
                 audioRef.current.currentTime = 0;
                 audioRef.current.volume = 1.0;
                 const playPromise = audioRef.current.play();
@@ -37,6 +37,7 @@ export function FullScreenOrderAlert({ order, isOpen, onClose, onViewOrder }: Fu
             }
         } else {
             if (audioRef.current) {
+                audioRef.current.loop = false;
                 audioRef.current.pause();
                 audioRef.current.currentTime = 0;
             }
@@ -115,7 +116,7 @@ export function FullScreenOrderAlert({ order, isOpen, onClose, onViewOrder }: Fu
                                         size="lg"
                                         className="w-full bg-red-600 hover:bg-red-700 text-white font-bold text-lg h-14 rounded-xl shadow-lg shadow-red-900/20"
                                     >
-                                        {t('Ver Detalles de la Orden', 'View Order Details')}
+                                        {t('Aceptar Orden', 'Accept Order')}
                                     </Button>
 
                                     <Button
