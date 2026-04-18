@@ -1,25 +1,39 @@
 import { BaseApiClient } from '../base';
 import { getAvailableTransitions as getStateMachineTransitions, validateTransition, type OrderStatus, type UserRole } from '../../orderStateMachine';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 export class OrdersApi extends BaseApiClient {
-    async getAllOrders() {
+    // Default row cap. The dashboard/front-desk only ever render a recent
+    // window — fetching the entire orders table every real-time event was
+    // the largest per-event bandwidth cost. Callers that need everything
+    // can pass a higher limit explicitly.
+    async getAllOrders(opts?: { limit?: number; status?: string }) {
         const sb = this.ensureSupabase();
-        let dbOrders: any[] = [];
+        if (!sb) return [];
 
-        if (sb) {
-            const { data, error } = await sb
-                .from('orders')
-                .select('*')
-                .order('created_at', { ascending: false });
+        const limit = opts?.limit ?? 500;
+        let query = sb
+            .from('orders')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(limit);
 
-            if (error) {
-                console.error('Error fetching orders:', error);
-            } else {
-                dbOrders = data || [];
-            }
+        if (opts?.status) {
+            query = query.eq('status', opts.status);
         }
 
-        return dbOrders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        const { data, error } = await query;
+        if (error) {
+            // Throw instead of silently returning [] — otherwise React Query
+            // overwrites the existing cache with an empty list on any transient
+            // failure (auth blip, RLS miss, rate limit) and the Front Desk grid
+            // goes blank with no surfaced error.
+            console.error('Error fetching orders:', error);
+            throw new Error(error.message || 'Failed to fetch orders');
+        }
+        // Already sorted server-side; no need to re-sort in JS.
+        return data || [];
     }
 
     async getOrder(id: string | number) {
@@ -280,5 +294,67 @@ export class OrdersApi extends BaseApiClient {
             console.error('Search order error:', err);
             return { success: false, error: err.message };
         }
+    }
+
+    // --- Cancellation (frontend bridge to Express /api/orders/:id/... routes) ---
+
+    private async getAuthHeaders(): Promise<Record<string, string>> {
+        const sb = this.ensureSupabase();
+        if (!sb) throw new Error('Supabase not available');
+        const { data: { session } } = await sb.auth.getSession();
+        if (!session?.access_token) throw new Error('Not authenticated');
+        return {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+        };
+    }
+
+    async getCancellationPolicy(orderId: number, hoursBefore: number) {
+        try {
+            const headers = await this.getAuthHeaders();
+            const res = await fetch(
+                `${API_BASE_URL}/api/orders/${orderId}/cancellation-policy?hours=${encodeURIComponent(String(hoursBefore))}`,
+                { headers }
+            );
+            if (!res.ok) return null;
+            return await res.json();
+        } catch (err) {
+            console.error('getCancellationPolicy failed:', err);
+            return null;
+        }
+    }
+
+    async cancelOrder(
+        orderId: number,
+        request: { reason: string; reasonDetails?: string }
+    ): Promise<{ success: boolean; refund?: { refundAmount: number; refundPercentage: number; refundStatus: 'pending' | 'processed' | 'failed' }; error?: string }> {
+        const headers = await this.getAuthHeaders();
+        const res = await fetch(`${API_BASE_URL}/api/orders/${orderId}/cancel`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(request),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(body?.error || `Cancel failed (${res.status})`);
+        }
+        return body;
+    }
+
+    async adminCancelOrder(
+        orderId: number,
+        request: { reason: string; reasonDetails?: string; overrideRefundAmount?: number; adminNotes?: string }
+    ): Promise<{ success: boolean; refund?: { refundAmount: number; refundPercentage: number; refundStatus: 'pending' | 'processed' | 'failed' }; error?: string }> {
+        const headers = await this.getAuthHeaders();
+        const res = await fetch(`${API_BASE_URL}/api/orders/${orderId}/admin-cancel`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(request),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(body?.error || `Admin cancel failed (${res.status})`);
+        }
+        return body;
     }
 }

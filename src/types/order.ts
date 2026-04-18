@@ -31,6 +31,15 @@ export type PaymentStatus =
   | 'refunded'
   | 'partially_refunded';
 
+// Front-desk action triggered by an order card's primary CTA
+export type OrderAction =
+  | 'confirm'
+  | 'start'
+  | 'ready'
+  | 'delivery'
+  | 'complete'
+  | 'markDelivered';
+
 export type Order = {
   id: number;
   order_number: string;

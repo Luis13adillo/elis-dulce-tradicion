@@ -17,11 +17,11 @@ const ClockDisplay = memo(({ darkMode }: { darkMode: boolean }) => {
 
     return (
         <div className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-full shadow-sm transition-colors",
-            darkMode ? "bg-slate-800 text-slate-300" : "bg-white text-gray-500"
+            "flex items-center gap-2 px-3 py-1.5 rounded-full transition-colors",
+            darkMode ? "bg-slate-800/60 text-slate-300" : "bg-white/80 text-gray-600 shadow-sm"
         )}>
-            <Clock className="h-4 w-4" />
-            <span className="font-medium text-sm">
+            <Clock className="h-3.5 w-3.5" />
+            <span className="font-medium text-xs whitespace-nowrap">
                 {format(currentTime, 'EEE, d MMM • h:mm a')}
             </span>
         </div>
@@ -48,7 +48,16 @@ interface KitchenRedesignedLayoutProps {
     soundEnabled?: boolean;
     onToggleSound?: () => void;
     userName?: string;
+    /**
+     * Primary action slot (e.g. Walk-In Order CTA). Rendered prominently in the
+     * utility row to the right of the search bar.
+     */
     headerAction?: React.ReactNode;
+    /**
+     * Secondary actions slot (e.g. settings popovers, test buttons). Rendered
+     * inside the icon cluster so they don't fight with the primary action.
+     */
+    headerSecondaryActions?: React.ReactNode;
     todayOrderCount?: number;
     maxDailyCapacity?: number;
 }
@@ -72,12 +81,22 @@ export function KitchenRedesignedLayout({
     onToggleSound,
     userName = 'Staff',
     headerAction,
+    headerSecondaryActions,
     isConnected = true,
     connectionError,
     todayOrderCount,
     maxDailyCapacity,
 }: KitchenRedesignedLayoutProps) {
     const isDarkMode = darkMode;
+
+    // Shared classes for the icon-cluster buttons so they all read as a single
+    // unified control surface instead of 6 floating circles.
+    const iconBtn = cn(
+        "rounded-full h-9 w-9 transition-colors",
+        isDarkMode
+            ? "text-slate-300 hover:bg-slate-700/70"
+            : "text-slate-500 hover:bg-gray-200/70"
+    );
 
     return (
         <div className={cn(
@@ -98,39 +117,65 @@ export function KitchenRedesignedLayout({
             />
 
             <main className={cn(
-                "flex-1 flex flex-col min-w-0 p-6 lg:p-8 transition-colors duration-300",
+                "flex-1 flex flex-col min-w-0 px-6 lg:px-8 pt-5 pb-6 transition-colors duration-300",
                 isDarkMode ? "bg-[#13141f]" : "bg-[#F3F4F6]"
             )}>
-                {/* Header Area */}
-                <header className="flex items-center justify-between mb-8">
-                    <div className="flex items-center gap-4">
-                        <h1 className={cn(
-                            "text-3xl font-bold tracking-tight transition-colors",
-                            isDarkMode ? "text-white" : "text-gray-900"
-                        )}>{title}</h1>
-                        {todayOrderCount !== undefined && maxDailyCapacity !== undefined && (
-                            <div className={cn(
-                                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold",
-                                todayOrderCount >= maxDailyCapacity
-                                    ? isDarkMode ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-700"
-                                    : todayOrderCount >= maxDailyCapacity * 0.8
-                                        ? isDarkMode ? "bg-amber-500/20 text-amber-400" : "bg-amber-100 text-amber-700"
-                                        : isDarkMode ? "bg-green-500/20 text-green-400" : "bg-green-100 text-green-700"
+                {/* ========== HEADER (two rows) ========== */}
+                <header className="flex flex-col gap-3 mb-5">
+                    {/* Row 1 — Identity: title, today counter, clock, avatar */}
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <h1 className={cn(
+                                "text-2xl lg:text-3xl font-bold tracking-tight transition-colors truncate",
+                                isDarkMode ? "text-white" : "text-gray-900"
                             )}>
-                                <span>Today: {todayOrderCount} / {maxDailyCapacity}</span>
+                                {title}
+                            </h1>
+                            {todayOrderCount !== undefined && maxDailyCapacity !== undefined && (
+                                <div className={cn(
+                                    "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap",
+                                    todayOrderCount >= maxDailyCapacity
+                                        ? isDarkMode ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-700"
+                                        : todayOrderCount >= maxDailyCapacity * 0.8
+                                            ? isDarkMode ? "bg-amber-500/20 text-amber-400" : "bg-amber-100 text-amber-700"
+                                            : isDarkMode ? "bg-green-500/20 text-green-400" : "bg-green-100 text-green-700"
+                                )}>
+                                    Today: {todayOrderCount} / {maxDailyCapacity}
+                                </div>
+                            )}
+                            {/* Live indicator — small, sits near identity */}
+                            <div
+                                title={isConnected ? 'Live feed connected' : (connectionError ?? 'Reconnecting...')}
+                                className={cn(
+                                    "hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold select-none",
+                                    isConnected
+                                        ? isDarkMode ? "bg-green-500/15 text-green-400" : "bg-green-100 text-green-600"
+                                        : isDarkMode ? "bg-red-500/15 text-red-400 animate-pulse" : "bg-red-100 text-red-600 animate-pulse"
+                                )}
+                            >
+                                <span className={cn("h-1.5 w-1.5 rounded-full", isConnected ? "bg-green-500" : "bg-red-500")} />
+                                {isConnected ? "Live" : "Offline"}
                             </div>
-                        )}
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                            <ClockDisplay darkMode={isDarkMode} />
+                            <Avatar className="h-9 w-9 border-2 border-white/80 shadow-sm cursor-pointer">
+                                <AvatarImage src={`https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=22c55e&color=fff`} />
+                                <AvatarFallback className="bg-green-600 text-white font-bold text-sm">
+                                    {userName.charAt(0).toUpperCase()}
+                                </AvatarFallback>
+                            </Avatar>
+                        </div>
                     </div>
 
-                    <div className="flex items-center gap-6">
-                        {/* Extra Header Action (e.g. Walk-In Order button) */}
-                        {headerAction}
-
-                        {/* Search Bar */}
-                        <div className="relative hidden md:block group">
+                    {/* Row 2 — Utility: search, walk-in CTA, icon cluster */}
+                    <div className="flex items-center gap-3">
+                        {/* Search — takes remaining space, capped at lg */}
+                        <div className="relative flex-1 max-w-xl">
                             <Search className={cn(
-                                "absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors",
-                                isDarkMode ? "text-slate-500 group-hover:text-slate-300" : "text-gray-400 group-hover:text-gray-600"
+                                "absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4",
+                                isDarkMode ? "text-slate-500" : "text-gray-400"
                             )} />
                             <input
                                 type="text"
@@ -138,111 +183,81 @@ export function KitchenRedesignedLayout({
                                 value={searchQuery ?? ''}
                                 onChange={(e) => onSearchChange?.(e.target.value)}
                                 className={cn(
-                                    "pl-10 pr-4 py-2 rounded-full border-none focus:ring-2 focus:ring-green-500 shadow-sm text-sm w-64 transition-all",
-                                    isDarkMode ? "bg-slate-800 text-white placeholder:text-slate-500" : "bg-white text-gray-900"
+                                    "w-full pl-10 pr-4 py-2 rounded-full border focus:outline-none focus:ring-2 focus:ring-green-500/40 text-sm transition-all",
+                                    isDarkMode
+                                        ? "bg-slate-800/70 border-slate-700/60 text-white placeholder:text-slate-500"
+                                        : "bg-white border-gray-200 text-gray-900 shadow-sm"
                                 )}
                             />
                         </div>
 
-                        {/* Theme Toggle Button */}
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={onToggleTheme}
-                            className={cn(
-                                "rounded-full shadow-sm transition-colors",
-                                isDarkMode ? "bg-slate-800 text-yellow-400 hover:bg-slate-700" : "bg-white text-slate-400 hover:bg-gray-50"
-                            )}
-                        >
-                            {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-                        </Button>
+                        {/* Primary action (Walk-In Order) */}
+                        {headerAction}
 
-                        {/* Sound Toggle */}
-                        {onToggleSound && (
+                        {/* Icon cluster — grouped in a single pill so they read together */}
+                        <div className={cn(
+                            "flex items-center gap-1 rounded-full p-1",
+                            isDarkMode ? "bg-slate-800/60" : "bg-white/80 shadow-sm"
+                        )}>
+                            {/* Secondary actions slot (settings, test alert) — same look as icon cluster */}
+                            {headerSecondaryActions}
+
+                            {onToggleSound && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={onToggleSound}
+                                    className={cn(
+                                        iconBtn,
+                                        soundEnabled && (isDarkMode ? "text-emerald-400" : "text-emerald-600")
+                                    )}
+                                    title={soundEnabled ? "Mute notifications" : "Unmute notifications"}
+                                >
+                                    {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                                </Button>
+                            )}
+
+                            {onRefresh && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={onRefresh}
+                                    disabled={isRefreshing}
+                                    className={iconBtn}
+                                    title="Refresh orders"
+                                >
+                                    <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+                                </Button>
+                            )}
+
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={onToggleSound}
+                                onClick={onToggleTheme}
                                 className={cn(
-                                    "rounded-full shadow-sm transition-colors",
-                                    soundEnabled
-                                        ? isDarkMode
-                                            ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
-                                            : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
-                                        : isDarkMode
-                                            ? "bg-slate-800 text-slate-400 hover:bg-slate-700"
-                                            : "bg-white text-slate-400 hover:bg-gray-50"
+                                    iconBtn,
+                                    isDarkMode && "text-yellow-400"
                                 )}
-                                title={soundEnabled ? "Mute notifications" : "Unmute notifications"}
+                                title={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
                             >
-                                {soundEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
+                                {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                             </Button>
-                        )}
 
-                        {/* Refresh Button */}
-                        {onRefresh && (
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={onRefresh}
-                                disabled={isRefreshing}
-                                className={cn(
-                                    "rounded-full shadow-sm transition-colors",
-                                    isDarkMode
-                                        ? "bg-slate-800 text-slate-300 hover:bg-slate-700"
-                                        : "bg-white text-slate-400 hover:bg-gray-50"
-                                )}
-                                title="Refresh orders"
+                                onClick={onNotificationClick}
+                                className={cn(iconBtn, "relative")}
+                                title="Notifications"
                             >
-                                <RefreshCw className={cn("h-5 w-5", isRefreshing && "animate-spin")} />
+                                <Bell className="h-4 w-4" />
+                                {(notificationCount ?? 0) > 0 && (
+                                    <span className="absolute -top-0.5 -right-0.5 h-4 min-w-[16px] px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                                        {notificationCount! > 99 ? '99+' : notificationCount}
+                                    </span>
+                                )}
                             </Button>
-                        )}
-
-                        {/* Connection Status Indicator */}
-                        <div
-                            title={isConnected ? 'Live feed connected' : (connectionError ?? 'Reconnecting...')}
-                            className={cn(
-                                "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold select-none",
-                                isConnected
-                                    ? isDarkMode ? "bg-green-500/20 text-green-400" : "bg-green-100 text-green-600"
-                                    : isDarkMode ? "bg-red-500/20 text-red-400 animate-pulse" : "bg-red-100 text-red-600 animate-pulse"
-                            )}
-                        >
-                            <span className={cn(
-                                "h-2 w-2 rounded-full",
-                                isConnected ? "bg-green-500" : "bg-red-500"
-                            )} />
-                            {isConnected ? "Live" : "Offline"}
                         </div>
-
-                        {/* Notification Bell */}
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={onNotificationClick}
-                            className={cn(
-                                "rounded-full shadow-sm transition-colors relative",
-                                isDarkMode ? "bg-slate-800 text-slate-300 hover:bg-slate-700" : "bg-white text-slate-400 hover:bg-gray-50"
-                            )}
-                        >
-                            <Bell className="h-5 w-5" />
-                            {(notificationCount ?? 0) > 0 && (
-                                <span className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                                    {notificationCount! > 99 ? '99+' : notificationCount}
-                                </span>
-                            )}
-                        </Button>
-
-                        {/* Time Display — isolated component, won't re-render siblings */}
-                        <ClockDisplay darkMode={isDarkMode} />
-
-                        {/* User Profile */}
-                        <Avatar className="h-10 w-10 border-2 border-white shadow-sm cursor-pointer">
-                            <AvatarImage src={`https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=22c55e&color=fff`} />
-                            <AvatarFallback className="bg-green-600 text-white font-bold">
-                                {userName.charAt(0).toUpperCase()}
-                            </AvatarFallback>
-                        </Avatar>
                     </div>
                 </header>
 

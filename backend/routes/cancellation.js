@@ -427,12 +427,19 @@ function calculateHoursUntilNeeded(order) {
  */
 async function processStripeRefund(stripePaymentId, amount, reason, refundId, dbClient) {
   try {
-    const refund = await stripe.refunds.create({
-      payment_intent: stripePaymentId,
-      amount: Math.round(amount * 100), // Convert to cents
-      reason: 'requested_by_customer',
-      metadata: { refund_id: String(refundId), cancellation_reason: reason },
-    });
+    const refund = await stripe.refunds.create(
+      {
+        payment_intent: stripePaymentId,
+        amount: Math.round(amount * 100), // Convert to cents
+        reason: 'requested_by_customer',
+        metadata: { refund_id: String(refundId), cancellation_reason: reason },
+      },
+      {
+        // Idempotency: Stripe dedupes retries by this key within 24h.
+        // Keyed on our DB refund row id so network retries never double-refund.
+        idempotencyKey: `refund-${refundId}`,
+      }
+    );
 
     // Update refund record
     await dbClient.query(

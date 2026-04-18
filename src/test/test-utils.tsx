@@ -2,7 +2,6 @@ import React, { ReactElement } from 'react';
 import { render, RenderOptions } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
-import { ThemeProvider } from 'next-themes';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -33,15 +32,13 @@ const AllTheProviders = ({
 }: AllTheProvidersProps) => {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
-        <LanguageProvider>
-          <AuthProvider>
-            <TooltipProvider>
-              <BrowserRouter>{children}</BrowserRouter>
-            </TooltipProvider>
-          </AuthProvider>
-        </LanguageProvider>
-      </ThemeProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <TooltipProvider>
+            <BrowserRouter>{children}</BrowserRouter>
+          </TooltipProvider>
+        </AuthProvider>
+      </LanguageProvider>
     </QueryClientProvider>
   );
 };

@@ -38,16 +38,22 @@ import {
 } from 'recharts';
 import { formatPrice } from '@/lib/pricing';
 import {
-  DashboardMetrics,
   RevenueDataPoint,
-  PopularItem,
-  OrderStatusBreakdown
 } from '@/lib/analytics';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { format, subDays } from 'date-fns';
 import CancelOrderModal from '@/components/order/CancelOrderModal';
 import { useRealtimeOrders } from '@/hooks/useRealtimeOrders';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/queryClient';
+import { useOrders } from '@/lib/queries/orders';
+import {
+  useDashboardMetrics,
+  useOrdersByStatus,
+  usePopularItems,
+} from '@/lib/queries/analytics';
+import { useLowStockItems } from '@/lib/queries/inventory';
 import { OrderListWithSearch } from '@/components/order/OrderListWithSearch';
 import { OwnerCalendar } from '@/components/dashboard/OwnerCalendar';
 import { CustomerListView, type CustomerStats } from '@/components/dashboard/CustomerListView';
@@ -75,7 +81,7 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'
 
 const OwnerDashboard = () => {
   const { t } = useLanguage();
-  const { user, isLoading: authLoading, signOut } = useAuth();
+  const { signOut } = useAuth();
   const navigate = useNavigate();
   const { data: businessSettings } = useBusinessSettings();
   const { data: businessHours } = useBusinessHours();
@@ -94,25 +100,51 @@ const OwnerDashboard = () => {
   }, [businessHours]);
 
   // --- STATE ---
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [printOrder, setPrintOrder] = useState<any | null>(null);
   const [cancelOrderId, setCancelOrderId] = useState<number | null>(null);
 
-  // Raw Data (Single Source of Truth)
-  const [allOrders, setAllOrders] = useState<any[]>([]);
-  const [lowStockItems, setLowStockItems] = useState<any[]>([]);
-
-  // Computed Metrics
-  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
-  const [revenueData, setRevenueData] = useState<RevenueDataPoint[]>([]);
-  const [popularItems, setPopularItems] = useState<PopularItem[]>([]);
-  const [statusBreakdown, setStatusBreakdown] = useState<OrderStatusBreakdown[]>([]);
-
   const [revenuePeriod, setRevenuePeriod] = useState<'today' | 'week' | 'month'>('today');
   const [settingsSubTab, setSettingsSubTab] = useState<'business' | 'hours' | 'contacts' | 'issues'>('business');
   const [websiteSubTab, setWebsiteSubTab] = useState<'gallery' | 'faq' | 'announcements' | 'delivery'>('gallery');
+
+  // --- SERVER STATE (React Query) ---
+  // Each endpoint is its own query, so a refetch of one doesn't block
+  // the others. The shared cache + deduplication also means navigating
+  // to /front-desk and back doesn't re-download orders.
+  const queryClient = useQueryClient();
+  const ordersQuery = useOrders();
+  const metricsQuery = useDashboardMetrics(revenuePeriod);
+  const statusBreakdownQuery = useOrdersByStatus();
+  const lowStockQuery = useLowStockItems();
+  const popularItemsQuery = usePopularItems();
+
+  const allOrders = (ordersQuery.data as any[] | undefined) ?? [];
+  const metrics = metricsQuery.data;
+  const statusBreakdown = statusBreakdownQuery.data ?? [];
+  const lowStockItems = (lowStockQuery.data as any[] | undefined) ?? [];
+  const popularItems = popularItemsQuery.data ?? [];
+
+  // Only the orders query gates the fullscreen loading spinner. Metrics,
+  // status breakdown, low-stock, and popular-items render their own local
+  // skeletons inside the dashboard layout — we never want a slow analytics
+  // query to blank the whole page. A prior version included the three
+  // "critical" queries here, which caused the UI to flash back to the
+  // loading spinner every time a real-time event invalidated them.
+  const isLoading = ordersQuery.isLoading && !ordersQuery.data;
+
+  const loadError =
+    ordersQuery.isError && metricsQuery.isError && statusBreakdownQuery.isError
+      ? t('Error al cargar datos. Intenta de nuevo.', 'Failed to load dashboard data. Please try again.')
+      : null;
+
+  const refetchAll = useCallback(() => {
+    ordersQuery.refetch();
+    metricsQuery.refetch();
+    statusBreakdownQuery.refetch();
+    lowStockQuery.refetch();
+    popularItemsQuery.refetch();
+  }, [ordersQuery, metricsQuery, statusBreakdownQuery, lowStockQuery, popularItemsQuery]);
 
   // --- SESSION TIMEOUT ---
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
@@ -221,60 +253,11 @@ const OwnerDashboard = () => {
     return Array.from(map.values()).sort((a, b) => b.orders.length - a.orders.length);
   }, [allOrders]);
 
-  // --- 1. DATA LOADING (The "Brain") ---
-  const loadDashboardData = async () => {
-    try {
-      setLoadError(null);
-
-      // 1. Fetch Metrics (Optimized RPC)
-      const freshMetrics = await api.getDashboardMetrics(revenuePeriod);
-      setMetrics(freshMetrics as DashboardMetrics);
-
-      // 2. Fetch RAW Orders (for Calendar/List)
-      const orders = await api.getAllOrders();
-      setAllOrders(Array.isArray(orders) ? orders : []);
-
-      // 3. Status Breakdown (Offload to the component or API eventually)
-      const breakdown = await api.getOrdersByStatus();
-      setStatusBreakdown(breakdown as OrderStatusBreakdown[]);
-
-      // 4. Fetch auxiliary data (Low Stock)
-      const stock = await api.getLowStockItems();
-      setLowStockItems(Array.isArray(stock) ? stock : []);
-
-      // 5. Fetch Popular Items
-      try {
-        const popular = await api.getPopularItems();
-        if (Array.isArray(popular) && popular.length > 0) {
-          setPopularItems(popular.map((item: any) => ({
-            itemType: 'size' as const,
-            itemName: item.name || 'Unknown',
-            orderCount: item.count || 0,
-            totalRevenue: item.revenue || 0,
-          })));
-        }
-      } catch {
-        // Non-critical — overview still works without popular items
-      }
-
-    } catch (error) {
-      setLoadError(t('Error al cargar datos. Intenta de nuevo.', 'Failed to load dashboard data. Please try again.'));
-      toast.error(t('Error al sincronizar datos.', 'Error syncing dashboard data.'));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Keep revenue chart computation client-side for now as it needs historical granularity
-  // but we can optimize it in Phase 2
-
-
-  // Re-compute revenue chart when period changes or orders update
-  useEffect(() => {
-    if (allOrders.length === 0 && !isLoading) {
-      // Even if 0 orders, we should show empty chart
-    }
-
+  // Revenue chart data — pure derivation from allOrders + period. Memoized
+  // so React only re-computes when those inputs actually change; previously
+  // a useEffect+setState pair fired on every render pass and was the largest
+  // recurring "long task" on the dashboard (150-300ms with 500+ orders).
+  const revenueData = useMemo<RevenueDataPoint[]>(() => {
     const daysMap = new Map<string, number>();
     const daysToLookBack = revenuePeriod === 'today' ? 7 : revenuePeriod === 'week' ? 30 : 90;
 
@@ -293,42 +276,52 @@ const OwnerDashboard = () => {
       }
     });
 
-    const chartData = Array.from(daysMap.entries()).map(([date, revenue]) => ({
+    return Array.from(daysMap.entries()).map(([date, revenue]) => ({
       date,
       revenue,
       orderCount: 0,
-      avgOrderValue: 0
+      avgOrderValue: 0,
     }));
-    setRevenueData(chartData);
-
-  }, [allOrders, revenuePeriod, isLoading]);
+  }, [allOrders, revenuePeriod]);
 
 
-  // --- 2. LIFECYCLE & REALTIME ---
+  // --- LIFECYCLE & REALTIME ---
+  // Patch the orders cache in place on realtime events instead of
+  // invalidating the whole orders + analytics query trees. The old approach
+  // flipped the dashboard's `isLoading` gate back to true on every order
+  // event, which blanked the UI into a fullscreen spinner mid-session.
+  // Analytics refresh naturally on their 2-minute stale window.
+  const patchOrdersCache = useCallback(
+    (updater: (prev: any[]) => any[]) => {
+      queryClient.setQueriesData<any[]>(
+        { queryKey: queryKeys.orders.lists() },
+        (prev) => updater(prev ?? [])
+      );
+    },
+    [queryClient]
+  );
 
-  // Initial Load (ProtectedRoute already enforces requiredRole="owner")
-  useEffect(() => {
-    if (!authLoading && user) {
-      loadDashboardData();
-    }
-  }, [user, authLoading]);
-
-  // Debounced re-fetch — collapses rapid realtime events into a single batch
-  const refetchTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const debouncedLoadData = useCallback(() => {
-    if (refetchTimerRef.current) clearTimeout(refetchTimerRef.current);
-    refetchTimerRef.current = setTimeout(() => loadDashboardData(), 1500);
-  }, [loadDashboardData]);
-
-  // Real-time Listener (Supabase)
   useRealtimeOrders({
     filterByUserId: false,
-    onOrderInsert: () => {
+    onOrderInsert: (newOrder: any) => {
       toast.info('New Order Received! 🔔');
-      debouncedLoadData();
+      patchOrdersCache((prev) => {
+        if (prev.some((o) => o.id === newOrder.id)) return prev;
+        return [newOrder, ...prev];
+      });
     },
-    onOrderUpdate: () => debouncedLoadData(),
-    onOrderDelete: () => debouncedLoadData(),
+    onOrderUpdate: (updatedOrder: any) => {
+      patchOrdersCache((prev) => {
+        const index = prev.findIndex((o) => o.id === updatedOrder.id);
+        if (index === -1) return [updatedOrder, ...prev];
+        const next = prev.slice();
+        next[index] = updatedOrder;
+        return next;
+      });
+    },
+    onOrderDelete: (deletedOrder: any) => {
+      patchOrdersCache((prev) => prev.filter((o) => o.id !== deletedOrder.id));
+    },
   });
 
   // --- 3. GLOBAL SEARCH ---
@@ -426,7 +419,7 @@ const OwnerDashboard = () => {
           <AlertTriangle className="h-12 w-12 text-orange-400 mx-auto" />
           <p className="text-gray-600 font-medium">{loadError}</p>
           <Button
-            onClick={() => { setIsLoading(true); loadDashboardData(); }}
+            onClick={refetchAll}
             className="bg-[#C6A649] hover:bg-[#b0933f] text-white gap-2"
           >
             <RefreshCw className="h-4 w-4" />
@@ -843,7 +836,7 @@ const OwnerDashboard = () => {
           order={allOrders.find(o => o.id === cancelOrderId)}
           open={!!cancelOrderId}
           onClose={() => setCancelOrderId(null)}
-          onSuccess={() => { loadDashboardData(); setCancelOrderId(null); }}
+          onSuccess={() => { refetchAll(); setCancelOrderId(null); }}
           isAdmin={true}
         />
       )}

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -17,11 +17,21 @@ interface TodayScheduleSummaryProps {
   orders: Order[];
   maxDailyCapacity?: number;
   darkMode?: boolean;
+  compact?: boolean;
 }
 
-const TodayScheduleSummary = ({ orders, maxDailyCapacity = 10, darkMode = false }: TodayScheduleSummaryProps) => {
+const TodayScheduleSummary = ({ orders, maxDailyCapacity = 10, darkMode = false, compact = false }: TodayScheduleSummaryProps) => {
   const { t } = useLanguage();
-  const now = new Date();
+  const [tick, setTick] = useState(() => new Date());
+  const [urgentExpanded, setUrgentExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!compact) return;
+    const id = setInterval(() => setTick(new Date()), 1000);
+    return () => clearInterval(id);
+  }, [compact]);
+
+  const now = compact ? tick : new Date();
   const todayStr = format(now, 'yyyy-MM-dd');
 
   // Filter today's orders
@@ -104,6 +114,175 @@ const TodayScheduleSummary = ({ orders, maxDailyCapacity = 10, darkMode = false 
     !['cancelled', 'completed', 'delivered'].includes(o.status)
   ).length;
   const capacityPercent = Math.min(100, (activeOrders / maxDailyCapacity) * 100);
+  const capacityColor =
+    capacityPercent > 80 ? 'bg-red-500' : capacityPercent > 50 ? 'bg-yellow-500' : 'bg-green-500';
+
+  if (compact) {
+    const statChips = [
+      {
+        key: 'total',
+        label: t('Total', 'Total'),
+        value: todayOrders.length,
+        icon: null as React.ReactNode,
+        valueClass: darkMode ? 'text-white' : 'text-gray-900',
+        chipClass: darkMode
+          ? 'bg-slate-800/60 border-slate-700/60'
+          : 'bg-gray-50 border-gray-100',
+      },
+      {
+        key: 'delivery',
+        label: t('Envíos', 'Delivery'),
+        value: deliveryOrders.length,
+        icon: <Truck className="h-3.5 w-3.5" />,
+        valueClass: darkMode ? 'text-orange-400' : 'text-orange-500',
+        chipClass: darkMode
+          ? 'bg-orange-500/10 border-orange-500/20'
+          : 'bg-orange-50 border-orange-100',
+      },
+      {
+        key: 'pickup',
+        label: t('Recoger', 'Pickup'),
+        value: pickupOrders.length,
+        icon: <ShoppingBag className="h-3.5 w-3.5" />,
+        valueClass: darkMode ? 'text-blue-400' : 'text-blue-500',
+        chipClass: darkMode
+          ? 'bg-blue-500/10 border-blue-500/20'
+          : 'bg-blue-50 border-blue-100',
+      },
+      {
+        key: 'done',
+        label: t('Listos', 'Done'),
+        value: completedToday.length,
+        icon: <CheckCircle2 className="h-3.5 w-3.5" />,
+        valueClass: darkMode ? 'text-green-400' : 'text-green-500',
+        chipClass: darkMode
+          ? 'bg-green-500/10 border-green-500/20'
+          : 'bg-green-50 border-green-100',
+      },
+    ];
+
+    return (
+      <section
+        aria-label={t('Resumen de hoy', 'Today summary')}
+        className={cn(
+          'rounded-2xl border px-4 py-2.5 flex items-center gap-3 flex-wrap transition-colors duration-300',
+          darkMode
+            ? 'bg-gradient-to-r from-[#1A1A2E] to-[#1f2937] border-[#C6A649]/15'
+            : 'bg-white/70 backdrop-blur-xl border-transparent shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
+        )}
+      >
+        {/* Title */}
+        <div className="flex items-center gap-2 min-w-0">
+          <Clock className="h-4 w-4 text-[#C6A649] flex-shrink-0" />
+          <h3 className={cn('font-display text-base font-semibold tracking-tight whitespace-nowrap', darkMode ? 'text-white' : 'text-gray-900')}>
+            {t("Resumen de Hoy", "Today's Schedule")}
+          </h3>
+          <span className={cn(
+            'hidden md:inline-block text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap',
+            darkMode ? 'bg-slate-800/60 text-slate-300' : 'bg-gray-100 text-gray-600'
+          )}>
+            {format(now, 'EEE, MMM d')}
+          </span>
+        </div>
+
+        {/* Divider */}
+        <span className={cn('hidden lg:block h-6 w-px', darkMode ? 'bg-slate-700' : 'bg-gray-200')} aria-hidden />
+
+        {/* Stat Chips */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {statChips.map((chip) => (
+            <div
+              key={chip.key}
+              aria-label={`${chip.value} ${chip.label}`}
+              className={cn(
+                'flex items-center gap-2 px-2.5 py-1 rounded-xl border',
+                chip.chipClass
+              )}
+            >
+              {chip.icon && <span className={chip.valueClass}>{chip.icon}</span>}
+              <span className={cn('tabular-nums font-semibold text-base leading-none', chip.valueClass)}>
+                {chip.value}
+              </span>
+              <span className={cn('text-[10px] uppercase tracking-wider font-medium', darkMode ? 'text-slate-400' : 'text-gray-500')}>
+                {chip.label}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Urgent Chip */}
+        {urgentOrders.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setUrgentExpanded((v) => !v)}
+            className={cn(
+              'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors',
+              'bg-red-500/10 text-red-600 border-red-500/20 hover:bg-red-500/15',
+              darkMode && 'text-red-400 border-red-500/30'
+            )}
+            aria-expanded={urgentExpanded}
+            aria-label={t(`${urgentOrders.length} urgentes`, `${urgentOrders.length} urgent`)}
+          >
+            <AlertTriangle className="h-3.5 w-3.5 animate-pulse" />
+            <span className="tabular-nums">{urgentOrders.length}</span>
+            <span>{t('urgentes', 'urgent')}</span>
+          </button>
+        )}
+
+        {/* Capacity */}
+        <div className="flex items-center gap-2 ml-auto">
+          <span className={cn('text-[10px] uppercase tracking-wider font-medium hidden sm:inline', darkMode ? 'text-slate-400' : 'text-gray-500')}>
+            {t('Capacidad', 'Capacity')}
+          </span>
+          <div className={cn('h-1.5 w-20 rounded-full overflow-hidden', darkMode ? 'bg-slate-800' : 'bg-gray-200')}>
+            <div
+              className={cn('h-full rounded-full transition-[width] duration-300', capacityColor)}
+              style={{ width: `${capacityPercent}%` }}
+            />
+          </div>
+          <span className={cn('text-xs tabular-nums font-medium whitespace-nowrap', darkMode ? 'text-slate-300' : 'text-gray-700')}>
+            {activeOrders}/{maxDailyCapacity}
+          </span>
+        </div>
+
+        {/* Live Clock */}
+        <span className={cn(
+          'hidden md:inline text-xs font-sans tabular-nums font-medium pl-2 border-l',
+          darkMode ? 'text-slate-300 border-slate-700' : 'text-gray-700 border-gray-200'
+        )}>
+          {format(now, 'hh:mm:ss a')}
+        </span>
+
+        {/* Urgent expanded list */}
+        {urgentExpanded && urgentOrders.length > 0 && (
+          <div className={cn(
+            'w-full mt-2 rounded-xl border p-2.5 space-y-1',
+            darkMode ? 'bg-red-900/15 border-red-500/30' : 'bg-red-50 border-red-200'
+          )}>
+            {urgentOrders.slice(0, 5).map((order) => (
+              <div key={order.id} className="flex items-center justify-between text-xs">
+                <span className={cn('font-mono', darkMode ? 'text-slate-300' : 'text-gray-700')}>
+                  #{order.order_number}
+                </span>
+                <span className={cn(darkMode ? 'text-slate-400' : 'text-gray-500')}>
+                  {order.cake_size}
+                </span>
+                <Badge variant="destructive" className="text-[10px] py-0">
+                  <Timer className="h-2.5 w-2.5 mr-1" />
+                  {order.time_needed}
+                </Badge>
+              </div>
+            ))}
+            {urgentOrders.length > 5 && (
+              <p className={cn('text-[11px]', darkMode ? 'text-red-400' : 'text-red-600')}>
+                +{urgentOrders.length - 5} {t('más', 'more')}...
+              </p>
+            )}
+          </div>
+        )}
+      </section>
+    );
+  }
 
   return (
     <div className={cn(

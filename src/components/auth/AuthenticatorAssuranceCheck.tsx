@@ -2,6 +2,15 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { EnrollMFA } from './EnrollMFA';
 import { MFAChallengeScreen } from './MFAChallengeScreen';
+import { FullScreenLoader } from '@/components/FullScreenLoader';
+
+const TIMEOUT_SENTINEL = Symbol('aac-timeout');
+
+const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T | typeof TIMEOUT_SENTINEL> =>
+  Promise.race<T | typeof TIMEOUT_SENTINEL>([
+    p,
+    new Promise((resolve) => setTimeout(() => resolve(TIMEOUT_SENTINEL), ms)),
+  ]);
 
 interface AuthenticatorAssuranceCheckProps {
   children: React.ReactNode;
@@ -38,7 +47,18 @@ export const AuthenticatorAssuranceCheck = ({
         return;
       }
 
-      const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      // 3s fail-open: if Supabase hangs (flaky Wi-Fi, regional outage), render the
+      // dashboard rather than leaving the user on a blank screen forever.
+      const aalResult = await withTimeout(
+        supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
+        3000,
+      );
+      if (aalResult === TIMEOUT_SENTINEL) {
+        console.info('[boot] AAL check timed out — fail-open', 'getAuthenticatorAssuranceLevel');
+        setReadyToShow(true);
+        return;
+      }
+      const { data, error } = aalResult;
       if (error || !data) {
         // Fail open — do not block dashboard access on AAL API error
         setReadyToShow(true);
@@ -47,7 +67,16 @@ export const AuthenticatorAssuranceCheck = ({
 
       if (data.nextLevel === 'aal2' && data.currentLevel !== 'aal2') {
         // Session needs MFA — check whether a factor is already enrolled
-        const { data: factors, error: factorError } = await supabase.auth.mfa.listFactors();
+        const factorsResult = await withTimeout(
+          supabase.auth.mfa.listFactors(),
+          3000,
+        );
+        if (factorsResult === TIMEOUT_SENTINEL) {
+          console.info('[boot] AAL check timed out — fail-open', 'listFactors');
+          setReadyToShow(true);
+          return;
+        }
+        const { data: factors, error: factorError } = factorsResult;
         if (factorError || !factors) {
           // Fail open on list error
           setReadyToShow(true);
@@ -67,8 +96,14 @@ export const AuthenticatorAssuranceCheck = ({
       }
     };
 
-    checkAAL();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    checkAAL().catch((err) => {
+      // A synchronous throw anywhere in the MFA API (e.g. the JS client
+      // fails to initialise after an HMR module-graph change) would leave
+      // `readyToShow` as false forever — exactly the silent-hang failure
+      // mode we are defending against. Fail open with a loud log.
+      console.warn('[boot] AAL check threw — fail-open', err);
+      setReadyToShow(true);
+    });
   }, [userRole]);
 
   if (showEnrollment) {
@@ -94,7 +129,11 @@ export const AuthenticatorAssuranceCheck = ({
   }
 
   if (!readyToShow) {
-    return null;
+    // Render the themed loader (not null) so the ~1–3s MFA-check window
+    // doesn't leave the user staring at whatever is behind the React tree
+    // (which was charcoal body background in OS dark mode → the "black
+    // screen with gold spinner" symptom).
+    return <FullScreenLoader source="aal" />;
   }
 
   return <>{children}</>;

@@ -10,16 +10,31 @@ interface OrderProgressStepperProps {
 
 type StepStatus = 'completed' | 'current' | 'future' | 'cancelled';
 
+// Baker-facing vocabulary — matches the action buttons on Front Desk cards
+// (Confirm Order → Start Baking → Ready for Pickup → Mark Picked Up).
+// `ready` and `completed` are context-aware on delivery_option below.
 const STATUS_LABELS: Record<string, { es: string; en: string }> = {
   pending: { es: 'Pendiente', en: 'Pending' },
-  confirmed: { es: 'Confirmado', en: 'Confirmed' },
-  in_progress: { es: 'En Proceso', en: 'In Progress' },
-  ready: { es: 'Listo', en: 'Ready' },
+  confirmed: { es: 'Confirmada', en: 'Confirmed' },
+  in_progress: { es: 'Horneando', en: 'Baking' },
+  ready: { es: 'Lista', en: 'Ready' },
   out_for_delivery: { es: 'En Camino', en: 'Out for Delivery' },
-  delivered: { es: 'Entregado', en: 'Delivered' },
-  completed: { es: 'Completado', en: 'Completed' },
-  cancelled: { es: 'Cancelado', en: 'Cancelled' },
+  delivered: { es: 'Entregada', en: 'Delivered' },
+  completed: { es: 'Completada', en: 'Completed' },
+  cancelled: { es: 'Cancelada', en: 'Cancelled' },
 };
+
+function getStepLabel(step: string, deliveryOption?: string): { es: string; en: string } {
+  if (step === 'ready') {
+    return deliveryOption === 'delivery'
+      ? { es: 'Lista para Despachar', en: 'Ready to Dispatch' }
+      : { es: 'Lista para Recoger', en: 'Ready for Pickup' };
+  }
+  if (step === 'completed' && deliveryOption !== 'delivery') {
+    return { es: 'Recogida', en: 'Picked Up' };
+  }
+  return STATUS_LABELS[step];
+}
 
 function getSteps(deliveryOption?: string): string[] {
   if (deliveryOption === 'delivery') {
@@ -43,7 +58,7 @@ function getStepStatus(
   return 'future';
 }
 
-export function OrderProgressStepper({ order, darkMode = true }: OrderProgressStepperProps) {
+export function OrderProgressStepper({ order, darkMode = false }: OrderProgressStepperProps) {
   const { t } = useLanguage();
   const isCancelled = order.status === 'cancelled';
   const steps = getSteps(order.delivery_option);
@@ -76,7 +91,7 @@ export function OrderProgressStepper({ order, darkMode = true }: OrderProgressSt
       <div className="flex flex-col gap-0">
         {steps.map((step, index) => {
           const stepStatus = getStepStatus(index, currentIndex, isCancelled);
-          const label = STATUS_LABELS[step];
+          const label = getStepLabel(step, order.delivery_option);
           const isLast = index === steps.length - 1;
 
           return (

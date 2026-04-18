@@ -31,6 +31,9 @@ class ApiClient extends BaseApiClient {
     getTransitionHistory = this.ordersModule.getTransitionHistory.bind(this.ordersModule);
     searchOrders = this.ordersModule.searchOrders.bind(this.ordersModule);
     verifyPayment = this.ordersModule.verifyPayment.bind(this.ordersModule);
+    cancelOrder = this.ordersModule.cancelOrder.bind(this.ordersModule);
+    adminCancelOrder = this.ordersModule.adminCancelOrder.bind(this.ordersModule);
+    getCancellationPolicy = this.ordersModule.getCancellationPolicy.bind(this.ordersModule);
 
     // Products
     getProducts = this.productsModule.getProducts.bind(this.productsModule);

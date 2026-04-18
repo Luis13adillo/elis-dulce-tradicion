@@ -61,7 +61,7 @@ export const OwnerSidebar = ({ activeTab, setActiveTab, className }: OwnerSideba
     ];
 
     return (
-        <div className={cn("flex h-full w-20 flex-col items-center bg-[#1a1a1a] py-8 transition-all duration-300 md:w-64 md:items-start md:px-6", className)}>
+        <div className={cn("flex h-full w-20 flex-col items-center bg-white border-r border-gray-200 py-8 transition-all duration-300 md:w-64 md:items-start md:px-6", className)}>
             {/* Brand Logo Area */}
             <div className="mb-10 flex w-full justify-center md:justify-start px-2">
                 <img
@@ -75,7 +75,7 @@ export const OwnerSidebar = ({ activeTab, setActiveTab, className }: OwnerSideba
             <nav className="flex w-full flex-1 flex-col gap-1 overflow-y-auto">
                 {menuSections.map((section) => (
                     <div key={section.label} className="mb-2">
-                        <p className="hidden md:block px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-white/30">
+                        <p className="hidden md:block px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400">
                             {section.label}
                         </p>
                         {section.items.map((item) => {
@@ -90,7 +90,7 @@ export const OwnerSidebar = ({ activeTab, setActiveTab, className }: OwnerSideba
                                         "group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 transition-all duration-300",
                                         isActive
                                             ? "bg-[#C6A649] text-white shadow-lg shadow-[#C6A649]/20"
-                                            : "text-white/60 hover:bg-white/10 hover:text-white"
+                                            : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                                     )}
                                 >
                                     <Icon className={cn("h-5 w-5 transition-transform group-hover:scale-110", isActive && "animate-pulse-subtle")} />
@@ -111,7 +111,7 @@ export const OwnerSidebar = ({ activeTab, setActiveTab, className }: OwnerSideba
                         await signOut();
                         navigate('/login');
                     }}
-                    className="group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-red-400/80 transition-all hover:bg-red-500/10 hover:text-red-400"
+                    className="group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-red-600 transition-all hover:bg-red-50 hover:text-red-700"
                 >
                     <LogOut className="h-6 w-6" />
                     <span className="hidden font-medium md:block">{t('Salir', 'Logout')}</span>

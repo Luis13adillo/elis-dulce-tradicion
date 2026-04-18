@@ -3,43 +3,47 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { Suspense, lazy, useEffect } from "react";
+import { useEffect } from "react";
 import { HelmetProvider } from "react-helmet-async";
 import ScrollToTop from "@/components/ScrollToTop";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { ThemeProvider } from "next-themes";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { queryClient } from "@/lib/queryClient";
-import { Loader2 } from "lucide-react";
 import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
 import { AnnouncementBanner } from "@/components/AnnouncementBanner";
-import { initServiceWorker } from "@/lib/pwa";
+import { initServiceWorker, unregisterStaleServiceWorker } from "@/lib/pwa";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { LazyBoundary } from "@/components/LazyBoundary";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
 
-// Lazy load pages for code splitting
-const Index = lazy(() => import("./pages/Index"));
-const Order = lazy(() => import("./pages/Order"));
-const PaymentCheckout = lazy(() => import("./pages/PaymentCheckout"));
-const OrderConfirmation = lazy(() => import("./pages/OrderConfirmation"));
-const FrontDesk = lazy(() => import("./pages/FrontDesk"));
-const OwnerDashboard = lazy(() => import("./pages/OwnerDashboard"));
-const Login = lazy(() => import("./pages/Login"));
-const Signup = lazy(() => import("./pages/Signup"));
-const Gallery = lazy(() => import("./pages/Gallery"));
-const Menu = lazy(() => import("./pages/Menu"));
-const FAQ = lazy(() => import("./pages/FAQ"));
-const OrderTracking = lazy(() => import("./pages/OrderTracking"));
-const About = lazy(() => import("./pages/About"));
-const Privacy = lazy(() => import("./pages/Privacy"));
-const Terms = lazy(() => import("./pages/Terms"));
-const TermsOfService = lazy(() => import("./pages/Legal/TermsOfService"));
-const PrivacyPolicy = lazy(() => import("./pages/Legal/PrivacyPolicy"));
-const Contact = lazy(() => import("./pages/Contact"));
-const OrderIssue = lazy(() => import("./pages/OrderIssue"));
-const RefundPolicy = lazy(() => import("./pages/Legal/RefundPolicy"));
-const CookiePolicy = lazy(() => import("./pages/Legal/CookiePolicy"));
-const NotFound = lazy(() => import("./pages/NotFound"));
+// Lazy load pages for code splitting. `lazyWithRetry` retries failed
+// dynamic imports up to 3× with exponential backoff and times out each
+// attempt at 15 s — stale chunks after a deploy, transient network, and
+// Vite HMR edge cases now surface as an actionable error instead of a
+// FullScreenLoader that sits forever.
+const Index = lazyWithRetry(() => import("./pages/Index"));
+const Order = lazyWithRetry(() => import("./pages/Order"));
+const PaymentCheckout = lazyWithRetry(() => import("./pages/PaymentCheckout"));
+const OrderConfirmation = lazyWithRetry(() => import("./pages/OrderConfirmation"));
+const FrontDesk = lazyWithRetry(() => import("./pages/FrontDesk"));
+const OwnerDashboard = lazyWithRetry(() => import("./pages/OwnerDashboard"));
+const Login = lazyWithRetry(() => import("./pages/Login"));
+const Signup = lazyWithRetry(() => import("./pages/Signup"));
+const Gallery = lazyWithRetry(() => import("./pages/Gallery"));
+const Menu = lazyWithRetry(() => import("./pages/Menu"));
+const FAQ = lazyWithRetry(() => import("./pages/FAQ"));
+const OrderTracking = lazyWithRetry(() => import("./pages/OrderTracking"));
+const About = lazyWithRetry(() => import("./pages/About"));
+const Privacy = lazyWithRetry(() => import("./pages/Privacy"));
+const Terms = lazyWithRetry(() => import("./pages/Terms"));
+const TermsOfService = lazyWithRetry(() => import("./pages/Legal/TermsOfService"));
+const PrivacyPolicy = lazyWithRetry(() => import("./pages/Legal/PrivacyPolicy"));
+const Contact = lazyWithRetry(() => import("./pages/Contact"));
+const OrderIssue = lazyWithRetry(() => import("./pages/OrderIssue"));
+const RefundPolicy = lazyWithRetry(() => import("./pages/Legal/RefundPolicy"));
+const CookiePolicy = lazyWithRetry(() => import("./pages/Legal/CookiePolicy"));
+const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
 
 import { useWebsiteTracker } from "@/hooks/useWebsiteTracker";
 
@@ -49,24 +53,20 @@ const Tracker = () => {
   return null;
 };
 
-// Loading component
-const PageLoader = () => (
-  <div className="flex min-h-screen items-center justify-center">
-    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-  </div>
-);
-
 const App = () => {
-  // Initialize PWA service worker
+  // Initialize PWA service worker. Clear any stale SW + caches first so
+  // existing users escape the broken Supabase NetworkFirst cache shipped
+  // in earlier builds (would hang the dashboard on a loading spinner).
   useEffect(() => {
-    initServiceWorker();
+    unregisterStaleServiceWorker().finally(() => {
+      initServiceWorker();
+    });
   }, []);
 
   return (
     <HelmetProvider>
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
           <LanguageProvider>
           <AuthProvider>
             <TooltipProvider>
@@ -77,7 +77,7 @@ const App = () => {
               <BrowserRouter>
                 <Tracker />
                 <ScrollToTop />
-                <Suspense fallback={<PageLoader />}>
+                <LazyBoundary source="outer-suspense">
                   <Routes>
                     {/* Public Routes */}
                     <Route path="/" element={<Index />} />
@@ -106,9 +106,9 @@ const App = () => {
                       path="/front-desk"
                       element={
                         <ProtectedRoute requiredRole={['baker', 'owner']}>
-                          <Suspense fallback={<PageLoader />}>
+                          <LazyBoundary source="inner-suspense">
                             <FrontDesk />
-                          </Suspense>
+                          </LazyBoundary>
                         </ProtectedRoute>
                       }
                     />
@@ -116,9 +116,9 @@ const App = () => {
                       path="/owner-dashboard"
                       element={
                         <ProtectedRoute requiredRole="owner">
-                          <Suspense fallback={<PageLoader />}>
+                          <LazyBoundary source="inner-suspense">
                             <OwnerDashboard />
-                          </Suspense>
+                          </LazyBoundary>
                         </ProtectedRoute>
                       }
                     />
@@ -126,12 +126,11 @@ const App = () => {
                     {/* 404 Route */}
                     <Route path="*" element={<NotFound />} />
                   </Routes>
-                </Suspense>
+                </LazyBoundary>
               </BrowserRouter>
             </TooltipProvider>
           </AuthProvider>
           </LanguageProvider>
-        </ThemeProvider>
       </QueryClientProvider>
     </ErrorBoundary>
     </HelmetProvider>

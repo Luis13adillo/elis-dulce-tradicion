@@ -4,7 +4,7 @@
   "description": "Order custom cakes, traditional Mexican pastries, and fresh baked goods",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1a1a1a",
+  "background_color": "#F8F9FC",
   "theme_color": "#f8cc4a",
   "orientation": "portrait-primary",
   "scope": "/",

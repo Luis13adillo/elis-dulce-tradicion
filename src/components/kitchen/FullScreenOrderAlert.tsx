@@ -116,7 +116,7 @@ export function FullScreenOrderAlert({ order, isOpen, onClose, onViewOrder }: Fu
                                         size="lg"
                                         className="w-full bg-red-600 hover:bg-red-700 text-white font-bold text-lg h-14 rounded-xl shadow-lg shadow-red-900/20"
                                     >
-                                        {t('Aceptar Orden', 'Accept Order')}
+                                        {t('Ver Detalles', 'View Details')}
                                     </Button>
 
                                     <Button

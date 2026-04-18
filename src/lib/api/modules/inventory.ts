@@ -119,16 +119,11 @@ export class InventoryApi extends BaseApiClient {
         if (!sb) return [];
 
         try {
-            const { data, error } = await sb
-                .from('ingredients')
-                .select('*')
-                .order('name');
-
+            // DB-side filter via RPC — stops pulling the full ingredients
+            // table into the browser just to filter in JS.
+            const { data, error } = await sb.rpc('get_low_stock_ingredients');
             if (error) throw error;
-
-            return (data || []).filter(
-                (item: any) => item.quantity <= item.low_stock_threshold
-            );
+            return data || [];
         } catch (e) {
             console.warn('Error fetching low stock items:', e);
             return [];

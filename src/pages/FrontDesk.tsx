@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -7,14 +7,14 @@ import { useNotificationState } from '@/hooks/useNotificationState';
 import { api } from '@/lib/api';
 import { useBusinessSettings, useBusinessHours } from '@/lib/hooks/useCMS';
 import { toast } from 'sonner';
-import { Order } from '@/types/order';
+import { Order, OrderAction } from '@/types/order';
 import { parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 // Components
 import { KitchenRedesignedLayout } from '@/components/kitchen/KitchenRedesignedLayout';
 import { KitchenNavTabs, KitchenTab } from '@/components/kitchen/KitchenNavTabs';
-import { ModernOrderCard } from '@/components/kitchen/ModernOrderCard';
+import { CompactOrderCard } from '@/components/kitchen/CompactOrderCard';
 import { OrderScheduler } from '@/components/dashboard/OrderScheduler';
 import { PrintPreviewModal } from '@/components/print/PrintPreviewModal';
 import TodayScheduleSummary from '@/components/dashboard/TodayScheduleSummary';
@@ -25,7 +25,7 @@ import { FrontDeskInventory } from '@/components/kitchen/FrontDeskInventory';
 import { DeliveryManagementPanel } from '@/components/kitchen/DeliveryManagementPanel';
 import { QuickStatsWidget } from '@/components/dashboard/QuickStatsWidget';
 import { UrgentOrdersBanner } from '@/components/kitchen/UrgentOrdersBanner';
-import { Package, AlertTriangle, ChevronLeft, ChevronRight, WifiOff, RefreshCw, PlusCircle, FlaskConical, Zap } from 'lucide-react';
+import { Package, AlertTriangle, ChevronLeft, ChevronRight, WifiOff, RefreshCw, PlusCircle, FlaskConical } from 'lucide-react';
 import { WalkInOrderModal } from '@/components/kitchen/WalkInOrderModal';
 import { AuthenticatorAssuranceCheck } from '@/components/auth/AuthenticatorAssuranceCheck';
 import { useInactivityTimeout } from '@/hooks/useInactivityTimeout';
@@ -60,23 +60,9 @@ const FrontDesk = () => {
   const { markAsRead, markAllAsRead, isUnread } = useNotificationState();
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
 
-  // Business Settings (for calendar capacity + auto-confirm)
+  // Business Settings (for calendar capacity)
   const { data: businessSettings } = useBusinessSettings();
   const maxDailyCapacity = businessSettings?.max_daily_capacity || 10;
-
-  // Auto-Confirm Settings
-  const [autoConfirmEnabled, setAutoConfirmEnabled] = useState(false);
-  const [autoConfirmPrepMinutes, setAutoConfirmPrepMinutes] = useState(30);
-  const [showSettingsPanel, setShowSettingsPanel] = useState(false);
-  const [savingSettings, setSavingSettings] = useState(false);
-
-  // Sync auto-confirm settings from DB on load
-  useEffect(() => {
-    if (businessSettings) {
-      setAutoConfirmEnabled(businessSettings.auto_confirm_enabled ?? false);
-      setAutoConfirmPrepMinutes(businessSettings.auto_confirm_prep_minutes ?? 30);
-    }
-  }, [businessSettings?.auto_confirm_enabled, businessSettings?.auto_confirm_prep_minutes]);
 
   // Business Hours (for calendar grid range)
   const { data: businessHours } = useBusinessHours();
@@ -90,35 +76,6 @@ const FrontDesk = () => {
     const ends = openDays.map((h: any) => parseInt(h.close_time.split(':')[0]));
     return { start: Math.min(...starts), end: Math.max(...ends) };
   }, [businessHours]);
-
-  // Auto-confirm new orders when the feature is enabled
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (!autoConfirmEnabled) return;
-    if (!latestOrder || latestOrder.id === 999999) return; // skip test alerts
-    if (latestOrder.status !== 'pending') return;
-    const estimated_ready_at = new Date(Date.now() + autoConfirmPrepMinutes * 60 * 1000).toISOString();
-    executeOrderAction(latestOrder.id, 'confirm', { estimated_ready_at });
-  }, [latestOrder?.id]); // intentionally only fires on new order arrival
-
-  const saveAutoConfirmSettings = async (enabled: boolean, prepMins: number) => {
-    setSavingSettings(true);
-    try {
-      const { supabase } = await import('@/lib/supabase');
-      await supabase
-        .from('business_settings')
-        .update({ auto_confirm_enabled: enabled, auto_confirm_prep_minutes: prepMins })
-        .eq('id', businessSettings?.id ?? 1);
-      setAutoConfirmEnabled(enabled);
-      setAutoConfirmPrepMinutes(prepMins);
-      toast.success(t('Configuración guardada', 'Settings saved'));
-      setShowSettingsPanel(false);
-    } catch {
-      toast.error(t('Error al guardar', 'Error saving settings'));
-    } finally {
-      setSavingSettings(false);
-    }
-  };
 
   // --- SESSION TIMEOUT ---
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
@@ -176,10 +133,6 @@ const FrontDesk = () => {
   const ACTIVE_STATUSES = ['pending', 'confirmed', 'in_progress', 'ready'];
   const unreadCount = orders.filter(o => ACTIVE_STATUSES.includes(o.status) && isUnread(o.id)).length;
 
-  // Prep Time Modal (shown before confirming an order)
-  const [prepTimeTarget, setPrepTimeTarget] = useState<number | null>(null);
-  const [customPrepMinutes, setCustomPrepMinutes] = useState('');
-
   // Walk-In Order Modal
   const [showWalkInModal, setShowWalkInModal] = useState(false);
 
@@ -187,14 +140,8 @@ const FrontDesk = () => {
   const [cancelTarget, setCancelTarget] = useState<Order | null>(null);
 
   const handleCancelSuccess = () => {
-    if (cancelTarget) {
-      // Send cancellation email notification (non-blocking)
-      toast.info(t('Enviando correo...', 'Sending email...'));
-      api.sendStatusUpdate(cancelTarget, cancelTarget.status, 'cancelled')
-        .then(({ success }) => {
-          if (success) toast.success(t('Correo de cancelación enviado', 'Cancellation email sent'));
-        });
-    }
+    // Cancellation email is sent by the backend (backend/routes/cancellation.js).
+    // Do NOT fire api.sendStatusUpdate here — that would send a second email.
     setCancelTarget(null);
     refreshOrders();
   };
@@ -204,9 +151,10 @@ const FrontDesk = () => {
   const [activeView, setActiveView] = useState<'queue' | 'upcoming' | 'inventory' | 'deliveries' | 'reports'>('queue');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [isDarkMode, setIsDarkMode] = useState(true); // Theme State
+  // Theme: light-only product. Previously a useState(true) that drove a never-wired-up toggle.
+  const isDarkMode = false;
   const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 12;
+  const PAGE_SIZE = 16;
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -215,16 +163,15 @@ const FrontDesk = () => {
 
   // Auth is enforced by ProtectedRoute (requiredRole={['baker', 'owner']})
 
-  const handleOrderAction = async (orderId: number, action: 'confirm' | 'start' | 'ready' | 'delivery' | 'complete' | 'markDelivered') => {
-    // Intercept confirm — show prep time modal first
-    if (action === 'confirm') {
-      setPrepTimeTarget(orderId);
-      return;
-    }
-    await executeOrderAction(orderId, action);
-  };
+  // Ref-routed dispatch so the public handlers passed to memoized children
+  // can have stable identities while still calling the latest closure.
+  const executeOrderActionRef = useRef<(orderId: number, action: OrderAction, extraData?: { estimated_ready_at?: string }) => Promise<void>>();
 
-  const executeOrderAction = async (orderId: number, action: 'confirm' | 'start' | 'ready' | 'delivery' | 'complete' | 'markDelivered', extraData?: { estimated_ready_at?: string }) => {
+  const handleOrderAction = useCallback(async (orderId: number, action: OrderAction) => {
+    await executeOrderActionRef.current?.(orderId, action);
+  }, []);
+
+  const executeOrderAction = async (orderId: number, action: OrderAction, extraData?: { estimated_ready_at?: string }) => {
     let status = '';
     let successMsg = '';
 
@@ -262,7 +209,20 @@ const FrontDesk = () => {
     const oldStatus = targetOrder.status;
 
     try {
-      await api.updateOrderStatus(orderId, status, extraData);
+      // One click = one atomic backend transition. The button rendered on each
+      // card is driven by the order's current status, so we never chain calls
+      // here. If the server rejects the transition we surface the error and
+      // abort — we never write an optimistic update for a state the server
+      // did not accept.
+      if (action === 'confirm' && targetOrder.payment_status !== 'paid') {
+        toast.error(t('No se puede aceptar — pago pendiente', 'Cannot accept — payment is pending'));
+        return;
+      }
+      const result = await api.updateOrderStatus(orderId, status, extraData);
+      if (result && result.success === false) {
+        toast.error(result.error || t('Error al actualizar', 'Error updating status'));
+        return;
+      }
       updateOrderOptimistically(orderId, status);
       toast.success(successMsg);
 
@@ -309,14 +269,12 @@ const FrontDesk = () => {
     }
   };
 
-  const handleConfirmWithPrepTime = (minutes: number) => {
-    if (!prepTimeTarget) return;
-    const estimated_ready_at = new Date(Date.now() + minutes * 60 * 1000).toISOString();
-    const orderId = prepTimeTarget;
-    setPrepTimeTarget(null);
-    setCustomPrepMinutes('');
-    executeOrderAction(orderId, 'confirm', { estimated_ready_at });
-  };
+  // Keep ref pointed at the latest closure so memoized children can call it stably
+  executeOrderActionRef.current = executeOrderAction;
+
+  // Stable handlers for memoized cards — wrapping lets memo() actually skip re-renders
+  const handleShowDetails = useCallback((o: Order) => setSelectedOrder(o), []);
+  const handleCancelTarget = useCallback((o: Order) => setCancelTarget(o), []);
 
   const handleLogout = async () => {
     try {
@@ -499,11 +457,16 @@ const FrontDesk = () => {
 
     if (activeView === 'upcoming') {
       return (
-        <div className={cn("flex flex-col h-full overflow-hidden", isDarkMode ? 'dark' : '')}>
-          <div className="flex-none pb-4">
-            <TodayScheduleSummary orders={orders} darkMode={isDarkMode} maxDailyCapacity={maxDailyCapacity} />
+        <div className={cn("flex flex-col h-full min-h-0 overflow-hidden gap-3", isDarkMode ? 'dark' : '')}>
+          <div className="flex-none">
+            <TodayScheduleSummary
+              compact
+              orders={orders}
+              darkMode={isDarkMode}
+              maxDailyCapacity={maxDailyCapacity}
+            />
           </div>
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-hidden">
             <OrderScheduler
               orders={orders}
               onOrderClick={(order) => setSelectedOrder(order)}
@@ -554,7 +517,7 @@ const FrontDesk = () => {
         {/* Scrollable Content Area */}
         <div className="flex-1 overflow-y-auto min-h-0 pb-4 pr-1">
           {/* Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
             {totalOrders === 0 && connectionError ? (
               <div className={cn(
                 "col-span-full flex flex-col items-center justify-center py-20 rounded-xl border",
@@ -591,13 +554,12 @@ const FrontDesk = () => {
               <>
                 {/* Current / Upcoming orders on this page */}
                 {pageCurrentOrders.map((order) => (
-                  <ModernOrderCard
+                  <CompactOrderCard
                     key={order.id}
                     order={order}
                     onAction={handleOrderAction}
-                    onShowDetails={(o) => setSelectedOrder(o)}
-                    onCancel={(o) => setCancelTarget(o)}
-                    isFrontDesk={true}
+                    onShowDetails={handleShowDetails}
+                    onCancel={handleCancelTarget}
                     variant={isDarkMode ? 'dark' : 'default'}
                   />
                 ))}
@@ -625,13 +587,12 @@ const FrontDesk = () => {
 
                 {/* Overdue orders on this page */}
                 {pageOverdueOrders.map((order) => (
-                  <ModernOrderCard
+                  <CompactOrderCard
                     key={order.id}
                     order={order}
                     onAction={handleOrderAction}
-                    onShowDetails={(o) => setSelectedOrder(o)}
-                    onCancel={(o) => setCancelTarget(o)}
-                    isFrontDesk={true}
+                    onShowDetails={handleShowDetails}
+                    onCancel={handleCancelTarget}
                     variant={isDarkMode ? 'dark' : 'default'}
                   />
                 ))}
@@ -749,8 +710,8 @@ const FrontDesk = () => {
       onChangeView={setActiveView}
       onLogout={handleLogout}
       title="Front Desk"
-      darkMode={isDarkMode}
-      onToggleTheme={() => setIsDarkMode(!isDarkMode)}
+      darkMode={false}
+      onToggleTheme={() => { /* light-only product; toggle removed */ }}
       searchQuery={searchQuery}
       onSearchChange={setSearchQuery}
       notificationCount={unreadCount}
@@ -766,129 +727,30 @@ const FrontDesk = () => {
       todayOrderCount={todayOrderCount}
       maxDailyCapacity={maxDailyCapacity}
       headerAction={
-        <div className="flex items-center gap-2">
-          {/* Auto-Confirm Settings */}
-          <div className="relative">
-            <button
-              onClick={() => setShowSettingsPanel(!showSettingsPanel)}
-              title={t('Configuración de auto-confirmación', 'Auto-confirm settings')}
-              className={cn(
-                'flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium shadow-sm transition-colors relative',
-                autoConfirmEnabled
-                  ? isDarkMode
-                    ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 border border-amber-500/30'
-                    : 'bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-300'
-                  : isDarkMode
-                    ? 'bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-300'
-              )}
-            >
-              <Zap className="h-4 w-4" />
-              <span className="hidden sm:inline">{t('Auto', 'Auto')}</span>
-              {autoConfirmEnabled && (
-                <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-400" />
-              )}
-            </button>
-
-            {showSettingsPanel && (
-              <div className={cn(
-                'absolute right-0 top-full mt-2 w-72 rounded-2xl shadow-2xl p-4 z-50 border',
-                isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-gray-200 text-gray-900'
-              )}>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-bold text-sm">{t('Auto-Confirmar Órdenes', 'Auto-Confirm Orders')}</h3>
-                  <button
-                    onClick={() => setShowSettingsPanel(false)}
-                    className={cn('text-xs px-2 py-1 rounded-lg', isDarkMode ? 'text-slate-400 hover:text-white' : 'text-gray-400 hover:text-gray-700')}
-                  >✕</button>
-                </div>
-
-                <p className={cn('text-xs mb-4', isDarkMode ? 'text-slate-400' : 'text-gray-500')}>
-                  {t(
-                    'Acepta órdenes automáticamente cuando llegan. El tiempo de preparación se aplica a todas.',
-                    'Automatically accept incoming orders. Prep time applies to all.'
-                  )}
-                </p>
-
-                {/* Toggle */}
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-sm font-medium">{t('Activar', 'Enable')}</span>
-                  <button
-                    onClick={() => setAutoConfirmEnabled(!autoConfirmEnabled)}
-                    className={cn(
-                      'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
-                      autoConfirmEnabled ? 'bg-amber-500' : isDarkMode ? 'bg-slate-600' : 'bg-gray-300'
-                    )}
-                  >
-                    <span className={cn(
-                      'inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform',
-                      autoConfirmEnabled ? 'translate-x-6' : 'translate-x-1'
-                    )} />
-                  </button>
-                </div>
-
-                {/* Default Prep Time */}
-                <div className={cn('mb-4', !autoConfirmEnabled && 'opacity-40 pointer-events-none')}>
-                  <label className="text-xs font-medium block mb-2">
-                    {t('Tiempo de preparación por defecto', 'Default prep time')}
-                  </label>
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {[15, 30, 45, 60].map(mins => (
-                      <button
-                        key={mins}
-                        onClick={() => setAutoConfirmPrepMinutes(mins)}
-                        className={cn(
-                          'py-1.5 rounded-lg text-xs font-bold transition-colors',
-                          autoConfirmPrepMinutes === mins
-                            ? 'bg-amber-500 text-white'
-                            : isDarkMode
-                              ? 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        )}
-                      >
-                        {mins}m
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => saveAutoConfirmSettings(autoConfirmEnabled, autoConfirmPrepMinutes)}
-                  disabled={savingSettings}
-                  className="w-full py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white rounded-xl text-sm font-bold transition-colors"
-                >
-                  {savingSettings ? t('Guardando…', 'Saving…') : t('Guardar', 'Save')}
-                </button>
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={triggerTestAlert}
-            title={t('Probar notificación', 'Test notification')}
-            className={cn(
-              'flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium shadow-sm transition-colors',
-              isDarkMode
-                ? 'bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-300'
-            )}
-          >
-            <FlaskConical className="h-4 w-4" />
-            <span className="hidden sm:inline">{t('Prueba', 'Test Alert')}</span>
-          </button>
-          <button
-            onClick={() => setShowWalkInModal(true)}
-            className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold shadow-sm transition-colors',
-              isDarkMode
-                ? 'bg-green-600/20 text-green-400 hover:bg-green-600/30 border border-green-500/30'
-                : 'bg-green-600 text-white hover:bg-green-700'
-            )}
-          >
-            <PlusCircle className="h-4 w-4" />
-            <span className="hidden sm:inline">{t('Nueva Orden', 'Walk-In Order')}</span>
-          </button>
-        </div>
+        <button
+          onClick={() => setShowWalkInModal(true)}
+          className={cn(
+            'flex items-center gap-2 px-4 h-10 rounded-full text-sm font-bold shadow-sm transition-colors flex-shrink-0',
+            isDarkMode
+              ? 'bg-green-600/20 text-green-400 hover:bg-green-600/30 border border-green-500/30'
+              : 'bg-green-600 text-white hover:bg-green-700'
+          )}
+        >
+          <PlusCircle className="h-4 w-4" />
+          <span className="hidden sm:inline">{t('Nueva Orden', 'Walk-In Order')}</span>
+        </button>
+      }
+      headerSecondaryActions={
+        <button
+          onClick={() => { triggerTestAlert(); }}
+          title={t('Probar Alerta', 'Test Alert')}
+          className={cn(
+            "rounded-full h-9 w-9 flex items-center justify-center transition-colors",
+            isDarkMode ? "text-slate-300 hover:bg-slate-700/70" : "text-slate-500 hover:bg-gray-200/70"
+          )}
+        >
+          <FlaskConical className="h-4 w-4" />
+        </button>
       }
     >
       {/* Connection Status Banner */}
@@ -928,72 +790,6 @@ const FrontDesk = () => {
           >
             {t('Actualizar', 'Refresh')}
           </button>
-        </div>
-      )}
-
-      {/* Prep Time Modal */}
-      {prepTimeTarget !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className={cn(
-            "w-full max-w-sm mx-4 rounded-2xl p-6 shadow-2xl",
-            isDarkMode ? "bg-[#1f2937] text-white" : "bg-white text-gray-900"
-          )}>
-            <h2 className="text-lg font-bold mb-1">{t('¿Cuánto tiempo necesitas?', 'How long do you need?')}</h2>
-            <p className={cn("text-sm mb-5", isDarkMode ? "text-slate-400" : "text-gray-500")}>
-              {t('Elige el tiempo estimado de preparación', 'Choose estimated prep time')}
-            </p>
-            <div className="grid grid-cols-3 gap-2 mb-4">
-              {[15, 30, 45, 60, 90].map(mins => (
-                <button
-                  key={mins}
-                  onClick={() => handleConfirmWithPrepTime(mins)}
-                  className={cn(
-                    "py-3 rounded-xl font-bold text-sm transition-colors",
-                    isDarkMode
-                      ? "bg-slate-700 hover:bg-green-600 text-white"
-                      : "bg-gray-100 hover:bg-green-500 hover:text-white text-gray-800"
-                  )}
-                >
-                  {mins}m
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-2 mb-4">
-              <input
-                type="number"
-                min={1}
-                max={480}
-                placeholder={t('Personalizado (min)', 'Custom (min)')}
-                value={customPrepMinutes}
-                onChange={e => setCustomPrepMinutes(e.target.value)}
-                className={cn(
-                  "flex-1 px-3 py-2 rounded-xl text-sm border outline-none",
-                  isDarkMode
-                    ? "bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
-                    : "bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400"
-                )}
-              />
-              <button
-                onClick={() => {
-                  const mins = parseInt(customPrepMinutes);
-                  if (mins > 0) handleConfirmWithPrepTime(mins);
-                }}
-                disabled={!customPrepMinutes || parseInt(customPrepMinutes) <= 0}
-                className="px-4 py-2 bg-green-600 text-white rounded-xl font-bold text-sm disabled:opacity-40 hover:bg-green-700 transition-colors"
-              >
-                OK
-              </button>
-            </div>
-            <button
-              onClick={() => { setPrepTimeTarget(null); setCustomPrepMinutes(''); }}
-              className={cn(
-                "w-full py-2 rounded-xl text-sm font-medium transition-colors",
-                isDarkMode ? "text-slate-400 hover:text-white hover:bg-slate-700" : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"
-              )}
-            >
-              {t('Cancelar', 'Cancel')}
-            </button>
-          </div>
         </div>
       )}
 

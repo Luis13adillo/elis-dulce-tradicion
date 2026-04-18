@@ -43,7 +43,8 @@ const ReportsManager = () => {
     setIsLoading(true);
     try {
       const [orderData, inventoryData] = await Promise.all([
-        api.getAllOrders(),
+        // Reports needs the full history, not the dashboard's recent window.
+        api.getAllOrders({ limit: 10000 }),
         api.getInventory(),
       ]);
       setOrders(Array.isArray(orderData) ? orderData : []);

@@ -44,27 +44,67 @@ export function PrintPreviewModal({ order, isOpen, onClose, onCancelOrder }: Pri
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-5xl max-h-[95vh] h-full flex flex-col p-0 bg-[#0f172a] text-white border-slate-800 overflow-hidden">
+            <DialogContent className="max-w-5xl max-h-[95vh] h-full flex flex-col p-0 bg-[#0f172a] text-white border-slate-800 overflow-hidden [&>button.absolute]:hidden">
 
-                {/* HEADER */}
-                <div className="p-3 border-b border-slate-800 flex items-center justify-between bg-[#1e293b] shrink-0">
-                    <div className="flex items-center gap-4">
-                        <Button variant="ghost" size="icon" onClick={onClose} className="text-slate-400 hover:text-white hover:bg-slate-800">
+                {/* HEADER — Row 1: Identity & View Controls */}
+                <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between bg-[#1e293b] shrink-0 gap-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <Button variant="ghost" size="icon" onClick={onClose} className="text-slate-400 hover:text-white hover:bg-slate-800 shrink-0">
                             <ArrowLeft className="h-5 w-5" />
                         </Button>
-                        <div>
-                            <DialogTitle className="text-lg font-bold flex items-center gap-2 text-white">
-                                <span className="text-[#C6A649]">#{order.order_number}</span>
-                                <span className="text-slate-400 font-normal">| Details & Print</span>
+                        <div className="flex flex-col min-w-0">
+                            <DialogTitle className="text-2xl font-bold text-[#C6A649] leading-none tracking-tight font-[Playfair_Display]">
+                                #{order.order_number}
                             </DialogTitle>
+                            <span className="text-[10px] text-slate-400 uppercase tracking-[0.25em] mt-1.5 font-medium">
+                                Kitchen Ticket · Details & Print
+                            </span>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        {/* STATUS ACTIONS - QUICK DEV */}
-                        <div className="mr-8 flex items-center gap-2 border-r border-slate-700 pr-4">
+                    <div className="flex items-center gap-2 shrink-0">
+                        {/* View Toggle */}
+                        <div className="flex rounded-lg overflow-hidden border border-slate-600">
+                            <button
+                                onClick={() => setViewMode('ticket')}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors ${
+                                    viewMode === 'ticket'
+                                        ? 'bg-[#C6A649] text-[#1A1A2E]'
+                                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                                }`}
+                            >
+                                <Receipt className="h-3.5 w-3.5" /> Ticket
+                            </button>
+                            <button
+                                onClick={() => setViewMode('invoice')}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors ${
+                                    viewMode === 'invoice'
+                                        ? 'bg-[#C6A649] text-[#1A1A2E]'
+                                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                                }`}
+                            >
+                                <FileText className="h-3.5 w-3.5" /> Invoice
+                            </button>
+                        </div>
+                        <Button
+                            onClick={viewMode === 'invoice' ? handlePrintInvoice : handlePrintReceipt}
+                            size="sm"
+                            variant="outline"
+                            className="bg-transparent border-[#C6A649]/40 text-[#C6A649] hover:bg-[#C6A649]/10 hover:text-[#C6A649] hover:border-[#C6A649]/60"
+                        >
+                            <Printer className="mr-2 h-4 w-4" /> Print
+                        </Button>
+                    </div>
+                </div>
+
+                {/* HEADER — Row 2: Status Action Bar */}
+                {!['completed', 'cancelled'].includes(order.status) && (
+                    <div className="px-4 py-2.5 bg-[#1e293b]/60 border-b border-[#C6A649]/10 flex items-center justify-between gap-3 shrink-0 flex-wrap">
+                        {/* Primary Action (gold hero CTA) */}
+                        <div className="flex items-center">
                             {order.status === 'pending' && (
-                                <Button size="sm" variant="outline" className="text-blue-400 border-blue-400/30 hover:bg-blue-400/10"
+                                <Button size="sm"
+                                    className="bg-[#C6A649]/20 border border-[#C6A649]/50 backdrop-blur-md text-white hover:bg-[#C6A649]/30 hover:border-[#C6A649] hover:shadow-[0_0_30px_rgba(198,166,73,0.5)] hover:-translate-y-0.5 transition-all duration-300 font-semibold tracking-wide px-5"
                                     onClick={async () => {
                                         const { api } = await import('@/lib/api');
                                         await api.updateOrderStatus(order.id, 'confirmed');
@@ -79,11 +119,25 @@ export function PrintPreviewModal({ order, isOpen, onClose, onCancelOrder }: Pri
 
                                         onClose();
                                     }}>
-                                    Confirm
+                                    Confirm Order
                                 </Button>
                             )}
-                            {(order.status === 'confirmed' || order.status === 'pending' || order.status === 'paid') && (
-                                <Button size="sm" variant="outline" className="text-green-400 border-green-400/30 hover:bg-green-400/10"
+                            {order.status === 'confirmed' && (
+                                <Button size="sm"
+                                    className="bg-[#C6A649]/20 border border-[#C6A649]/50 backdrop-blur-md text-white hover:bg-[#C6A649]/30 hover:border-[#C6A649] hover:shadow-[0_0_30px_rgba(198,166,73,0.5)] hover:-translate-y-0.5 transition-all duration-300 font-semibold tracking-wide px-5"
+                                    onClick={async () => {
+                                        const { api } = await import('@/lib/api');
+                                        await api.updateOrderStatus(order.id, 'in_progress');
+                                        const { toast } = await import('sonner');
+                                        toast.success('Started Baking');
+                                        onClose();
+                                    }}>
+                                    Start Baking
+                                </Button>
+                            )}
+                            {order.status === 'in_progress' && (
+                                <Button size="sm"
+                                    className="bg-[#C6A649]/20 border border-[#C6A649]/50 backdrop-blur-md text-white hover:bg-[#C6A649]/30 hover:border-[#C6A649] hover:shadow-[0_0_30px_rgba(198,166,73,0.5)] hover:-translate-y-0.5 transition-all duration-300 font-semibold tracking-wide px-5"
                                     onClick={async () => {
                                         const { api } = await import('@/lib/api');
                                         await api.updateOrderStatus(order.id, 'ready');
@@ -93,7 +147,7 @@ export function PrintPreviewModal({ order, isOpen, onClose, onCancelOrder }: Pri
                                         const { success, error } = await api.sendReadyNotification(order);
 
                                         if (success) {
-                                            toast.success('Order Marked Ready & Email Sent');
+                                            toast.success('Marked Ready & Email Sent');
                                         } else {
                                             toast.error('Order Ready, but Email Failed');
                                             console.error('Email error:', error);
@@ -101,11 +155,12 @@ export function PrintPreviewModal({ order, isOpen, onClose, onCancelOrder }: Pri
 
                                         onClose();
                                     }}>
-                                    Mark Ready
+                                    {order.delivery_option === 'delivery' ? 'Ready to Dispatch' : 'Ready for Pickup'}
                                 </Button>
                             )}
-                            {(order.status === 'ready' && order.delivery_option === 'delivery') && (
-                                <Button size="sm" variant="outline" className="text-blue-500 border-blue-500/30 hover:bg-blue-500/10"
+                            {order.status === 'ready' && order.delivery_option === 'delivery' && (
+                                <Button size="sm"
+                                    className="bg-[#C6A649]/20 border border-[#C6A649]/50 backdrop-blur-md text-white hover:bg-[#C6A649]/30 hover:border-[#C6A649] hover:shadow-[0_0_30px_rgba(198,166,73,0.5)] hover:-translate-y-0.5 transition-all duration-300 font-semibold tracking-wide px-5"
                                     onClick={async () => {
                                         const { api } = await import('@/lib/api');
                                         const oldStatus = order.status;
@@ -127,7 +182,8 @@ export function PrintPreviewModal({ order, isOpen, onClose, onCancelOrder }: Pri
                                 </Button>
                             )}
                             {((order.status === 'ready' && order.delivery_option !== 'delivery') || order.status === 'delivered') && (
-                                <Button size="sm" variant="outline" className="text-gray-400 border-gray-400/30 hover:bg-gray-400/10"
+                                <Button size="sm"
+                                    className="bg-[#C6A649]/20 border border-[#C6A649]/50 backdrop-blur-md text-white hover:bg-[#C6A649]/30 hover:border-[#C6A649] hover:shadow-[0_0_30px_rgba(198,166,73,0.5)] hover:-translate-y-0.5 transition-all duration-300 font-semibold tracking-wide px-5"
                                     onClick={async () => {
                                         const { api } = await import('@/lib/api');
                                         const oldStatus = order.status;
@@ -145,71 +201,46 @@ export function PrintPreviewModal({ order, isOpen, onClose, onCancelOrder }: Pri
                                         }
                                         onClose();
                                     }}>
-                                    Complete
+                                    {order.status === 'ready' && order.delivery_option !== 'delivery' ? 'Mark Picked Up' : 'Complete Order'}
                                 </Button>
                             )}
-                            {onCancelOrder && !['completed', 'cancelled', 'delivered'].includes(order.status) && (
+                        </div>
+
+                        {/* Secondary Actions */}
+                        <div className="flex items-center gap-2">
+                            {!['delivered'].includes(order.status) && (
                                 <Button size="sm" variant="outline"
-                                    className="text-red-500 border-red-500/30 hover:bg-red-500/10"
-                                    onClick={() => onCancelOrder(order)}>
-                                    <XCircle className="mr-1 h-3.5 w-3.5" />
-                                    Cancel Order
-                                </Button>
-                            )}
-                            {!['completed', 'cancelled', 'delivered'].includes(order.status) && (
-                                <Button size="sm" variant="outline"
-                                    className={`text-red-400 border-red-400/30 hover:bg-red-400/10 ${showIssueForm ? 'bg-red-400/10' : ''}`}
+                                    className={`bg-transparent border-amber-400/40 text-amber-300 hover:bg-amber-400/10 hover:text-amber-200 hover:border-amber-400/60 ${showIssueForm ? 'bg-amber-400/10' : ''}`}
                                     onClick={() => setShowIssueForm(!showIssueForm)}>
                                     <AlertTriangle className="mr-1 h-3.5 w-3.5" />
                                     Report Issue
                                 </Button>
                             )}
+                            {onCancelOrder && !['delivered'].includes(order.status) && (
+                                <Button size="sm" variant="outline"
+                                    className="bg-transparent border-[#DC3545]/40 text-[#DC3545] hover:bg-[#DC3545]/10 hover:text-[#DC3545] hover:border-[#DC3545]/60"
+                                    onClick={() => onCancelOrder(order)}>
+                                    <XCircle className="mr-1 h-3.5 w-3.5" />
+                                    Cancel Order
+                                </Button>
+                            )}
                         </div>
-
-
-                        {/* View Toggle */}
-                        <div className="flex rounded-lg overflow-hidden border border-slate-600">
-                            <button
-                                onClick={() => setViewMode('ticket')}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors ${
-                                    viewMode === 'ticket'
-                                        ? 'bg-[#C6A649] text-black'
-                                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                                }`}
-                            >
-                                <Receipt className="h-3.5 w-3.5" /> Ticket
-                            </button>
-                            <button
-                                onClick={() => setViewMode('invoice')}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors ${
-                                    viewMode === 'invoice'
-                                        ? 'bg-blue-500 text-white'
-                                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                                }`}
-                            >
-                                <FileText className="h-3.5 w-3.5" /> Invoice
-                            </button>
-                        </div>
-                        <Button
-                            onClick={viewMode === 'invoice' ? handlePrintInvoice : handlePrintReceipt}
-                            size="sm"
-                            className="bg-slate-700 hover:bg-slate-600 text-white border border-slate-600"
-                        >
-                            <Printer className="mr-2 h-4 w-4" /> Print
-                        </Button>
                     </div>
-                </div>
+                )}
 
                 {/* Keyboard Shortcuts Hints */}
-                <div className="px-3 py-1.5 border-b border-slate-800 bg-[#1e293b]/80 flex items-center gap-2 flex-wrap">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider font-medium mr-1">Shortcuts</span>
-                    <kbd className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-400 text-[10px] font-mono">← Prev</kbd>
-                    <kbd className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-400 text-[10px] font-mono">→ Next</kbd>
+                <div className="px-4 py-1.5 border-b border-slate-800 bg-[#1e293b]/80 flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] text-[#C6A649]/70 uppercase tracking-[0.2em] font-bold mr-1">Shortcuts</span>
+                    <kbd className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#C6A649]/10 text-[#C6A649]/80 border border-[#C6A649]/20 text-[10px] font-mono">← Prev</kbd>
+                    <kbd className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#C6A649]/10 text-[#C6A649]/80 border border-[#C6A649]/20 text-[10px] font-mono">→ Next</kbd>
                     {order.status === 'pending' && (
-                        <kbd className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-900/40 text-blue-400 text-[10px] font-mono">A Accept</kbd>
+                        <kbd className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#C6A649]/10 text-[#C6A649]/80 border border-[#C6A649]/20 text-[10px] font-mono">C Confirm</kbd>
                     )}
-                    {['confirmed', 'in_progress'].includes(order.status) && (
-                        <kbd className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-green-900/40 text-green-400 text-[10px] font-mono">R Ready</kbd>
+                    {order.status === 'confirmed' && (
+                        <kbd className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#C6A649]/10 text-[#C6A649]/80 border border-[#C6A649]/20 text-[10px] font-mono">S Start Baking</kbd>
+                    )}
+                    {order.status === 'in_progress' && (
+                        <kbd className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#C6A649]/10 text-[#C6A649]/80 border border-[#C6A649]/20 text-[10px] font-mono">R Ready</kbd>
                     )}
                 </div>
 
@@ -333,88 +364,93 @@ export function PrintPreviewModal({ order, isOpen, onClose, onCancelOrder }: Pri
                         </div>
 
                         {/* RIGHT: TICKET DETAILS */}
-                        <div className="w-full md:w-2/3 bg-[#FAFAFA] text-black rounded-sm shadow-2xl flex flex-col max-w-2xl mx-auto relative shrink-0 mb-10">
-                            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-red-500 via-blue-500 to-red-500 opacity-80"></div>
+                        <div className="w-full md:w-2/3 bg-[#FAFAFA] text-[#1A1A2E] rounded-sm shadow-2xl flex flex-col max-w-2xl mx-auto relative shrink-0 mb-10">
+                            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-[#C6A649] via-[#E8D48B] to-[#C6A649] opacity-90"></div>
 
-                            <div className="p-6 md:p-8 flex-1 font-mono text-sm leading-relaxed">
-                                <div className="text-center border-b-2 border-dashed border-gray-300 pb-4 mb-6">
-                                    <h2 className="text-2xl md:text-3xl font-black tracking-tight mb-2">KITCHEN TICKET</h2>
-                                    <div className="flex justify-between items-center text-xs text-gray-500 mt-2 px-2">
+                            <div className="p-6 md:p-8 flex-1 text-sm leading-relaxed">
+                                <div className="text-center border-b-2 border-dashed border-[#C6A649]/25 pb-4 mb-6">
+                                    <p className="text-[10px] font-bold text-[#C6A649] uppercase tracking-[0.3em] mb-1.5">Eli&apos;s Dulce Tradici&oacute;n</p>
+                                    <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-[#1A1A2E] font-[Playfair_Display] leading-tight">Kitchen Ticket</h2>
+                                    <div className="flex justify-between items-center text-[10px] text-[#1A1A2E]/40 mt-3 px-2 font-mono">
                                         <span>#{order.order_number}</span>
                                         <span>{order.created_at ? new Date(order.created_at).toLocaleString() : 'N/A'}</span>
                                     </div>
                                 </div>
 
                                 <div className="space-y-6">
-                                    <div className="flex justify-between items-end border-b border-gray-100 pb-4">
+                                    <div className="flex justify-between items-end border-b border-[#1A1A2E]/10 pb-4">
                                         <div>
-                                            <div className="text-xs font-bold text-gray-400 uppercase">Due Date</div>
-                                            <div className="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
-                                                <Calendar className="h-5 w-5 text-red-500" />
+                                            <div className="text-[10px] font-bold text-[#1A1A2E]/50 uppercase tracking-widest mb-1">Due Date</div>
+                                            <div className="text-xl md:text-2xl font-bold text-[#1A1A2E] flex items-center gap-2">
+                                                <Calendar className="h-5 w-5 text-[#C6A649]" />
                                                 {order.date_needed}
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            <div className="text-xs font-bold text-gray-400 uppercase">Time</div>
-                                            <div className="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
-                                                <Clock className="h-5 w-5 text-red-500" />
+                                            <div className="text-[10px] font-bold text-[#1A1A2E]/50 uppercase tracking-widest mb-1">Time</div>
+                                            <div className="text-xl md:text-2xl font-bold text-[#1A1A2E] flex items-center gap-2 justify-end">
+                                                <Clock className="h-5 w-5 text-[#C6A649]" />
                                                 {order.time_needed}
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div className="bg-orange-50 p-4 border-l-4 border-orange-400">
+                                    <div className="bg-[#FFFBF0] p-4 border-l-4 border-[#C6A649]">
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
-                                                <div className="text-xs font-bold text-orange-800 uppercase mb-1">Cake Size</div>
-                                                <div className="text-lg font-bold text-gray-900">{order.cake_size}</div>
+                                                <div className="text-[10px] font-bold text-[#8B6D1F] uppercase tracking-widest mb-1">Cake Size</div>
+                                                <div className="text-lg font-bold text-[#1A1A2E]">{order.cake_size}</div>
                                             </div>
                                             <div>
-                                                <div className="text-xs font-bold text-orange-800 uppercase mb-1">Flavor / Filling</div>
-                                                <div className="text-lg font-bold text-gray-900">{order.filling}</div>
+                                                <div className="text-[10px] font-bold text-[#8B6D1F] uppercase tracking-widest mb-1">Flavor / Filling</div>
+                                                <div className="text-lg font-bold text-[#1A1A2E]">{order.filling}</div>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div>
-                                        <div className="text-xs font-bold text-gray-400 uppercase mb-2">Design & Decoration</div>
-                                        <div className="text-base font-medium text-gray-800 whitespace-pre-wrap leading-relaxed">
+                                    <div className="bg-[#FAFAF7] p-4 rounded-sm border border-[#C6A649]/15">
+                                        <div className="text-[10px] font-bold text-[#1A1A2E]/50 uppercase tracking-widest mb-2">Design &amp; Decoration</div>
+                                        <div className="text-base font-medium text-[#1A1A2E]/85 whitespace-pre-wrap leading-relaxed">
                                             {order.theme}
                                         </div>
                                         {order.dedication && (
-                                            <div className="mt-4 p-3 bg-gray-100 italic text-gray-600 rounded">
-                                                &ldquo; {order.dedication} &rdquo;
+                                            <div className="mt-4 pl-4 py-2 border-l-2 border-[#C6A649]/40">
+                                                <p className="font-[Playfair_Display] italic text-[#1A1A2E]/80 text-base leading-relaxed">
+                                                    <span className="text-[#C6A649] text-xl leading-none align-top mr-1">&ldquo;</span>
+                                                    {order.dedication}
+                                                    <span className="text-[#C6A649] text-xl leading-none align-top ml-1">&rdquo;</span>
+                                                </p>
                                             </div>
                                         )}
                                     </div>
 
-                                    <div className="border-t-2 border-dashed border-gray-200 pt-6">
+                                    <div className="border-t-2 border-dashed border-[#C6A649]/25 pt-6">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center font-bold text-gray-600">
+                                                <div className="h-10 w-10 rounded-full bg-[#C6A649]/20 flex items-center justify-center font-bold text-[#1A1A2E] border border-[#C6A649]/40 font-[Playfair_Display] text-lg">
                                                     {order.customer_name?.charAt(0)}
                                                 </div>
                                                 <div>
-                                                    <div className="font-bold text-gray-900">{order.customer_name}</div>
+                                                    <div className="font-bold text-[#1A1A2E]">{order.customer_name}</div>
                                                     {order.customer_phone && (
-                                                        <div className="text-xs text-gray-500 flex items-center gap-1.5">
+                                                        <div className="text-xs text-[#1A1A2E]/50 flex items-center gap-1.5">
                                                             <Phone className="h-3 w-3" />
-                                                            <a href={`tel:${order.customer_phone}`} className="hover:text-gray-900 hover:underline">{order.customer_phone}</a>
-                                                            <a href={`sms:${order.customer_phone}`} className="ml-1 text-gray-400 hover:text-blue-600" title="Send SMS">
+                                                            <a href={`tel:${order.customer_phone}`} className="hover:text-[#1A1A2E] hover:underline">{order.customer_phone}</a>
+                                                            <a href={`sms:${order.customer_phone}`} className="ml-1 text-[#1A1A2E]/40 hover:text-[#C6A649]" title="Send SMS">
                                                                 <MessageSquare className="h-3 w-3" />
                                                             </a>
                                                         </div>
                                                     )}
                                                     {order.customer_email && (
-                                                        <div className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5">
+                                                        <div className="text-xs text-[#1A1A2E]/50 flex items-center gap-1.5 mt-0.5">
                                                             <Mail className="h-3 w-3" />
-                                                            <a href={`mailto:${order.customer_email}`} className="hover:text-gray-900 hover:underline">{order.customer_email}</a>
+                                                            <a href={`mailto:${order.customer_email}`} className="hover:text-[#1A1A2E] hover:underline">{order.customer_email}</a>
                                                         </div>
                                                     )}
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <Badge variant="outline" className={`uppercase ${order.delivery_option === 'delivery' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-700'}`}>
+                                                <Badge variant="outline" className={`uppercase font-bold tracking-wider ${order.delivery_option === 'delivery' ? 'bg-[#C6A649]/10 text-[#8B6D1F] border-[#C6A649]/40' : 'bg-[#FFFBF0] text-[#8B6D1F] border-[#C6A649]/30'}`}>
                                                     {order.delivery_option}
                                                 </Badge>
                                             </div>

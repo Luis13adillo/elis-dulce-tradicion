@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Mail, Lock, AlertCircle, Store } from 'lucide-react';
+import { FullScreenLoader } from '@/components/FullScreenLoader';
 // Fixed import pointing to the correct logo location
 import TransparentLogo from '../assets/brand/logo.png';
 
@@ -88,22 +89,12 @@ const Login = () => {
 
 
   // Optimize: Early return for authenticated users to prevent form rendering
-  // This prevents the "flash" of the login form before redirection
-  if (isAuthenticated && user && !isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-black">
-        <Loader2 className="h-12 w-12 animate-spin text-[#C6A649]" />
-      </div>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-black">
-        <Loader2 className="h-12 w-12 animate-spin text-[#C6A649]" />
-      </div>
-    );
-  }
+  // This prevents the "flash" of the login form before redirection.
+  // Uses FullScreenLoader (light bg + escape hatch) instead of a hardcoded
+  // bg-black block — the dark style was trapping users who landed here via
+  // a ProtectedRoute redirect after getUserProfile timed out (profile=null).
+  if (isAuthenticated && user && !isLoading) return <FullScreenLoader />;
+  if (isLoading) return <FullScreenLoader />;
 
   return (
     <div className="min-h-screen w-full bg-black text-white flex items-center justify-center relative overflow-hidden px-4 selection:bg-[#C6A649]/30">

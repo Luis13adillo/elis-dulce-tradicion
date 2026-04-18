@@ -5,7 +5,7 @@
 Custom cake ordering website for Eli's Dulce Tradicion bakery. Customers place orders through the website, the owner monitors/manages orders from the Owner Dashboard, and the front desk (kitchen display) receives and processes orders on a tablet.
 
 **Live site:** [elisbakery.com](https://elisbakery.com) — deployed via Vercel, auto-deploys from `main`
-**Order status:** NOT yet accepting orders — Stripe uses test keys (`pk_test_...`). Production credentials needed before payments go live.
+**Order status:** **LIVE and accepting real orders.** Stripe production keys are installed in Vercel; real payments have been processed. The local `.env` file contains `pk_test_` keys for dev only — **do not assume those reflect production**.
 
 **What this project IS:**
 - A custom cake ordering website with a 5-step order wizard
@@ -261,14 +261,24 @@ npm run analyze      # Bundle size analysis
 5. **PWA** is configured with Workbox. Service worker caches Supabase (24hr), API (5min), and images (30 days).
 6. **Code splitting** is manual via Vite config — vendor chunks for React, UI, Query, Supabase, i18n, Motion, plus feature chunks for dashboard and order flow.
 
-## Known Issues (See GSD Fix Plan)
+## Known Issues
 
-Refer to `Elis-GSD-Implementation-Fix-Plan.docx` for the full list of 21 scoped fixes. Key issues:
-- Auth loading race conditions (AuthContext.tsx)
-- Payment verification endpoint missing (OrderConfirmation.tsx)
-- Order confirmation email never sent
-- Hardcoded trend indicator in dashboard
-- Calendar view not rendered in Front Desk
-- Walk-in order creation not yet built
-- Max daily capacity hardcoded to 20
-- Recipe management UI not built (database tables exist)
+The original GSD Fix Plan (`Elis-GSD-Implementation-Fix-Plan.docx`, 21 scoped fixes) has been **substantially completed**. The project is live in production. Phase 10 post-launch polish is in progress (`.planning/phases/10-post-launch-polish/`).
+
+**Historical issues — now resolved:**
+- ✅ Payment verification endpoint (`verify_stripe_payment` RPC + `api.verifyPayment()`)
+- ✅ Order confirmation email (sent by `supabase/functions/stripe-webhook/index.ts` — the single source of truth)
+- ✅ Backend state machine enforcement (`backend/routes/orderTransitions.js` validates every transition with row lock + history insert + side effects)
+- ✅ Stripe refund fully wired to `stripe.refunds.create()` with idempotency key (`backend/routes/cancellation.js`)
+- ✅ Walk-in order creation (`WalkInOrderModal.tsx`, integrated in FrontDesk)
+- ✅ Max daily capacity is DB-configurable via `business_settings.max_daily_capacity`
+- ✅ Calendar view rendered in Front Desk (`OrderScheduler`)
+- ✅ Hardcoded trend indicator replaced with dynamic calc in `QuickStatsWidget`
+- ✅ Auth loading race — guarded with cancelled flag in `AuthContext.tsx`
+- ✅ Public order lookup is rate-limited via `check_order_lookup_rate_limit()` inside `get_public_order()` RPC (see `supabase/migrations/20260416_rate_limit_public_order_lookup.sql`)
+- ✅ Confirmation-email duplication — webhook is now the sole sender; frontend no longer fires it
+
+**Open items (non-blocking, hardening):**
+- Recipe management UI (DB tables exist, no CRUD component yet)
+- Backend Sentry / structured logging (frontend Sentry is wired; backend is not)
+- `.env.example` files for reproducibility

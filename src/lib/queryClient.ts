@@ -72,5 +72,15 @@ export const queryKeys = {
     all: ['analytics'] as const,
     revenue: (params?: any) => [...queryKeys.analytics.all, 'revenue', params] as const,
     orders: (params?: any) => [...queryKeys.analytics.all, 'orders', params] as const,
+    dashboard: (period: 'today' | 'week' | 'month') =>
+      [...queryKeys.analytics.all, 'dashboard', period] as const,
+    statusBreakdown: () => [...queryKeys.analytics.all, 'statusBreakdown'] as const,
+    popularItems: () => [...queryKeys.analytics.all, 'popularItems'] as const,
+  },
+  // Inventory
+  inventory: {
+    all: ['inventory'] as const,
+    lowStock: () => [...queryKeys.inventory.all, 'lowStock'] as const,
+    ingredients: () => [...queryKeys.inventory.all, 'ingredients'] as const,
   },
 } as const;

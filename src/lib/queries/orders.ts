@@ -10,8 +10,12 @@ import { queryKeys } from '@/lib/queryClient';
 export const useOrders = (filters?: { status?: string; limit?: number; offset?: number }) => {
   return useQuery({
     queryKey: queryKeys.orders.list(filters),
-    queryFn: () => api.getAllOrders(filters?.status),
-    staleTime: 1000 * 30, // 30 seconds - orders change frequently
+    queryFn: () => api.getAllOrders({ status: filters?.status, limit: filters?.limit }),
+    // 2 minutes — realtime subscriptions patch the cache in place for inserts/
+    // updates/deletes, so we don't need aggressive refetching. A shorter window
+    // just causes the dashboard's isLoading gate to flip true on every tab
+    // focus and blanks the UI into a fullscreen spinner.
+    staleTime: 1000 * 60 * 2,
     enabled: true,
   });
 };

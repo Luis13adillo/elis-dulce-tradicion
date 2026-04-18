@@ -42,17 +42,13 @@
   <meta name="twitter:description" content="Traditional bakery with custom cakes and authentic Mexican sweet bread" />
   <meta name="twitter:image" content="https://elisbakery.com/images/og-display.png" />
 
-  <!-- SW update: reload page when new service worker takes control (runs before React) -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      var _swRefreshing = false;
-      navigator.serviceWorker.addEventListener('controllerchange', function () {
-        if (_swRefreshing) return;
-        _swRefreshing = true;
-        window.location.reload();
-      });
-    }
-  </script>
+  <!--
+    SW updates are surfaced via a Sonner toast in src/lib/pwa.ts and applied
+    only when the user clicks "Reload". We intentionally do NOT auto-reload
+    the tab on `controllerchange` — that was forcing mid-session reloads
+    every time a new build deployed, which made the dashboard flash back
+    into a Suspense loading state.
+  -->
 
 </head>
 

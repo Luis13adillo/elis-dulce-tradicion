@@ -113,15 +113,8 @@ const PaymentCheckout = () => {
       const result = await api.createOrder(orderPayload);
 
       if (result.success) {
-        // Fire confirmation email non-blocking with 3-attempt retry
-        const fireConfirmationEmail = async (attempt = 1) => {
-          try {
-            await api.sendOrderConfirmation(result.order);
-          } catch (err) {
-            if (attempt < 3) setTimeout(() => fireConfirmationEmail(attempt + 1), 2000 * attempt);
-          }
-        };
-        fireConfirmationEmail();
+        // Confirmation email is sent by the Stripe webhook (single source of truth)
+        // to prevent duplicates. See supabase/functions/stripe-webhook/index.ts.
         sessionStorage.removeItem('pendingOrder');
         navigate(`/order-confirmation?paymentId=${paymentIntentId}&orderNumber=${result.order.order_number}`);
       } else {

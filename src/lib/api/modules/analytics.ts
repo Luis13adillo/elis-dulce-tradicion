@@ -118,31 +118,28 @@ export class AnalyticsApi extends BaseApiClient {
 
     async getOrdersByStatus() {
         const sb = this.ensureSupabase();
-        let dbOrders: any[] = [];
+        if (!sb) return [];
 
-        if (sb) {
-            const { data } = await sb.from('orders').select('status, total_amount');
-            dbOrders = data || [];
+        // Delegates grouping to Postgres. The RPC returns one row per
+        // distinct status; we only need to compute percentages client-side.
+        const { data, error } = await sb.rpc('get_orders_by_status');
+        if (error) {
+            console.warn('get_orders_by_status RPC failed:', error);
+            return [];
         }
 
-        const totalCount = dbOrders.length;
+        const rows = (data || []) as Array<{ status: string; count: number; revenue: number }>;
+        const totalCount = rows.reduce((sum, r) => sum + Number(r.count || 0), 0);
         if (totalCount === 0) return [];
 
-        const stats: Record<string, { count: number, revenue: number }> = {};
-
-        dbOrders.forEach((o: any) => {
-            const s = o.status || 'unknown';
-            if (!stats[s]) stats[s] = { count: 0, revenue: 0 };
-            stats[s].count++;
-            stats[s].revenue += Number(o.total_amount) || 0;
-        });
-
-        return Object.entries(stats).map(([status, data]) => ({
-            status,
-            count: data.count,
-            totalRevenue: data.revenue,
-            percentage: (data.count / totalCount) * 100
-        })).sort((a, b) => b.count - a.count);
+        return rows
+            .map((r) => ({
+                status: r.status,
+                count: Number(r.count) || 0,
+                totalRevenue: Number(r.revenue) || 0,
+                percentage: (Number(r.count) / totalCount) * 100,
+            }))
+            .sort((a, b) => b.count - a.count);
     }
 
     async trackEvent(name: string, properties?: Record<string, any>) {

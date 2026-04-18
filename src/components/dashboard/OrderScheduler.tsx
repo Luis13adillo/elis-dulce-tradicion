@@ -66,11 +66,9 @@ export function OrderScheduler({ orders, onOrderClick, darkMode = false, busines
             // Parse time (e.g., "14:30")
             const [hours, minutes] = order.time_needed.split(':').map(Number);
 
-            // Calculate relative position from startHour
-            // Each hour = 64px (h-16), 1 min = 64/60 px
-            const hourHeight = 80;
+            const hourHeight = 48;
             const minutesOffset = (hours - startHour) * hourHeight + (minutes / 60) * hourHeight;
-            const durationHeight = hourHeight; // Default 1 hour duration block
+            const durationHeight = hourHeight;
 
             if (!map.has(dateKey)) {
                 map.set(dateKey, []);
@@ -95,31 +93,36 @@ export function OrderScheduler({ orders, onOrderClick, darkMode = false, busines
 
     return (
         <div className={cn(
-            "flex flex-col h-full rounded-2xl shadow-sm border overflow-hidden font-sans transition-colors",
+            "flex flex-col h-full min-h-0 rounded-2xl shadow-sm border overflow-hidden font-sans transition-colors",
             darkMode ? "bg-[#1f2937] border-slate-700" : "bg-white border-gray-100"
         )}>
             {/* Header */}
             <div className={cn(
-                "flex items-center justify-between p-6 border-b sticky top-0 z-20",
+                "flex items-center justify-between gap-3 px-4 py-2.5 border-b flex-none",
                 darkMode ? "bg-[#1f2937] border-slate-700" : "bg-white border-gray-100"
             )}>
-                <div className="flex items-center gap-6">
-                    <h2 className={cn(
-                        "text-2xl font-bold tracking-tight first-letter:capitalize",
-                        darkMode ? "text-white" : "text-gray-900"
-                    )}>
-                        {format(currentDate, 'MMMM, yyyy', { locale })}
-                    </h2>
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#C6A649]" aria-hidden />
+                        <h2 className={cn(
+                            "text-xl font-display font-semibold tracking-tight first-letter:capitalize",
+                            darkMode ? "text-white" : "text-gray-900"
+                        )}>
+                            {format(currentDate, 'MMMM yyyy', { locale })}
+                        </h2>
+                    </div>
 
-                    <div className={cn("flex rounded-lg p-1", darkMode ? "bg-slate-800" : "bg-gray-100")}>
+                    <div className={cn("flex rounded-lg p-0.5", darkMode ? "bg-slate-800" : "bg-gray-100")} role="tablist" aria-label={t('Modo de vista', 'View mode')}>
                         {(['Month', 'Week', 'Day'] as ViewMode[]).map(mode => (
                             <button
                                 key={mode}
+                                role="tab"
+                                aria-selected={viewMode === mode}
                                 onClick={() => setViewMode(mode)}
                                 className={cn(
-                                    "px-4 py-1.5 text-sm font-medium rounded-md transition-all",
+                                    "px-3 py-1 text-xs font-sans font-medium rounded-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C6A649]",
                                     viewMode === mode
-                                        ? (darkMode ? "bg-slate-700 text-white shadow-sm" : "bg-white text-gray-900 shadow-sm")
+                                        ? (darkMode ? "bg-[#C6A649] text-[#1A1A2E] shadow-sm" : "bg-[#1A1A2E] text-white shadow-sm")
                                         : (darkMode ? "text-slate-400 hover:text-white" : "text-gray-500 hover:text-gray-900")
                                 )}
                             >
@@ -129,46 +132,68 @@ export function OrderScheduler({ orders, onOrderClick, darkMode = false, busines
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                     <div className={cn(
-                        "flex items-center rounded-lg border",
-                        darkMode ? "bg-slate-800 border-slate-700" : "bg-gray-50 border-gray-200"
+                        "flex items-center rounded-full border overflow-hidden",
+                        darkMode ? "bg-slate-800/60 border-slate-700" : "bg-gray-50 border-gray-200"
                     )}>
-                        <Button variant="ghost" size="icon" onClick={() => navigate('prev')} className={cn(
-                            "rounded-l-lg",
-                            darkMode ? "hover:bg-slate-700 text-slate-400" : "hover:bg-white text-gray-600"
-                        )}>
-                            <ChevronLeft className="h-5 w-5" />
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => navigate('prev')}
+                            aria-label={t('Anterior', 'Previous')}
+                            className={cn(
+                                "h-8 w-8 rounded-none",
+                                darkMode ? "hover:bg-slate-700 text-slate-400" : "hover:bg-white text-gray-600"
+                            )}
+                        >
+                            <ChevronLeft className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" onClick={() => setCurrentDate(new Date())} className={cn(
-                            "px-4 font-medium border-x rounded-none h-9",
-                            darkMode ? "text-slate-300 hover:bg-slate-700 border-slate-700" : "text-gray-700 hover:bg-white border-gray-200"
-                        )}>
+                        <Button
+                            variant="ghost"
+                            onClick={() => setCurrentDate(new Date())}
+                            className={cn(
+                                "px-3 h-8 text-xs font-sans font-medium border-x rounded-none",
+                                darkMode
+                                    ? "text-[#C6A649] hover:bg-[#C6A649]/10 border-slate-700"
+                                    : "text-[#1A1A2E] hover:bg-white border-gray-200"
+                            )}
+                        >
                             {t('Hoy', 'Today')}
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => navigate('next')} className={cn(
-                            "rounded-r-lg",
-                            darkMode ? "hover:bg-slate-700 text-slate-400" : "hover:bg-white text-gray-600"
-                        )}>
-                            <ChevronRight className="h-5 w-5" />
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => navigate('next')}
+                            aria-label={t('Siguiente', 'Next')}
+                            className={cn(
+                                "h-8 w-8 rounded-none",
+                                darkMode ? "hover:bg-slate-700 text-slate-400" : "hover:bg-white text-gray-600"
+                            )}
+                        >
+                            <ChevronRight className="h-4 w-4" />
                         </Button>
                     </div>
                 </div>
             </div>
 
             {/* Grid Container */}
-            <div className={cn("flex-1 overflow-auto", darkMode ? "bg-[#13141f]" : "bg-[#FAFAFA]")}>
-                <div className="flex min-w-[800px]">
+            <div
+                className={cn("flex-1 min-h-0 overflow-auto", darkMode ? "bg-[#13141f]" : "bg-[#FAFAFA]")}
+                role="grid"
+                aria-label={t('Calendario de pedidos', 'Order calendar')}
+            >
+                <div className="flex min-w-[720px]">
                     {/* Time Axis (Left) */}
                     <div className={cn(
-                        "w-16 flex-shrink-0 border-r sticky left-0 z-10",
+                        "w-14 flex-shrink-0 border-r sticky left-0 z-10",
                         darkMode ? "bg-[#1f2937] border-slate-700" : "bg-white border-gray-100"
                     )}>
-                        <div className={cn("h-20 border-b", darkMode ? "border-slate-700" : "border-gray-100")} /> {/* Header spacer */}
+                        <div className={cn("h-14 border-b", darkMode ? "border-slate-700" : "border-gray-100")} /> {/* Header spacer */}
                         {timeSlots.map(hour => (
-                            <div key={hour} className="h-20 border-b border-transparent relative flex justify-center">
+                            <div key={hour} className="h-12 border-b border-transparent relative flex justify-center">
                                 <span className={cn(
-                                    "text-xs font-medium absolute -top-2 px-1",
+                                    "text-[11px] tabular-nums font-medium absolute -top-2 px-1",
                                     darkMode ? "text-slate-500 bg-[#13141f]" : "text-gray-400 bg-[#FAFAFA]"
                                 )}>
                                     {format(set(new Date(), { hours: hour }), 'h aa')}
@@ -178,30 +203,35 @@ export function OrderScheduler({ orders, onOrderClick, darkMode = false, busines
                     </div>
 
                     {/* Columns (Days) */}
-                    <div className={cn("flex-1 grid grid-cols-7 divide-x", darkMode ? "divide-slate-700" : "divide-gray-100")}>
+                    <div className={cn("flex-1 grid grid-cols-7 divide-x", darkMode ? "divide-slate-700/60" : "divide-gray-100")}>
                         {weekDays.map(day => {
                             const isToday = isSameDay(day, new Date());
                             const dayOrders = getDayOrders(day);
 
                             return (
-                                <div key={day.toISOString()} className={cn("flex flex-col min-w-[120px] group", darkMode ? "bg-[#1f2937]" : "bg-white")}>
+                                <div
+                                    key={day.toISOString()}
+                                    role="columnheader"
+                                    aria-current={isToday ? 'date' : undefined}
+                                    className={cn("flex flex-col min-w-[96px] group", darkMode ? "bg-[#1f2937]" : "bg-white")}
+                                >
                                     {/* Column Header */}
                                     <div className={cn(
-                                        "h-20 p-3 flex flex-col items-center justify-center border-b sticky top-0 z-10",
+                                        "h-14 px-2 py-1.5 flex flex-col items-center justify-center border-b sticky top-0 z-10",
                                         darkMode ? "bg-[#1f2937] border-slate-700" : "bg-white border-gray-100",
-                                        isToday && (darkMode ? "bg-green-900/10" : "bg-green-50/50")
+                                        isToday && (darkMode ? "bg-[#C6A649]/5" : "bg-[#C6A649]/5")
                                     )}>
                                         <span className={cn(
-                                            "text-xs font-medium mb-1",
-                                            isToday ? "text-green-500" : (darkMode ? "text-slate-500" : "text-gray-500")
+                                            "text-[10px] uppercase tracking-wider font-semibold mb-0.5",
+                                            isToday ? "text-[#C6A649]" : (darkMode ? "text-slate-500" : "text-gray-500")
                                         )}>
-                                            {format(day, 'EEEE', { locale })}
+                                            {format(day, 'EEE', { locale })}
                                         </span>
                                         <div className={cn(
-                                            "h-10 w-10 flex items-center justify-center rounded-full text-xl font-bold transition-all",
+                                            "h-7 w-7 flex items-center justify-center rounded-full text-sm font-bold tabular-nums transition-all",
                                             isToday
-                                                ? "bg-green-600 text-white shadow-md shadow-green-600/20"
-                                                : (darkMode ? "text-white group-hover:bg-slate-800" : "text-gray-900 group-hover:bg-gray-50")
+                                                ? "bg-[#C6A649] text-[#1A1A2E] shadow-[0_0_0_3px_rgba(198,166,73,0.18)]"
+                                                : (darkMode ? "text-white group-hover:bg-slate-800" : "text-gray-900 group-hover:bg-gray-100")
                                         )}>
                                             {format(day, 'd')}
                                         </div>
@@ -211,32 +241,40 @@ export function OrderScheduler({ orders, onOrderClick, darkMode = false, busines
                                     <div className={cn("flex-1 relative", darkMode ? "bg-[#1f2937]" : "bg-white")}>
                                         {/* Grid Lines */}
                                         {timeSlots.map(hour => (
-                                            <div key={hour} className={cn("h-20 border-b", darkMode ? "border-slate-800" : "border-gray-50")} />
+                                            <div key={hour} className={cn("h-12 border-b", darkMode ? "border-slate-800/60" : "border-gray-100/70")} />
                                         ))}
 
                                         {/* Events */}
                                         {dayOrders.map(({ order, top, height }) => (
-                                            <motion.div
+                                            <motion.button
                                                 key={order.id}
-                                                initial={{ opacity: 0, scale: 0.9 }}
+                                                type="button"
+                                                initial={{ opacity: 0, scale: 0.95 }}
                                                 animate={{ opacity: 1, scale: 1 }}
+                                                transition={{ duration: 0.15 }}
+                                                aria-label={`${order.customer_name || 'Customer'} — ${order.time_needed} — ${order.status}`}
                                                 className={cn(
-                                                    "absolute left-1 right-1 rounded-lg p-3 text-xs border cursor-pointer hover:brightness-110 transition-all shadow-sm flex flex-col gap-1 overflow-hidden",
-                                                    // Assign colors based on status/theme roughly matching reference variety
-                                                    order.status === 'confirmed' ? "bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-300" :
-                                                        order.status === 'ready' ? "bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-300" :
-                                                            "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-300"
+                                                    "absolute left-1 right-1 rounded-lg px-1.5 py-1 text-[11px] border cursor-pointer",
+                                                    "font-sans font-medium text-left shadow-sm flex flex-col gap-0.5 overflow-hidden",
+                                                    "transition-all duration-150 hover:ring-1 hover:ring-[#C6A649]/50 hover:brightness-110",
+                                                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C6A649]",
+                                                    "min-h-[28px]",
+                                                    order.status === 'confirmed' ? "bg-purple-500/10 border-purple-500/20 text-purple-700 dark:text-purple-300" :
+                                                        order.status === 'ready' ? "bg-green-500/10 border-green-500/20 text-green-700 dark:text-green-300" :
+                                                            "bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-300"
                                                 )}
-                                                style={{ top: top, height: height - 4 }} // -4 for gap
+                                                style={{ top: top, height: Math.max(height - 4, 28) }}
                                                 onClick={() => onOrderClick?.(order)}
                                             >
-                                                <div className="font-bold truncate">{order.customer_name || 'Customer'}</div>
-                                                <div className="flex items-center gap-1 opacity-80">
-                                                    <Clock className="w-3 h-3" />
-                                                    <span>{order.time_needed}</span>
+                                                <div className="font-semibold truncate leading-tight">{order.customer_name || 'Customer'}</div>
+                                                <div className="flex items-center gap-1 opacity-80 leading-tight">
+                                                    <Clock className="w-2.5 h-2.5" />
+                                                    <span className="tabular-nums">{order.time_needed}</span>
                                                 </div>
-                                                <div className="truncate opacity-75">{order.cake_size}</div>
-                                            </motion.div>
+                                                {height > 40 && (
+                                                    <div className="truncate opacity-75 leading-tight">{order.cake_size}</div>
+                                                )}
+                                            </motion.button>
                                         ))}
                                     </div>
                                 </div>
