@@ -199,6 +199,7 @@ return (
                       <StripeCheckoutForm
                         amount={totalAmount}
                         onSuccess={handlePaymentSuccess}
+                        pendingId={pendingId ?? undefined}
                       />
                     </Elements>
                   ) : (

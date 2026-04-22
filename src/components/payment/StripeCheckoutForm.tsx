@@ -8,9 +8,13 @@ interface StripeCheckoutFormProps {
     amount: number;
     onSuccess: (paymentIntentId: string) => void;
     isProcessing?: boolean;
+    // Tier A: pass pendingId so redirect-based methods (Cash App Pay, 3DS)
+    // return to /order-confirmation?pendingId=X and hit the primary Tier A
+    // verification path instead of the legacy fallback.
+    pendingId?: string;
 }
 
-export const StripeCheckoutForm = ({ amount, onSuccess, isProcessing: externalProcessing }: StripeCheckoutFormProps) => {
+export const StripeCheckoutForm = ({ amount, onSuccess, isProcessing: externalProcessing, pendingId }: StripeCheckoutFormProps) => {
     const stripe = useStripe();
     const elements = useElements();
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -28,11 +32,17 @@ export const StripeCheckoutForm = ({ amount, onSuccess, isProcessing: externalPr
         setLocalProcessing(true);
         setErrorMessage(null);
 
-        // Confirm Payment
+        // Confirm Payment. return_url is where redirect-based methods
+        // (Cash App Pay, 3DS cards, Klarna, etc.) land after completing in the
+        // external app/bank flow. Including pendingId here means those flows
+        // hit the primary Tier A verification path on return.
+        const returnUrl = pendingId
+            ? `${window.location.origin}/order-confirmation?pendingId=${encodeURIComponent(pendingId)}`
+            : `${window.location.origin}/order-confirmation`;
         const { error, paymentIntent } = await stripe.confirmPayment({
             elements,
             confirmParams: {
-                return_url: `${window.location.origin}/order-confirmation`,
+                return_url: returnUrl,
             },
             redirect: "if_required",
         });

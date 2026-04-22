@@ -128,10 +128,12 @@ Deno.serve(async (req) => {
                 {
                     amount: Math.round(amount * 100),
                     currency: "usd",
-                    // Restrict to card + link while Cash App redirect flow is under
-                    // additional review (Tier A handles it safely, but Cash App is
-                    // the highest-source-of-stranded-payment payment method).
-                    payment_method_types: ["card", "link"],
+                    // Respect whatever payment methods are enabled in the Stripe
+                    // Dashboard (card, Link, Cash App Pay, Apple Pay, Google Pay,
+                    // etc.). Tier A's save-before-pay model makes redirect-based
+                    // methods safe — the order is already in pending_orders and
+                    // the webhook promotes it independent of the browser.
+                    automatic_payment_methods: { enabled: true },
                     metadata: {
                         pending_order_id: pending.id,
                         order_number: pending.order_number,
@@ -177,7 +179,7 @@ Deno.serve(async (req) => {
             {
                 amount: Math.round(amount * 100),
                 currency: currency || "usd",
-                payment_method_types: ["card", "link"],
+                automatic_payment_methods: { enabled: true },
                 metadata: metadata || {},
             },
             { idempotencyKey: effectiveIdempotencyKey }
