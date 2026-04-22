@@ -25,72 +25,120 @@ const OrderConfirmation = () => {
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  const paymentId = searchParams.get('paymentId');
+  // Stripe's inline flow sets ?paymentId, the redirect flow (3DS / Cash App / Link / Klarna)
+  // returns with ?payment_intent. Accept both.
+  const paymentId = searchParams.get('paymentId') || searchParams.get('payment_intent');
   const orderNumberParam = searchParams.get('orderNumber');
+  const redirectStatus = searchParams.get('redirect_status');
   const checkoutId = searchParams.get('checkoutId') || sessionStorage.getItem('checkoutId');
 
   useEffect(() => {
     const loadOrder = async () => {
       try {
-        // If we have a payment ID, verify payment and get order
         if (paymentId) {
+          // Step 1: idempotency check — did the order already get created for this PI?
+          // (Happens on inline flow, or on a page refresh after a prior successful redirect.)
           try {
             const verifyResponse = await api.verifyPayment(paymentId);
-
             if (verifyResponse.verified && verifyResponse.orderNumber) {
               const fullOrder = await api.getOrderByNumber(verifyResponse.orderNumber);
               if (fullOrder) {
                 setOrder(fullOrder);
-                // Clear session storage
                 sessionStorage.removeItem('pendingOrder');
                 sessionStorage.removeItem('checkoutId');
-                sessionStorage.removeItem('squareOrderId');
                 return;
               }
             }
           } catch (error) {
             console.error('Error verifying payment:', error);
           }
+
+          // Step 2: redirect recovery — no order row exists yet. If Stripe says the payment
+          // succeeded and we still have the wizard data in sessionStorage, create the order now.
+          // This is the path customers using Cash App Pay, 3DS-required cards, Link, Klarna,
+          // Affirm, or Amazon Pay take. Before this fix, they were charged with no order saved.
+          if (redirectStatus === 'succeeded') {
+            const pendingOrderData = sessionStorage.getItem('pendingOrder');
+            if (pendingOrderData) {
+              try {
+                const orderData = JSON.parse(pendingOrderData);
+                const result = await api.createOrder({
+                  ...orderData,
+                  payment_status: 'paid',
+                  stripe_payment_id: paymentId,
+                  status: 'pending',
+                });
+                if (result.success) {
+                  // Non-blocking confirmation email with retries (mirrors PaymentCheckout).
+                  const fireConfirmationEmail = async (attempt = 1) => {
+                    try {
+                      await api.sendOrderConfirmation(result.order);
+                    } catch (err) {
+                      if (attempt < 3) setTimeout(() => fireConfirmationEmail(attempt + 1), 2000 * attempt);
+                    }
+                  };
+                  fireConfirmationEmail();
+                  sessionStorage.removeItem('pendingOrder');
+                  sessionStorage.removeItem('checkoutId');
+                  setOrder(result.order);
+                  return;
+                }
+              } catch (error) {
+                console.error('Redirect-flow order creation failed:', error);
+                // Do NOT throw — customer was charged, we must not show a blank error.
+                // Fall through to the "payment succeeded, contact us" branch below.
+              }
+            }
+
+            // Step 3: payment succeeded but sessionStorage is gone (tab was closed mid-3DS
+            // on mobile, or cleared). We can't recreate the order. Show a contact-support
+            // card and the payment ID so the owner can reconcile manually.
+            toast.error(
+              t(
+                'Pago recibido pero perdimos los detalles de tu pedido. Por favor contáctanos.',
+                'Payment received but your order details were lost. Please contact us to confirm.'
+              )
+            );
+            setOrder({
+              order_number: `RECOVERY-${paymentId.slice(-8)}`,
+              customer_name: t('Detalles pendientes', 'Details pending'),
+              customer_email: '',
+              customer_phone: '',
+              date_needed: '',
+              time_needed: '',
+              cake_size: '',
+              filling: '',
+              theme: '',
+              delivery_option: 'pickup',
+              total_amount: 0,
+              payment_status: 'paid',
+              status: 'pending',
+              stripe_payment_id: paymentId,
+              admin_notes: 'STRANDED PAYMENT — customer paid but order data was lost in sessionStorage. Reconcile manually.',
+            });
+            return;
+          }
         }
 
         // If we have an order number, fetch by order number
         if (orderNumberParam) {
           try {
-            const order = await api.getOrderByNumber(orderNumberParam);
-            setOrder(order);
+            const fullOrder = await api.getOrderByNumber(orderNumberParam);
+            setOrder(fullOrder);
             return;
           } catch (error) {
             console.error('Error fetching order by number:', error);
           }
         }
 
-        // Fallback: Try to get order from sessionStorage
-        const pendingOrderData = sessionStorage.getItem('pendingOrder');
-
-        if (pendingOrderData) {
-          const orderData = JSON.parse(pendingOrderData);
-          setOrder({
-            ...orderData,
-            order_number: orderNumberParam || `ORD-${Date.now()}`,
-            payment_status: paymentId ? 'paid' : 'pending',
-            status: paymentId ? 'confirmed' : 'pending'
-          });
-        } else {
-          toast.error(
-            t(
-              'No se encontró información de la orden.',
-              'Order information not found.'
-            )
-          );
-          navigate('/order');
-        }
+        toast.error(
+          t('No se encontró información de la orden.', 'Order information not found.')
+        );
+        navigate('/order');
       } catch (error) {
         console.error('Error loading order:', error);
         toast.error(
-          t(
-            'Error al cargar la información de la orden.',
-            'Error loading order information.'
-          )
+          t('Error al cargar la información de la orden.', 'Error loading order information.')
         );
       } finally {
         setLoading(false);
@@ -98,7 +146,7 @@ const OrderConfirmation = () => {
     };
 
     loadOrder();
-  }, [paymentId, orderNumberParam, navigate, t]);
+  }, [paymentId, orderNumberParam, redirectStatus, navigate, t]);
 
   if (loading) {
     return (
