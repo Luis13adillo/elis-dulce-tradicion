@@ -25,128 +25,96 @@ const OrderConfirmation = () => {
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Stripe's inline flow sets ?paymentId, the redirect flow (3DS / Cash App / Link / Klarna)
-  // returns with ?payment_intent. Accept both.
+  // Tier A: pendingId from URL is the primary identifier. Legacy params
+  // (paymentId, orderNumber) are still accepted so in-flight sessions from
+  // the old bundle continue to work.
+  const pendingId = searchParams.get('pendingId');
   const paymentId = searchParams.get('paymentId') || searchParams.get('payment_intent');
   const orderNumberParam = searchParams.get('orderNumber');
-  const redirectStatus = searchParams.get('redirect_status');
-  const checkoutId = searchParams.get('checkoutId') || sessionStorage.getItem('checkoutId');
+
+  const [verifyState, setVerifyState] = useState<'verifying' | 'verified' | 'failed' | 'timeout'>('verifying');
+  const [failureMessage, setFailureMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
     const loadOrder = async () => {
+      // --- Tier A flow: poll verify-payment until the webhook promotes ---
+      if (pendingId) {
+        const deadline = Date.now() + 15000; // 15s covers typical webhook latency
+        try {
+          while (!cancelled && Date.now() < deadline) {
+            const result = await api.verifyPaymentByPending(pendingId);
+            if (cancelled) return;
+
+            if (result.verified && result.order) {
+              setOrder(result.order);
+              setVerifyState('verified');
+              sessionStorage.removeItem('pendingOrderRef');
+              setLoading(false);
+              return;
+            }
+            if (result.status === 'payment_failed') {
+              setFailureMessage(result.error_message || null);
+              setVerifyState('failed');
+              setLoading(false);
+              return;
+            }
+            // 'awaiting_payment' | 'webhook_pending' | 'succeeded' (no row yet)
+            await delay(1500);
+          }
+          if (!cancelled) {
+            // Payment may have succeeded but the webhook hasn't landed in
+            // time. Tell the truth — never show a fake success.
+            setVerifyState('timeout');
+            setLoading(false);
+          }
+        } catch (err) {
+          console.error('verify-payment error:', err);
+          if (!cancelled) {
+            setVerifyState('timeout');
+            setLoading(false);
+          }
+        }
+        return;
+      }
+
+      // --- Legacy paths (pre-Tier-A links still in flight) ---
       try {
         if (paymentId) {
-          // Step 1: idempotency check — did the order already get created for this PI?
-          // (Happens on inline flow, or on a page refresh after a prior successful redirect.)
-          try {
-            const verifyResponse = await api.verifyPayment(paymentId);
-            if (verifyResponse.verified && verifyResponse.orderNumber) {
-              const fullOrder = await api.getOrderByNumber(verifyResponse.orderNumber);
-              if (fullOrder) {
-                setOrder(fullOrder);
-                sessionStorage.removeItem('pendingOrder');
-                sessionStorage.removeItem('checkoutId');
-                return;
-              }
+          const verifyResponse = await api.verifyPayment(paymentId);
+          if (verifyResponse.verified && verifyResponse.orderNumber) {
+            const fullOrder = await api.getOrderByNumber(verifyResponse.orderNumber);
+            if (fullOrder) {
+              setOrder(fullOrder);
+              setVerifyState('verified');
+              setLoading(false);
+              return;
             }
-          } catch (error) {
-            console.error('Error verifying payment:', error);
-          }
-
-          // Step 2: redirect recovery — no order row exists yet. If Stripe says the payment
-          // succeeded and we still have the wizard data in sessionStorage, create the order now.
-          // This is the path customers using Cash App Pay, 3DS-required cards, Link, Klarna,
-          // Affirm, or Amazon Pay take. Before this fix, they were charged with no order saved.
-          if (redirectStatus === 'succeeded') {
-            const pendingOrderData = sessionStorage.getItem('pendingOrder');
-            if (pendingOrderData) {
-              try {
-                const orderData = JSON.parse(pendingOrderData);
-                const result = await api.createOrder({
-                  ...orderData,
-                  payment_status: 'paid',
-                  stripe_payment_id: paymentId,
-                  status: 'pending',
-                });
-                if (result.success) {
-                  // Non-blocking confirmation email with retries (mirrors PaymentCheckout).
-                  const fireConfirmationEmail = async (attempt = 1) => {
-                    try {
-                      await api.sendOrderConfirmation(result.order);
-                    } catch (err) {
-                      if (attempt < 3) setTimeout(() => fireConfirmationEmail(attempt + 1), 2000 * attempt);
-                    }
-                  };
-                  fireConfirmationEmail();
-                  sessionStorage.removeItem('pendingOrder');
-                  sessionStorage.removeItem('checkoutId');
-                  setOrder(result.order);
-                  return;
-                }
-              } catch (error) {
-                console.error('Redirect-flow order creation failed:', error);
-                // Do NOT throw — customer was charged, we must not show a blank error.
-                // Fall through to the "payment succeeded, contact us" branch below.
-              }
-            }
-
-            // Step 3: payment succeeded but sessionStorage is gone (tab was closed mid-3DS
-            // on mobile, or cleared). We can't recreate the order. Show a contact-support
-            // card and the payment ID so the owner can reconcile manually.
-            toast.error(
-              t(
-                'Pago recibido pero perdimos los detalles de tu pedido. Por favor contáctanos.',
-                'Payment received but your order details were lost. Please contact us to confirm.'
-              )
-            );
-            setOrder({
-              order_number: `RECOVERY-${paymentId.slice(-8)}`,
-              customer_name: t('Detalles pendientes', 'Details pending'),
-              customer_email: '',
-              customer_phone: '',
-              date_needed: '',
-              time_needed: '',
-              cake_size: '',
-              filling: '',
-              theme: '',
-              delivery_option: 'pickup',
-              total_amount: 0,
-              payment_status: 'paid',
-              status: 'pending',
-              stripe_payment_id: paymentId,
-              admin_notes: 'STRANDED PAYMENT — customer paid but order data was lost in sessionStorage. Reconcile manually.',
-            });
-            return;
           }
         }
-
-        // If we have an order number, fetch by order number
         if (orderNumberParam) {
-          try {
-            const fullOrder = await api.getOrderByNumber(orderNumberParam);
+          const fullOrder = await api.getOrderByNumber(orderNumberParam);
+          if (fullOrder) {
             setOrder(fullOrder);
+            setVerifyState('verified');
+            setLoading(false);
             return;
-          } catch (error) {
-            console.error('Error fetching order by number:', error);
           }
         }
-
-        toast.error(
-          t('No se encontró información de la orden.', 'Order information not found.')
-        );
+        toast.error(t('No se encontró información de la orden.', 'Order information not found.'));
         navigate('/order');
-      } catch (error) {
-        console.error('Error loading order:', error);
-        toast.error(
-          t('Error al cargar la información de la orden.', 'Error loading order information.')
-        );
-      } finally {
+      } catch (err) {
+        console.error('Legacy order load error:', err);
+        setVerifyState('timeout');
         setLoading(false);
       }
     };
 
     loadOrder();
-  }, [paymentId, orderNumberParam, redirectStatus, navigate, t]);
+    return () => { cancelled = true; };
+  }, [pendingId, paymentId, orderNumberParam, navigate, t]);
 
   if (loading) {
     return (
@@ -168,7 +136,56 @@ const OrderConfirmation = () => {
     );
   }
 
-  if (!order) {
+  // Payment failed path — clear, actionable, bilingual. Customer can retry
+  // without re-entering the wizard (pending_order persists for 24h).
+  if (verifyState === 'failed') {
+    return (
+      <div className="min-h-screen bg-black text-white selection:bg-[#C6A649]/30">
+        <Navbar />
+        <main className="pt-40 pb-24 relative overflow-hidden">
+          <div className="container mx-auto px-4 relative z-10">
+            <div className="mx-auto max-w-2xl text-center">
+              <div className="mb-6 flex justify-center">
+                <div className="rounded-full bg-red-500/10 p-4 border border-red-500/30">
+                  <Clock className="h-12 w-12 text-red-400" />
+                </div>
+              </div>
+              <h1 className="mb-4 font-display text-4xl font-bold text-white">
+                {t('Pago no completado', 'Payment not completed')}
+              </h1>
+              <p className="text-gray-400 mb-6">
+                {t(
+                  'Tu tarjeta fue rechazada por el banco. Tu orden aún está guardada — intenta con otra tarjeta.',
+                  'Your card was declined by your bank. Your order is still saved — try again with another card.'
+                )}
+              </p>
+              {failureMessage && (
+                <p className="text-sm text-red-300 mb-6 italic">{failureMessage}</p>
+              )}
+              <div className="flex gap-3 justify-center">
+                {pendingId && (
+                  <Button
+                    onClick={() => navigate(`/payment-checkout?pendingId=${pendingId}`)}
+                    className="bg-[#C6A649] hover:bg-[#B59539] text-black font-semibold"
+                  >
+                    {t('Reintentar Pago', 'Retry Payment')}
+                  </Button>
+                )}
+                <Button onClick={() => navigate('/')} variant="outline" className="border-white/20 text-white">
+                  {t('Volver al Inicio', 'Back to Home')}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Timeout path — payment may have gone through; the webhook is slow.
+  // Never fake a green checkmark. Tell the truth.
+  if (verifyState === 'timeout' || !order) {
     return (
       <div className="min-h-screen bg-black text-white selection:bg-[#C6A649]/30">
         <Navbar />
@@ -176,14 +193,30 @@ const OrderConfirmation = () => {
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#C6A649]/10 rounded-full blur-[120px] pointer-events-none" />
           <div className="container mx-auto px-4 relative z-10">
             <div className="mx-auto max-w-2xl text-center">
-              <p className="text-destructive mb-4">
-                {t('No se encontró la orden.', 'Order not found.')}
+              <p className="text-gray-200 text-lg mb-3">
+                {t(
+                  'Estamos confirmando tu pago...',
+                  'We\'re still confirming your payment...'
+                )}
+              </p>
+              <p className="text-gray-400 text-sm mb-6">
+                {t(
+                  'Si tu tarjeta fue cobrada, recibirás un correo de confirmación en unos minutos. Puedes cerrar esta pestaña; tu orden está a salvo.',
+                  'If your card was charged, you\'ll receive a confirmation email in a few minutes. You can close this tab — your order is safe.'
+                )}
+              </p>
+              <p className="text-gray-500 text-xs mb-6">
+                {t(
+                  '¿No recibiste tu confirmación? Contáctanos:',
+                  'Didn\'t receive your confirmation? Contact us:'
+                )}{' '}
+                orders@elisbakery.com · (610) 279-6200
               </p>
               <Button
-                onClick={() => navigate('/order')}
+                onClick={() => navigate('/')}
                 className="bg-[#C6A649] hover:bg-[#B59539] text-black font-semibold"
               >
-                {t('Volver al Formulario', 'Back to Form')}
+                {t('Volver al Inicio', 'Back to Home')}
               </Button>
             </div>
           </div>

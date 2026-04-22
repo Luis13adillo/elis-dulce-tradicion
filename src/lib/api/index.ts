@@ -31,6 +31,9 @@ class ApiClient extends BaseApiClient {
     getTransitionHistory = this.ordersModule.getTransitionHistory.bind(this.ordersModule);
     searchOrders = this.ordersModule.searchOrders.bind(this.ordersModule);
     verifyPayment = this.ordersModule.verifyPayment.bind(this.ordersModule);
+    createPendingOrder = this.ordersModule.createPendingOrder.bind(this.ordersModule);
+    getPendingOrder = this.ordersModule.getPendingOrder.bind(this.ordersModule);
+    verifyPaymentByPending = this.ordersModule.verifyPaymentByPending.bind(this.ordersModule);
     cancelOrder = this.ordersModule.cancelOrder.bind(this.ordersModule);
     adminCancelOrder = this.ordersModule.adminCancelOrder.bind(this.ordersModule);
     getCancellationPolicy = this.ordersModule.getCancellationPolicy.bind(this.ordersModule);
@@ -129,23 +132,17 @@ class ApiClient extends BaseApiClient {
         return (data || []).map(p => ({ id: p.user_id, full_name: p.full_name, role: p.role }));
     }
 
-    async createPaymentIntent(amount: number, metadata?: any) {
-        const apiUrl = import.meta.env.VITE_API_URL;
-        if (apiUrl) {
-            // In development, use local backend (test Stripe key)
-            const res = await fetch(`${apiUrl}/api/payments/create-intent`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ amount, currency: 'usd', metadata }),
-            });
-            if (!res.ok) throw new Error(await res.text());
-            return res.json();
-        }
+    // Tier A: prefer passing pending_order_id; server reads amount from DB.
+    async createPaymentIntent(input: { pending_order_id: string } | { amount: number; metadata?: Record<string, unknown> }) {
         const sb = this.ensureSupabase();
         if (!sb) throw new Error('Supabase not available');
-        const { data, error } = await sb.functions.invoke('create-payment-intent', { body: { amount, currency: 'usd', metadata } });
+        const body =
+            'pending_order_id' in input
+                ? { pending_order_id: input.pending_order_id }
+                : { amount: input.amount, currency: 'usd', metadata: input.metadata };
+        const { data, error } = await sb.functions.invoke('create-payment-intent', { body });
         if (error) throw error;
-        return data;
+        return data as { clientSecret: string; id: string };
     }
 
     async calculateDeliveryFee(address: string, zipCode: string): Promise<{

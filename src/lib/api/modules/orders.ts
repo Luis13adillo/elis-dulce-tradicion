@@ -276,6 +276,50 @@ export class OrdersApi extends BaseApiClient {
         return { verified: data.verified, orderNumber: data.order_number };
     }
 
+    // --- Tier A: pending-order lifecycle (save-before-pay) ---
+
+    async createPendingOrder(payload: Record<string, unknown>): Promise<{
+        pending_order_id: string;
+        order_number: string;
+        total_amount: number;
+        expires_at: string;
+    }> {
+        const sb = this.ensureSupabase();
+        if (!sb) throw new Error('Database connection not available.');
+
+        const { data, error } = await sb.rpc('create_pending_order', { payload });
+        if (error) throw error;
+        if (!data || !data.pending_order_id) {
+            throw new Error('create_pending_order returned no id');
+        }
+        return data as { pending_order_id: string; order_number: string; total_amount: number; expires_at: string };
+    }
+
+    async getPendingOrder(pendingId: string): Promise<Record<string, unknown> | null> {
+        const sb = this.ensureSupabase();
+        if (!sb) throw new Error('Database connection not available.');
+
+        const { data, error } = await sb.rpc('get_pending_order', { p_pending_id: pendingId });
+        if (error) throw error;
+        return data as Record<string, unknown> | null;
+    }
+
+    async verifyPaymentByPending(pendingId: string): Promise<{
+        verified: boolean;
+        status: string;
+        order?: Record<string, unknown>;
+        error_message?: string;
+    }> {
+        const sb = this.ensureSupabase();
+        if (!sb) throw new Error('Database connection not available.');
+
+        const { data, error } = await sb.functions.invoke('verify-payment', {
+            body: { pending_order_id: pendingId },
+        });
+        if (error) throw error;
+        return data as { verified: boolean; status: string; order?: Record<string, unknown>; error_message?: string };
+    }
+
     async searchOrders(query: string) {
         const sb = this.ensureSupabase();
         if (!sb) return { success: false, error: 'Database connection not available.' };

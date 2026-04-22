@@ -519,9 +519,27 @@ const Order = () => {
         premium_filling_upcharge: getPremiumFillingUpcharge(),
       };
 
-      sessionStorage.setItem('pendingOrder', JSON.stringify(orderData));
+      // Tier A: persist the order to pending_orders server-side BEFORE sending
+      // the customer to the payment page. If anything fails downstream (tab
+      // close, 3DS redirect, card decline), the order data survives server-side
+      // and the Stripe webhook can atomically promote it into `orders` on
+      // payment success — no more browser-only state on the revenue path.
+      const pending = await api.createPendingOrder(orderData);
+
+      // Keep a minimal reference in sessionStorage only for UX continuity
+      // (prefill on back-button, recovery on refresh). The authoritative
+      // data lives in the DB now.
+      sessionStorage.setItem(
+        'pendingOrderRef',
+        JSON.stringify({
+          pendingId: pending.pending_order_id,
+          orderNumber: pending.order_number,
+          totalAmount: pending.total_amount,
+        })
+      );
+      sessionStorage.removeItem('pendingOrder'); // retire legacy key
       localStorage.removeItem(STORAGE_KEY);
-      navigate('/payment-checkout');
+      navigate(`/payment-checkout?pendingId=${encodeURIComponent(pending.pending_order_id)}`);
     } catch (error: any) {
       console.error('Error preparing payment:', error);
       toast.error(t('Error del sistema', 'System error'));

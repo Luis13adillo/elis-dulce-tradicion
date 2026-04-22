@@ -43,87 +43,84 @@ const PaymentCheckout = () => {
   const [searchParams] = useSearchParams();
 
   const [pendingPayment, setPendingPayment] = useState<PendingPayment | null>(null);
+  const [pendingId, setPendingId] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [error, setError] = useState<string | null>(null);
   const paymentIntentRequested = useRef(false);
 
-  // Load pending payment from sessionStorage or URL params
+  // Tier A: load pending order by UUID from URL. The DB is authoritative —
+  // no more parsing sessionStorage. A refresh, back-button, or tab restore
+  // all work because the pending row persists server-side for 24 hours.
   useEffect(() => {
-    const stored = sessionStorage.getItem('pendingOrder');
-    const orderNumber = searchParams.get('orderNumber');
+    const urlPendingId = searchParams.get('pendingId');
 
-    if (!stored && !orderNumber) {
+    if (!urlPendingId) {
       toast.error(t('No se encontró orden.', 'No order found.'));
       navigate('/order');
       return;
     }
 
-    try {
-      if (stored) {
-        const orderData = JSON.parse(stored);
-        const deliveryFee = orderData.delivery_option === 'delivery' ? 15 : 0;
-        const totalAmount = parseFloat(orderData.total_amount);
+    setPendingId(urlPendingId);
+
+    (async () => {
+      try {
+        const pending = await api.getPendingOrder(urlPendingId) as any;
+        if (!pending) {
+          toast.error(
+            t(
+              'Esta orden expiró o no existe. Por favor empieza de nuevo.',
+              'This order has expired or could not be found. Please start again.'
+            )
+          );
+          navigate('/order');
+          return;
+        }
+
+        if (pending.status === 'promoted') {
+          // Already paid — jump straight to confirmation
+          navigate(`/order-confirmation?pendingId=${urlPendingId}`);
+          return;
+        }
+
+        const totalAmount = Number(pending.total_amount);
+        const deliveryFee = Number(pending.delivery_fee) || 0;
         const basePrice = totalAmount - deliveryFee;
-        const tax = 0;
 
         setPendingPayment({
-          orderData,
+          orderData: pending,
           totalAmount,
           basePrice,
           deliveryFee,
-          tax,
+          tax: 0,
         });
 
-        // Initialize Payment Intent once (ref prevents duplicate calls from StrictMode)
         if (!paymentIntentRequested.current) {
           paymentIntentRequested.current = true;
-          api.createPaymentIntent(totalAmount, {
-            order_number: orderData.order_number,
-            customer_name: orderData.customer_name
-          })
+          api.createPaymentIntent({ pending_order_id: urlPendingId })
             .then(data => setClientSecret(data.clientSecret))
             .catch(err => {
-              console.error("Payment Init Error:", err);
-              paymentIntentRequested.current = false; // Allow retry on error
+              console.error('Payment Init Error:', err);
+              paymentIntentRequested.current = false;
               const msg = err.message || JSON.stringify(err) || 'Failed to initialize payment';
               setError(`Payment System Error: ${msg}`);
               toast.error('Payment initialization failed: ' + msg);
             });
         }
+      } catch (loadErr) {
+        console.error('Failed to load pending order', loadErr);
+        toast.error(t('Error cargando la orden.', 'Error loading order.'));
+        navigate('/order');
       }
-    } catch (error) {
-      console.error('Failed to parse pending payment', error);
-      navigate('/order');
-    }
+    })();
   }, [navigate, t, searchParams]);
 
-  const handlePaymentSuccess = async (paymentIntentId: string) => {
-    if (!pendingPayment) return;
-
-    try {
-      // Create the actual order in Supabase now that payment is confirmed
-      const orderPayload = {
-        ...pendingPayment.orderData,
-        payment_status: 'paid',
-        stripe_payment_id: paymentIntentId,
-        status: 'pending' // New orders start as pending
-      };
-
-      const result = await api.createOrder(orderPayload);
-
-      if (result.success) {
-        // Confirmation email is sent by the Stripe webhook (single source of truth)
-        // to prevent duplicates. See supabase/functions/stripe-webhook/index.ts.
-        sessionStorage.removeItem('pendingOrder');
-        navigate(`/order-confirmation?paymentId=${paymentIntentId}&orderNumber=${result.order.order_number}`);
-      } else {
-        toast.error('Payment succeeded but order creation failed. Please contact support.');
-      }
-    } catch (err) {
-      console.error("Post-payment error", err);
-      toast.error('Critical error creating order record.');
-    }
+  // Tier A: webhook creates the order row. The page only needs to hand off
+  // to confirmation — no more client-side createOrder call.
+  const handlePaymentSuccess = async (_paymentIntentId: string) => {
+    if (!pendingId) return;
+    sessionStorage.removeItem('pendingOrderRef');
+    navigate(`/order-confirmation?pendingId=${encodeURIComponent(pendingId)}`);
   };
 
 
