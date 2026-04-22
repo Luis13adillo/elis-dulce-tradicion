@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
         if (body.pending_order_id) {
             const { data: pending, error } = await supabase
                 .from("pending_orders")
-                .select("id, order_number, customer_name, customer_email, total_amount, status, payment_intent_id, expires_at")
+                .select("id, order_number, customer_name, customer_email, customer_phone, customer_language, total_amount, status, payment_intent_id, expires_at, date_needed, time_needed, cake_size, filling, delivery_option, delivery_address")
                 .eq("id", body.pending_order_id)
                 .maybeSingle();
 
@@ -124,6 +124,14 @@ Deno.serve(async (req) => {
                 }
             }
 
+            // Belt-and-suspenders: even with pending_orders as the source of
+            // truth, mirror core recovery fields into Stripe metadata. If the
+            // pending row is ever lost, the Stripe charge still carries enough
+            // information to contact the customer and reconstruct the order.
+            // Stripe metadata limits: 50 keys, 500 chars per value.
+            const truncate = (v: string | null | undefined, n = 500) =>
+                v ? String(v).slice(0, n) : "";
+
             const paymentIntent = await stripe.paymentIntents.create(
                 {
                     amount: Math.round(amount * 100),
@@ -137,8 +145,17 @@ Deno.serve(async (req) => {
                     metadata: {
                         pending_order_id: pending.id,
                         order_number: pending.order_number,
-                        customer_name: pending.customer_name ?? "",
-                        customer_email: pending.customer_email ?? "",
+                        customer_name: truncate(pending.customer_name),
+                        customer_email: truncate(pending.customer_email),
+                        customer_phone: truncate(pending.customer_phone),
+                        customer_language: truncate(pending.customer_language ?? "en"),
+                        date_needed: truncate(pending.date_needed ? String(pending.date_needed) : null),
+                        time_needed: truncate(pending.time_needed ? String(pending.time_needed) : null),
+                        cake_size: truncate(pending.cake_size),
+                        filling: truncate(pending.filling),
+                        delivery_option: truncate(pending.delivery_option),
+                        delivery_address: truncate(pending.delivery_address),
+                        total_amount: String(pending.total_amount ?? ""),
                     },
                     receipt_email: pending.customer_email ?? undefined,
                 },
