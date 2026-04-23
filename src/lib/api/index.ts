@@ -30,7 +30,6 @@ class ApiClient extends BaseApiClient {
     transitionOrderStatus = this.ordersModule.transitionOrderStatus.bind(this.ordersModule);
     getTransitionHistory = this.ordersModule.getTransitionHistory.bind(this.ordersModule);
     searchOrders = this.ordersModule.searchOrders.bind(this.ordersModule);
-    verifyPayment = this.ordersModule.verifyPayment.bind(this.ordersModule);
     createPendingOrder = this.ordersModule.createPendingOrder.bind(this.ordersModule);
     getPendingOrder = this.ordersModule.getPendingOrder.bind(this.ordersModule);
     verifyPaymentByPending = this.ordersModule.verifyPaymentByPending.bind(this.ordersModule);

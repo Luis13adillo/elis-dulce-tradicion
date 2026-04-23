@@ -266,16 +266,6 @@ export class OrdersApi extends BaseApiClient {
         }
     }
 
-    async verifyPayment(paymentId: string): Promise<{ verified: boolean; orderNumber: string }> {
-        const sb = this.ensureSupabase();
-        if (!sb) return { verified: false, orderNumber: '' };
-
-        const { data, error } = await sb.rpc('verify_stripe_payment', { p_payment_id: paymentId });
-
-        if (error || !data) return { verified: false, orderNumber: '' };
-        return { verified: data.verified, orderNumber: data.order_number };
-    }
-
     // --- Tier A: pending-order lifecycle (save-before-pay) ---
 
     async createPendingOrder(payload: Record<string, unknown>): Promise<{

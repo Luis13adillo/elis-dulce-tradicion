@@ -25,12 +25,7 @@ const OrderConfirmation = () => {
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Tier A: pendingId from URL is the primary identifier. Legacy params
-  // (paymentId, orderNumber) are still accepted so in-flight sessions from
-  // the old bundle continue to work.
   const pendingId = searchParams.get('pendingId');
-  const paymentId = searchParams.get('paymentId') || searchParams.get('payment_intent');
-  const orderNumberParam = searchParams.get('orderNumber');
 
   const [verifyState, setVerifyState] = useState<'verifying' | 'verified' | 'failed' | 'timeout'>('verifying');
   const [failureMessage, setFailureMessage] = useState<string | null>(null);
@@ -40,81 +35,52 @@ const OrderConfirmation = () => {
     const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
     const loadOrder = async () => {
-      // --- Tier A flow: poll verify-payment until the webhook promotes ---
-      if (pendingId) {
-        const deadline = Date.now() + 15000; // 15s covers typical webhook latency
-        try {
-          while (!cancelled && Date.now() < deadline) {
-            const result = await api.verifyPaymentByPending(pendingId);
-            if (cancelled) return;
-
-            if (result.verified && result.order) {
-              setOrder(result.order);
-              setVerifyState('verified');
-              sessionStorage.removeItem('pendingOrderRef');
-              setLoading(false);
-              return;
-            }
-            if (result.status === 'payment_failed') {
-              setFailureMessage(result.error_message || null);
-              setVerifyState('failed');
-              setLoading(false);
-              return;
-            }
-            // 'awaiting_payment' | 'webhook_pending' | 'succeeded' (no row yet)
-            await delay(1500);
-          }
-          if (!cancelled) {
-            // Payment may have succeeded but the webhook hasn't landed in
-            // time. Tell the truth — never show a fake success.
-            setVerifyState('timeout');
-            setLoading(false);
-          }
-        } catch (err) {
-          console.error('verify-payment error:', err);
-          if (!cancelled) {
-            setVerifyState('timeout');
-            setLoading(false);
-          }
-        }
+      if (!pendingId) {
+        toast.error(t('No se encontró información de la orden.', 'Order information not found.'));
+        navigate('/order');
         return;
       }
 
-      // --- Legacy paths (pre-Tier-A links still in flight) ---
+      const deadline = Date.now() + 15000; // 15s covers typical webhook latency
       try {
-        if (paymentId) {
-          const verifyResponse = await api.verifyPayment(paymentId);
-          if (verifyResponse.verified && verifyResponse.orderNumber) {
-            const fullOrder = await api.getOrderByNumber(verifyResponse.orderNumber);
-            if (fullOrder) {
-              setOrder(fullOrder);
-              setVerifyState('verified');
-              setLoading(false);
-              return;
-            }
-          }
-        }
-        if (orderNumberParam) {
-          const fullOrder = await api.getOrderByNumber(orderNumberParam);
-          if (fullOrder) {
-            setOrder(fullOrder);
+        while (!cancelled && Date.now() < deadline) {
+          const result = await api.verifyPaymentByPending(pendingId);
+          if (cancelled) return;
+
+          if (result.verified && result.order) {
+            setOrder(result.order);
             setVerifyState('verified');
+            sessionStorage.removeItem('pendingOrderRef');
             setLoading(false);
             return;
           }
+          if (result.status === 'payment_failed') {
+            setFailureMessage(result.error_message || null);
+            setVerifyState('failed');
+            setLoading(false);
+            return;
+          }
+          // 'awaiting_payment' | 'webhook_pending' | 'succeeded' (no row yet)
+          await delay(1500);
         }
-        toast.error(t('No se encontró información de la orden.', 'Order information not found.'));
-        navigate('/order');
+        if (!cancelled) {
+          // Payment may have succeeded but the webhook hasn't landed in
+          // time. Tell the truth — never show a fake success.
+          setVerifyState('timeout');
+          setLoading(false);
+        }
       } catch (err) {
-        console.error('Legacy order load error:', err);
-        setVerifyState('timeout');
-        setLoading(false);
+        console.error('verify-payment error:', err);
+        if (!cancelled) {
+          setVerifyState('timeout');
+          setLoading(false);
+        }
       }
     };
 
     loadOrder();
     return () => { cancelled = true; };
-  }, [pendingId, paymentId, orderNumberParam, navigate, t]);
+  }, [pendingId, navigate, t]);
 
   if (loading) {
     return (

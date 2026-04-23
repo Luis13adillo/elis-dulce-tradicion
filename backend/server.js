@@ -6,7 +6,6 @@ import { dirname, join } from 'path';
 import ordersRouter from './routes/orders.js';
 import orderTransitionsRouter from './routes/orderTransitions.js';
 import orderSearchRouter from './routes/orderSearch.js';
-import paymentsRouter from './routes/payments.js';
 import webhooksRouter from './routes/webhooks.js';
 import uploadRouter from './routes/upload.js';
 import productsRouter from './routes/products.js';
@@ -80,12 +79,9 @@ app.use(validateInput);
 // Webhooks use raw body + Stripe signature, not JSON, so must be registered before body parser
 // The doubleCsrfProtection middleware only applies to POST/PUT/PATCH/DELETE
 app.use((req, res, next) => {
-  // Exclude webhook and payment intent routes from CSRF
   if (
     req.path.startsWith('/api/v1/webhooks') ||
-    req.path.startsWith('/api/webhooks') ||
-    req.path === '/api/payments/create-intent' ||
-    req.path === '/api/v1/payments/create-intent'
+    req.path.startsWith('/api/webhooks')
   ) {
     return next();
   }
@@ -135,7 +131,6 @@ app.get('/api/v1/csrf-token', (req, res) => {
 app.use('/api/v1/orders', orderCreationLimiter, ordersRouter);
 app.use('/api/v1/orders', orderTransitionsRouter);
 app.use('/api/v1/orders', orderSearchRouter);
-app.use('/api/v1/payments', paymentsRouter);
 app.use('/api/v1/products', productsRouter);
 app.use('/api/v1/configurator', configuratorRouter);
 app.use('/api/v1/pricing', pricingRouter);
@@ -152,8 +147,6 @@ app.use('/api/v1/orders', cancellationRouter);
 app.use('/api/orders', orderCreationLimiter, ordersRouter);
 app.use('/api/orders', orderTransitionsRouter);
 app.use('/api/orders', orderSearchRouter);
-// Legacy routes (for backward compatibility - deprecated)
-app.use('/api/payments', paymentsRouter);
 app.use('/api/webhooks', webhooksRouter); // Webhooks don't need rate limiting (they're from Stripe)
 app.use('/api/upload', uploadRouter);
 app.use('/api/products', productsRouter);

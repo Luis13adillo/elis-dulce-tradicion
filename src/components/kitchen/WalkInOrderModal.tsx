@@ -114,12 +114,16 @@ export const WalkInOrderModal = ({
 
     setIsSubmitting(true);
     try {
+      const total = parseFloat(form.total_amount);
       await api.createOrder({
         customer_name: form.customer_name.trim(),
         customer_phone: form.customer_phone.trim(),
         theme: form.theme.trim(),
         cake_size: form.cake_size,
-        total_amount: parseFloat(form.total_amount),
+        total_amount: total,
+        subtotal: total,
+        delivery_fee: 0,
+        tax_amount: 0,
         date_needed: form.date_needed,
         time_needed: form.time_needed,
         delivery_option: form.delivery_option,
