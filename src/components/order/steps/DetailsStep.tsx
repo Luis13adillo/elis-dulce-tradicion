@@ -9,7 +9,7 @@ export const FloatingInput = ({ label, value, onChange, type = "text", placehold
   const [focused, setFocused] = useState(false);
 
   return (
-    <div className={`relative group ${className}`}>
+    <div className={`relative group ${className || ''}`}>
       <div className={`absolute inset-0 bg-[#C6A649]/10 rounded-2xl transition-all duration-300 pointer-events-none ${focused ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`} />
       <div className={`relative bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl rounded-2xl overflow-hidden transition-all duration-300 group-hover:border-[#C6A649]/30 ${focused ? 'ring-[3px] ring-[#C6A649]/40 border-[#C6A649]/50' : ''}`}>
         <label className={`absolute left-10 transition-all duration-200 pointer-events-none ${focused || value ? 'top-2 text-[10px] text-[#C6A649] font-black tracking-widest uppercase' : 'top-4 text-sm text-gray-400 font-medium'}`}>
@@ -27,7 +27,7 @@ export const FloatingInput = ({ label, value, onChange, type = "text", placehold
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           maxLength={maxLength}
-          className="w-full bg-transparent p-4 pl-10 pt-5 text-white font-bold placeholder-transparent focus:outline-none min-h-[60px]"
+          className="w-full bg-transparent p-4 pl-10 pt-5 text-white font-bold placeholder-transparent focus:outline-none min-h-[60px] text-base"
           placeholder={placeholder}
         />
       </div>
@@ -101,71 +101,72 @@ const DetailsStep = ({
         placeholder="e.g. Happy Birthday!"
       />
 
-      <div className="pt-2">
-        <label className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] mb-4 block opacity-70">
+      <div className="pt-1 sm:pt-2">
+        <label className="text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-[0.3em] mb-2 sm:mb-4 block opacity-70">
           {t('Notas de Decoración', 'Decoration Notes')}
         </label>
         <textarea
           value={decorationNotes}
           onChange={(e) => onDecorationNotesChange(e.target.value)}
-          className="w-full bg-white/5 border border-white/10 focus:border-[#C6A649]/50 hover:bg-white/10 transition-all rounded-2xl p-4 text-white font-medium outline-none min-h-[100px] text-sm"
+          className="w-full bg-white/5 border border-white/10 focus:border-[#C6A649]/50 hover:bg-white/10 transition-all rounded-2xl p-3.5 sm:p-4 text-white font-medium outline-none min-h-[90px] sm:min-h-[100px] text-sm resize-none"
           placeholder={t('Describe tu visión... (colores, estilo, personajes)', 'Describe your vision... (colors, style, characters)')}
         />
       </div>
 
       {/* Photo Upload */}
-      <div className="relative mt-8">
+      <div className="relative pt-2 sm:pt-4">
         {!imagePreviewUrl ? (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             {isMobile && (
               <button
                 onClick={() => onShowCameraChange(true)}
-                className="bg-white/5 border-2 border-dashed border-white/10 rounded-[2rem] p-8 flex flex-col items-center justify-center gap-4 cursor-pointer hover:bg-white/10 hover:border-[#C6A649]/50 transition-all duration-500 group/btn"
+                className="bg-white/5 border-2 border-dashed border-white/10 rounded-2xl sm:rounded-[2rem] p-4 sm:p-8 flex flex-col items-center justify-center gap-2.5 sm:gap-4 cursor-pointer hover:bg-white/10 hover:border-[#C6A649]/50 active:scale-95 transition-all duration-300 group/btn"
               >
-                <div className="w-16 h-16 rounded-2xl bg-[#C6A649]/10 border border-[#C6A649]/20 text-[#C6A649] flex items-center justify-center group-hover/btn:scale-110 group-hover/btn:bg-[#C6A649] group-hover/btn:text-black transition-all">
-                  <Camera size={32} />
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-[#C6A649]/10 border border-[#C6A649]/20 text-[#C6A649] flex items-center justify-center group-hover/btn:scale-110 group-hover/btn:bg-[#C6A649] group-hover/btn:text-black transition-all">
+                  <Camera size={22} className="sm:hidden" />
+                  <Camera size={32} className="hidden sm:block" />
                 </div>
-                <span className="text-xs font-black text-gray-400 group-hover/btn:text-white uppercase tracking-[0.2em]">
+                <span className="text-[10px] sm:text-xs font-black text-gray-400 group-hover/btn:text-white uppercase tracking-[0.2em]">
                   {t('Cámara', 'Camera')}
                 </span>
               </button>
             )}
             <button
               onClick={() => fileInputRef.current?.click()}
-              className={`bg-white/5 border-2 border-dashed border-white/10 rounded-[2rem] p-8 flex flex-col items-center justify-center gap-4 cursor-pointer hover:bg-white/10 hover:border-[#C6A649]/50 transition-all duration-500 group/btn ${
+              className={`bg-white/5 border-2 border-dashed border-white/10 rounded-2xl sm:rounded-[2rem] p-4 sm:p-8 flex flex-col items-center justify-center gap-2.5 sm:gap-4 cursor-pointer hover:bg-white/10 hover:border-[#C6A649]/50 active:scale-95 transition-all duration-300 group/btn ${
                 !isMobile ? 'col-span-2' : ''
               }`}
             >
-              <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 text-gray-500 flex items-center justify-center group-hover/btn:scale-110 group-hover/btn:border-[#C6A649]/30 group-hover/btn:text-[#C6A649] transition-all">
-                <Upload size={32} />
+              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-white/5 border border-white/10 text-gray-500 flex items-center justify-center group-hover/btn:scale-110 group-hover/btn:border-[#C6A649]/30 group-hover/btn:text-[#C6A649] transition-all">
+                <Upload size={22} className="sm:hidden" />
+                <Upload size={32} className="hidden sm:block" />
               </div>
               <div className="text-center">
-                <span className="text-xs font-black text-gray-400 group-hover/btn:text-white uppercase tracking-[0.2em] block mb-1">
+                <span className="text-[10px] sm:text-xs font-black text-gray-400 group-hover/btn:text-white uppercase tracking-[0.2em] block mb-0.5 sm:mb-1">
                   {t('Subir Foto', 'Upload')}
                 </span>
-                <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">JPG, PNG, WEBP</span>
+                <span className="text-[9px] sm:text-[10px] font-bold text-gray-600 uppercase tracking-widest">JPG, PNG, WEBP</span>
               </div>
             </button>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={onImageChange} className="hidden" />
           </div>
         ) : (
-          <div className="relative rounded-[2rem] overflow-hidden shadow-2xl group h-64 border border-white/10">
+          <div className="relative rounded-2xl sm:rounded-[2rem] overflow-hidden shadow-2xl group h-48 sm:h-64 border border-white/10">
             <img src={imagePreviewUrl} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" alt="Preview" />
-            <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20">
-              <button
-                onClick={onRemoveImage}
-                className="bg-white/10 backdrop-blur-md p-5 rounded-full text-white hover:bg-red-500/80 transition-all scale-150 group-hover:scale-100 duration-500"
-              >
-                <X size={32} />
-              </button>
-            </div>
+            <button
+              onClick={onRemoveImage}
+              className="absolute top-3 right-3 z-30 bg-black/60 backdrop-blur-md p-2.5 rounded-full text-white hover:bg-red-500/80 active:scale-95 transition-all border border-white/10"
+              aria-label={t('Quitar foto', 'Remove photo')}
+            >
+              <X size={18} />
+            </button>
             {isUploadingImage && (
               <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-30">
-                <Loader2 className="animate-spin text-[#C6A649]" size={48} />
+                <Loader2 className="animate-spin text-[#C6A649]" size={40} />
               </div>
             )}
-            <div className="absolute bottom-6 left-6 z-10 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
-              <p className="text-xs font-black text-white uppercase tracking-widest">{t('Referencia Visual', 'Visual Reference')}</p>
+            <div className="absolute bottom-3 left-3 z-10 bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
+              <p className="text-[10px] sm:text-xs font-black text-white uppercase tracking-widest">{t('Referencia Visual', 'Visual Reference')}</p>
             </div>
           </div>
         )}

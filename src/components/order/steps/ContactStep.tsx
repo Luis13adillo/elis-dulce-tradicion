@@ -67,7 +67,7 @@ const ContactStep = ({
   const { t } = useLanguage();
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {/* Name, Phone, Email fields */}
       <FloatingInput
         label={t('Nombre', 'Name')}
@@ -94,27 +94,26 @@ const ContactStep = ({
       />
 
       {/* Pickup / Delivery Selector */}
-      <div className="bg-white/5 p-3 rounded-[2rem] border border-white/10 flex gap-3 shadow-2xl">
+      <div className="bg-white/5 p-2 rounded-2xl sm:rounded-[2rem] border border-white/10 grid grid-cols-2 gap-2 shadow-2xl">
         <button
           onClick={() => onPickupTypeChange('pickup')}
-          className={`flex-1 py-4 rounded-2xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all duration-500 ${
+          className={`py-3 sm:py-4 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-black uppercase tracking-wider sm:tracking-widest flex items-center justify-center gap-2 sm:gap-3 transition-all duration-500 ${
             pickupType === 'pickup'
               ? 'bg-[#C6A649] text-black shadow-[0_10px_20px_rgba(198,166,73,0.3)]'
-              : 'text-gray-400 hover:bg-white/5 hover:text-white'
+              : 'text-gray-400 hover:bg-white/5 hover:text-white active:scale-95'
           }`}
         >
-          <ShoppingBag size={18} /> Pickup
+          <ShoppingBag size={16} /> Pickup
         </button>
-        <div className="w-px bg-white/10 my-3"></div>
         <button
           onClick={() => onPickupTypeChange('delivery')}
-          className={`flex-1 py-4 rounded-2xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all duration-500 ${
+          className={`py-3 sm:py-4 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-black uppercase tracking-wider sm:tracking-widest flex items-center justify-center gap-2 sm:gap-3 transition-all duration-500 ${
             pickupType === 'delivery'
               ? 'bg-[#C6A649] text-black shadow-[0_10px_20px_rgba(198,166,73,0.3)]'
-              : 'text-gray-400 hover:bg-white/5 hover:text-white'
+              : 'text-gray-400 hover:bg-white/5 hover:text-white active:scale-95'
           }`}
         >
-          <MapPin size={18} /> Delivery
+          <MapPin size={16} /> Delivery
         </button>
       </div>
 
@@ -128,27 +127,27 @@ const ContactStep = ({
             placeholder={t('Dirección de entrega', 'Delivery address')}
           />
           {deliveryFee > 0 && (
-            <div className="flex items-center gap-2 px-4 py-2 bg-[#C6A649]/10 border border-[#C6A649]/20 rounded-xl text-[#C6A649] text-xs font-black uppercase tracking-widest">
-              <MapPin size={14} />
-              {t('Tarifa de entrega:', 'Delivery fee:')} {formatPrice(deliveryFee)}
+            <div className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-[#C6A649]/10 border border-[#C6A649]/20 rounded-xl text-[#C6A649] text-[10px] sm:text-xs font-black uppercase tracking-wider sm:tracking-widest">
+              <MapPin size={13} className="flex-shrink-0" />
+              <span>{t('Tarifa de entrega:', 'Delivery fee:')} {formatPrice(deliveryFee)}</span>
             </div>
           )}
         </div>
       )}
 
       {/* Consent Checkbox */}
-      <label className="flex items-center gap-5 cursor-pointer group p-4 rounded-3xl transition-colors hover:bg-white/5">
+      <label className="flex items-start gap-3 sm:gap-4 cursor-pointer group p-3 sm:p-4 rounded-2xl sm:rounded-3xl transition-colors hover:bg-white/5 border border-white/10">
         <div
-          className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center transition-all duration-500 ${
+          className={`mt-0.5 w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl border-2 flex items-center justify-center transition-all duration-500 flex-shrink-0 ${
             consentGiven
               ? 'bg-[#C6A649] border-[#C6A649] text-black shadow-[0_0_15px_rgba(198,166,73,0.4)]'
               : 'border-white/10 group-hover:border-[#C6A649]'
           }`}
         >
-          <Check size={18} strokeWidth={4} />
+          <Check size={16} strokeWidth={4} />
         </div>
         <input type="checkbox" checked={consentGiven} onChange={e => onConsentChange(e.target.checked)} className="hidden" />
-        <div className="text-xs text-gray-400 font-bold leading-relaxed uppercase tracking-wider group-hover:text-white transition-colors">
+        <div className="text-[11px] sm:text-xs text-gray-400 font-bold leading-snug sm:leading-relaxed uppercase tracking-wide sm:tracking-wider group-hover:text-white transition-colors">
           {t('Acepto los términos y confirmo que los detalles son correctos.', 'I accept terms and confirm details are correct.')}
         </div>
       </label>
