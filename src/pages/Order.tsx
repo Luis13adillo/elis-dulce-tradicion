@@ -548,7 +548,7 @@ const Order = () => {
   };
 
   return (
-    <div className="min-h-screen font-sans pb-32 relative bg-black flex flex-col selection:bg-[#C6A649]/30">
+    <div className="min-h-screen font-sans pb-28 sm:pb-32 relative bg-black flex flex-col selection:bg-[#C6A649]/30">
 
       {/* --- BACKGROUND ANIMATION --- */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
@@ -577,82 +577,81 @@ const Order = () => {
 
       {/* --- HEADER --- */}
       <header className="bg-black/80 backdrop-blur-xl shadow-2xl sticky top-1.5 z-40 border-b border-white/10">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="max-w-4xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
+          {/* Top row: back | logo | language */}
+          <div className="flex items-center justify-between gap-3">
+            <button
+              onClick={() => currentStep > 0 ? prevStep() : navigate('/')}
+              className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-[#C6A649] hover:text-black transition-all flex-shrink-0 group shadow-lg"
+              aria-label={t('Atrás', 'Back')}
+            >
+              <ChevronLeft size={18} strokeWidth={3} className="group-hover:-translate-x-0.5 transition-transform" />
+            </button>
 
-            {/* Left: Back & Logo */}
-            <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-start">
-              <button
-                onClick={() => currentStep > 0 ? prevStep() : navigate('/')}
-                className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-[#C6A649] hover:text-black transition-all flex-shrink-0 group shadow-lg"
-              >
-                <ChevronLeft size={20} strokeWidth={3} className="group-hover:-translate-x-0.5 transition-transform" />
-              </button>
+            <button className="cursor-pointer group hover:scale-105 transition-transform duration-500" onClick={() => navigate('/')}>
+              <img src={logoImage} alt="Eli's Bakery" className="h-10 sm:h-14 w-auto object-contain filter drop-shadow-[0_0_10px_rgba(198,166,73,0.3)]" />
+            </button>
 
-              <button className="cursor-pointer group hover:scale-110 transition-transform duration-500" onClick={() => navigate('/')}>
-                <img src={logoImage} alt="Eli's Bakery" className="h-14 w-auto object-contain filter drop-shadow-[0_0_10px_rgba(198,166,73,0.3)]" />
-              </button>
-
-              {/* Mobile spacer to balance back button */}
-              <div className="w-12 md:hidden" />
+            <div className="scale-90 sm:scale-95 flex-shrink-0">
+              <LanguageToggle />
             </div>
+          </div>
 
-            {/* Right: Progress & Language */}
-            <div className="flex items-center gap-8 w-full md:w-auto justify-center md:justify-end">
-              {/* Clickable Step Indicator */}
-              <div className="flex gap-2 items-end">
-                {STEPS.map((_, i) => {
-                  const summary = [
-                    getDateTimeSummary(formData.dateNeeded, formData.timeNeeded),
-                    getSizeSummary(formData.cakeSize, activeCakeSizes, isSpanish),
-                    getFlavorSummary(formData.breadType, selectedFillings, activeBreadTypes, activeFillings),
-                    getDetailsSummary(formData.theme, uploadedImageUrl, t),
-                    getContactSummary(formData.customerName, formData.pickupType, t),
-                  ][i];
-                  const isCompleted = i < currentStep;
-                  return (
-                    <button
-                      key={i}
-                      onClick={() => isCompleted && goToStep(i)}
-                      className={cn(
-                        "flex flex-col items-center gap-1 transition-all",
-                        isCompleted ? "cursor-pointer hover:opacity-80" : "cursor-default"
-                      )}
-                      aria-label={isCompleted ? `Go to step ${i + 1}` : undefined}
-                    >
-                      <div className={`h-2 w-10 rounded-full transition-all duration-500 ${i <= currentStep ? 'bg-[#C6A649] shadow-[0_0_15px_rgba(198,166,73,0.5)]' : 'bg-white/10'}`} />
-                      {isCompleted && summary && (
-                        <span className="text-[9px] text-[#C6A649]/70 font-bold max-w-[40px] truncate hidden md:block">{summary}</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Language Toggle - Custom Styles handled in component */}
-              <div className="scale-95">
-                <LanguageToggle />
-              </div>
-            </div>
-
+          {/* Progress row: stretched across full width */}
+          <div className="mt-3 sm:mt-4 flex gap-1.5 sm:gap-2 items-end justify-between sm:justify-center">
+            {STEPS.map((_, i) => {
+              const summary = [
+                getDateTimeSummary(formData.dateNeeded, formData.timeNeeded),
+                getSizeSummary(formData.cakeSize, activeCakeSizes, isSpanish),
+                getFlavorSummary(formData.breadType, selectedFillings, activeBreadTypes, activeFillings),
+                getDetailsSummary(formData.theme, uploadedImageUrl, t),
+                getContactSummary(formData.customerName, formData.pickupType, t),
+              ][i];
+              const isCompleted = i < currentStep;
+              const isActive = i === currentStep;
+              return (
+                <button
+                  key={i}
+                  onClick={() => isCompleted && goToStep(i)}
+                  className={cn(
+                    "flex flex-col items-center gap-1 transition-all flex-1 sm:flex-none",
+                    isCompleted ? "cursor-pointer hover:opacity-80" : "cursor-default"
+                  )}
+                  aria-label={isCompleted ? `Go to step ${i + 1}` : undefined}
+                >
+                  <div
+                    className={cn(
+                      "h-1.5 sm:h-2 rounded-full transition-all duration-500 w-full sm:w-10",
+                      (isCompleted || isActive)
+                        ? "bg-[#C6A649] shadow-[0_0_15px_rgba(198,166,73,0.5)]"
+                        : "bg-white/10",
+                      isActive && "sm:w-12"
+                    )}
+                  />
+                  {isCompleted && summary && (
+                    <span className="text-[9px] text-[#C6A649]/70 font-bold max-w-[40px] truncate hidden md:block">{summary}</span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       </header>
 
       {/* --- CONTENT WIZARD --- */}
-      <main className="flex-1 flex flex-col justify-center items-center p-5 relative z-10 w-full max-w-md mx-auto min-h-[60vh]">
+      <main className="flex-1 flex flex-col items-center px-4 sm:p-5 py-5 sm:py-8 relative z-10 w-full max-w-md mx-auto">
 
         {/* Step Title */}
-        <div className="w-full mb-6 sm:mb-8 md:mb-12 text-center">
+        <div className="w-full mb-5 sm:mb-8 md:mb-12 text-center">
           <motion.div
             key={currentStep}
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="inline-block space-y-2"
+            className="inline-block space-y-1 sm:space-y-2"
           >
-            <span className="text-xs font-black tracking-[0.4em] text-[#C6A649] uppercase block mb-2">Eli's Tradition</span>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white uppercase tracking-tighter leading-tight">{STEPS[currentStep].title}</h2>
-            <p className="text-gray-400 font-medium italic font-serif text-lg">{STEPS[currentStep].subtitle}</p>
+            <span className="text-[10px] sm:text-xs font-black tracking-[0.4em] text-[#C6A649] uppercase block mb-1 sm:mb-2">Eli's Tradition</span>
+            <h2 className="text-2xl sm:text-4xl md:text-5xl font-black text-white uppercase tracking-tighter leading-tight">{STEPS[currentStep].title}</h2>
+            <p className="text-gray-400 font-medium italic font-serif text-sm sm:text-lg">{STEPS[currentStep].subtitle}</p>
           </motion.div>
         </div>
 
@@ -663,10 +662,10 @@ const Order = () => {
               initial={{ height: 0, opacity: 0, marginBottom: 0 }}
               animate={{ height: 'auto', opacity: 1, marginBottom: 24 }}
               exit={{ height: 0, opacity: 0, marginBottom: 0 }}
-              className="w-full flex items-center gap-4 rounded-3xl border border-red-500/30 bg-red-500/10 p-5 text-red-200 backdrop-blur-3xl shadow-2xl"
+              className="w-full flex items-center gap-3 sm:gap-4 rounded-2xl sm:rounded-3xl border border-red-500/30 bg-red-500/10 px-4 py-3 sm:p-5 text-red-200 backdrop-blur-3xl shadow-2xl"
             >
-              <AlertCircle className="h-6 w-6 flex-shrink-0 text-red-400" />
-              <p className="text-sm font-black uppercase tracking-wide">{validationError}</p>
+              <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0 text-red-400" />
+              <p className="text-xs sm:text-sm font-black uppercase tracking-wide leading-tight">{validationError}</p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -680,7 +679,7 @@ const Order = () => {
             animate="center"
             exit="exit"
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="w-full bg-white/5 backdrop-blur-3xl p-4 sm:p-6 md:p-8 lg:p-10 rounded-[2rem] sm:rounded-[3rem] shadow-[0_30px_60px_rgba(0,0,0,0.5)] border border-white/10 min-h-[400px] flex flex-col justify-center relative overflow-hidden group"
+            className="w-full bg-white/5 backdrop-blur-3xl p-4 sm:p-6 md:p-8 lg:p-10 rounded-[1.75rem] sm:rounded-[3rem] shadow-[0_30px_60px_rgba(0,0,0,0.5)] border border-white/10 relative overflow-hidden group"
           >
             <div className="absolute top-0 right-0 w-40 h-40 bg-[#C6A649]/5 rounded-full blur-3xl pointer-events-none" />
 
@@ -778,30 +777,31 @@ const Order = () => {
       </main>
 
       {/* --- WIZARD NAVIGATION --- */}
-      <div className="fixed bottom-0 left-0 right-0 p-6 z-50 bg-gradient-to-t from-black via-black/80 to-transparent">
-        <div className="max-w-md mx-auto bg-black/40 backdrop-blur-3xl rounded-[2.5rem] p-5 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.8)] flex justify-between items-center pr-3">
-          <div className="flex flex-col pl-6">
-            <span className="text-[10px] text-[#C6A649] font-black uppercase tracking-[0.3em] mb-1">{t('Total Estimado', 'Estimated Total')}</span>
-            <span className="text-3xl font-black text-white tracking-tighter leading-none">
+      <div className="fixed bottom-0 left-0 right-0 px-3 pb-3 pt-5 sm:p-6 z-50 bg-gradient-to-t from-black via-black/90 to-transparent">
+        <div className="max-w-md mx-auto bg-black/60 backdrop-blur-3xl rounded-[1.5rem] sm:rounded-[2.5rem] p-3 sm:p-5 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.8)] flex justify-between items-center gap-3">
+          <div className="flex flex-col pl-2 sm:pl-4 min-w-0">
+            <span className="text-[9px] sm:text-[10px] text-[#C6A649] font-black uppercase tracking-[0.25em] sm:tracking-[0.3em] mb-0.5 sm:mb-1 truncate">{t('Total Estimado', 'Estimated Total')}</span>
+            <span className="text-2xl sm:text-3xl font-black text-white tracking-tighter leading-none">
               {isCalculatingPrice ? <Loader2 className="inline animate-spin text-[#C6A649]" size={20} /> : formatPrice(getTotal())}
             </span>
           </div>
 
-          <div className="flex gap-4">
+          <div className="flex gap-2 sm:gap-4 flex-shrink-0">
             {currentStep > 0 && (
               <button
                 onClick={prevStep}
-                className="w-14 h-14 rounded-[1.2rem] bg-white/5 border border-white/10 text-white flex items-center justify-center hover:bg-white hover:text-black transition-all duration-500"
+                aria-label={t('Atrás', 'Back')}
+                className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-[1.2rem] bg-white/5 border border-white/10 text-white flex items-center justify-center hover:bg-white hover:text-black transition-all duration-500 flex-shrink-0"
               >
-                <ChevronLeft size={24} strokeWidth={3} />
+                <ChevronLeft size={22} strokeWidth={3} />
               </button>
             )}
 
             <button
               onClick={nextStep}
               disabled={isSubmitting}
-              className={`h-14 px-8 rounded-[1.2rem] flex items-center justify-center gap-3 font-black text-sm uppercase tracking-[0.2em] transition-all duration-500 shadow-[0_0_20px_rgba(198,166,73,0.3)] ${
-                isSubmitting ? 'bg-gray-800 text-gray-500' : 'bg-[#C6A649] text-black hover:bg-white hover:scale-105'
+              className={`h-12 sm:h-14 px-5 sm:px-8 rounded-xl sm:rounded-[1.2rem] flex items-center justify-center gap-2 sm:gap-3 font-black text-xs sm:text-sm uppercase tracking-[0.15em] sm:tracking-[0.2em] transition-all duration-500 shadow-[0_0_20px_rgba(198,166,73,0.3)] flex-shrink-0 ${
+                isSubmitting ? 'bg-gray-800 text-gray-500' : 'bg-[#C6A649] text-black hover:bg-white hover:scale-105 active:scale-95'
               }`}
             >
               {isSubmitting ? (
@@ -809,7 +809,7 @@ const Order = () => {
               ) : (
                 <>
                   {currentStep === STEPS.length - 1 ? t('Finalizar', 'Checkout') : t('Siguiente', 'Next')}
-                  <ChevronRight size={20} strokeWidth={4} />
+                  <ChevronRight size={18} strokeWidth={4} />
                 </>
               )}
             </button>
