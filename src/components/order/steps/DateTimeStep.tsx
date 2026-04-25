@@ -8,6 +8,8 @@ interface DateTimeStepProps {
   dateNeeded: string;
   timeNeeded: string;
   timeOptions: string[];
+  minLeadTimeHours?: number;
+  maxAdvanceDays?: number;
   onDateChange: (date: string) => void;
   onTimeChange: (time: string) => void;
 }
@@ -18,24 +20,47 @@ export function getDateTimeSummary(dateNeeded: string, timeNeeded: string): stri
   return `${dateNeeded}${timeDisplay}`;
 }
 
-export function validateDateTimeStep(dateNeeded: string, timeNeeded: string, t: any): string | null {
+export function validateDateTimeStep(
+  dateNeeded: string,
+  timeNeeded: string,
+  t: any,
+  minLeadTimeHours: number = 48
+): string | null {
   if (!dateNeeded) return t('Por favor selecciona una fecha', 'Please select a date');
   if (!timeNeeded) return t('Por favor selecciona una hora', 'Please select a time');
-  const leadCheck = validateLeadTime(dateNeeded, timeNeeded);
-  if (!leadCheck.isValid) return t('Se requieren al menos 48 horas de anticipación', 'Minimum 48h lead time required');
+  const leadCheck = validateLeadTime(dateNeeded, timeNeeded, minLeadTimeHours);
+  if (!leadCheck.isValid) {
+    return t(
+      `Se requieren al menos ${minLeadTimeHours} horas de anticipación`,
+      `Minimum ${minLeadTimeHours}h lead time required`
+    );
+  }
   return null;
 }
 
-const DateTimeStep = ({ dateNeeded, timeNeeded, timeOptions, onDateChange, onTimeChange }: DateTimeStepProps) => {
+const DateTimeStep = ({
+  dateNeeded,
+  timeNeeded,
+  timeOptions,
+  minLeadTimeHours = 48,
+  maxAdvanceDays = 90,
+  onDateChange,
+  onTimeChange,
+}: DateTimeStepProps) => {
   const { t } = useLanguage();
+
+  const minDate = new Date().toISOString().split('T')[0];
+  const maxDate = new Date(Date.now() + maxAdvanceDays * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split('T')[0];
 
   return (
     <div className="space-y-5 sm:space-y-6">
       <div className="relative group/date">
         <input
           type="date"
-          min={new Date().toISOString().split('T')[0]}
-          max={new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+          min={minDate}
+          max={maxDate}
           value={dateNeeded}
           onChange={(e) => onDateChange(e.target.value)}
           className="w-full bg-white/5 border border-white/10 focus:border-[#C6A649]/50 hover:bg-white/10 transition-all rounded-2xl sm:rounded-3xl p-4 sm:p-6 pr-14 sm:pr-16 text-center text-base sm:text-2xl font-black text-white outline-none cursor-pointer"
@@ -70,7 +95,7 @@ const DateTimeStep = ({ dateNeeded, timeNeeded, timeOptions, onDateChange, onTim
       {dateNeeded && timeNeeded && (
         <div className="flex justify-center">
           {(() => {
-            const leadTime = validateLeadTime(dateNeeded, timeNeeded);
+            const leadTime = validateLeadTime(dateNeeded, timeNeeded, minLeadTimeHours);
             if (leadTime.isValid && leadTime.hoursUntilEvent) {
               const days = Math.floor(leadTime.hoursUntilEvent / 24);
               return (
@@ -81,7 +106,8 @@ const DateTimeStep = ({ dateNeeded, timeNeeded, timeOptions, onDateChange, onTim
             }
             return (
               <div className="flex items-center gap-2 text-amber-500 text-[10px] sm:text-xs font-black uppercase tracking-wider sm:tracking-widest bg-amber-500/10 px-4 sm:px-6 py-2 rounded-full border border-amber-500/20">
-                <Clock size={13} strokeWidth={4} /> {t('Mínimo 48h requerido', 'Min 48h required')}
+                <Clock size={13} strokeWidth={4} />
+                {t(`Mínimo ${minLeadTimeHours}h requerido`, `Min ${minLeadTimeHours}h required`)}
               </div>
             );
           })()}

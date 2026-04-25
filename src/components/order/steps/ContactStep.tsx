@@ -2,8 +2,9 @@
 import { useLanguage } from '@/contexts/LanguageContext';
 import AddressAutocomplete from '@/components/order/AddressAutocomplete';
 import { FloatingInput } from './DetailsStep';
+import { FoodSafetyDisclaimer } from '@/components/legal/FoodSafetyDisclaimer';
 import { formatPrice } from '@/lib/pricing';
-import { ShoppingBag, MapPin, Check, User, Phone, Mail } from 'lucide-react';
+import { ShoppingBag, MapPin, Check, User, Phone, Mail, AlertTriangle } from 'lucide-react';
 
 interface ContactStepProps {
   customerName: string;
@@ -11,6 +12,8 @@ interface ContactStepProps {
   email: string;
   pickupType: string;
   consentGiven: boolean;
+  allergies: string;
+  foodSafetyAcknowledged: boolean;
   deliveryAddress: string;
   deliveryFee: number;
   isAddressServiceable?: boolean;
@@ -19,13 +22,15 @@ interface ContactStepProps {
   onEmailChange: (email: string) => void;
   onPickupTypeChange: (type: 'pickup' | 'delivery') => void;
   onConsentChange: (consent: boolean) => void;
+  onAllergiesChange: (value: string) => void;
+  onFoodSafetyAcknowledgedChange: (ack: boolean) => void;
   onAddressChange: (address: string, isValid: boolean, placeDetails?: any, deliveryInfo?: any) => void;
 }
 
 export function getContactSummary(customerName: string, pickupType: string, t: any): string | null {
   if (!customerName) return null;
   const typeLabel = pickupType === 'delivery' ? t('Delivery', 'Delivery') : t('Pickup', 'Pickup');
-  return `${customerName} \u2022 ${typeLabel}`;
+  return `${customerName} • ${typeLabel}`;
 }
 
 export function validateContactStep(
@@ -35,6 +40,7 @@ export function validateContactStep(
   pickupType: string,
   deliveryAddress: string,
   consentGiven: boolean,
+  foodSafetyAcknowledged: boolean,
   t: any,
   isAddressServiceable?: boolean
 ): string | null {
@@ -44,6 +50,11 @@ export function validateContactStep(
   if (pickupType === 'delivery' && !deliveryAddress.trim()) return t('Por favor ingresa tu dirección', 'Please enter your delivery address');
   if (pickupType === 'delivery' && deliveryAddress && isAddressServiceable === false)
     return t('Dirección fuera de área de entrega (máx. 4.5 millas)', 'Address outside delivery area (max 4.5 miles)');
+  if (!foodSafetyAcknowledged)
+    return t(
+      'Por favor confirma que entiendes la advertencia de alérgenos',
+      'Please acknowledge the allergen disclaimer'
+    );
   if (!consentGiven) return t('Por favor acepta los términos', 'Please accept the terms');
   return null;
 }
@@ -54,6 +65,8 @@ const ContactStep = ({
   email,
   pickupType,
   consentGiven,
+  allergies,
+  foodSafetyAcknowledged,
   deliveryAddress,
   deliveryFee,
   isAddressServiceable: _isAddressServiceable,
@@ -62,6 +75,8 @@ const ContactStep = ({
   onEmailChange,
   onPickupTypeChange,
   onConsentChange,
+  onAllergiesChange,
+  onFoodSafetyAcknowledgedChange,
   onAddressChange,
 }: ContactStepProps) => {
   const { t } = useLanguage();
@@ -135,7 +150,53 @@ const ContactStep = ({
         </div>
       )}
 
-      {/* Consent Checkbox */}
+      {/* Allergies / Dietary Restrictions */}
+      <div className="pt-1 sm:pt-2">
+        <label className="text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-[0.25em] sm:tracking-[0.3em] mb-2 sm:mb-3 block opacity-70 flex items-center gap-2">
+          <AlertTriangle size={12} className="text-amber-400 flex-shrink-0" />
+          <span className="leading-tight">{t('Alergias / Restricciones (Opcional)', 'Allergies / Restrictions (Optional)')}</span>
+        </label>
+        <textarea
+          value={allergies}
+          onChange={(e) => onAllergiesChange(e.target.value)}
+          maxLength={500}
+          className="w-full bg-white/5 border border-white/10 focus:border-amber-400/50 hover:bg-white/10 transition-all rounded-2xl p-3.5 sm:p-4 text-white font-medium outline-none min-h-[72px] sm:min-h-[80px] text-sm resize-none"
+          placeholder={t(
+            'Ej: Alergia a nueces, sin gluten, sin lácteos…',
+            'E.g. Nut allergy, gluten-free, dairy-free…'
+          )}
+        />
+      </div>
+
+      {/* Food Safety Disclaimer (always shown, read-only) */}
+      <FoodSafetyDisclaimer variant="compact" />
+
+      {/* Required acknowledgment */}
+      <label className="flex items-start gap-3 sm:gap-4 cursor-pointer group p-3 sm:p-4 rounded-2xl sm:rounded-3xl transition-colors hover:bg-white/5 border border-amber-500/20 bg-amber-500/5">
+        <div
+          className={`mt-0.5 w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl border-2 flex items-center justify-center transition-all duration-500 flex-shrink-0 ${
+            foodSafetyAcknowledged
+              ? 'bg-amber-500 border-amber-500 text-black shadow-[0_0_15px_rgba(251,191,36,0.4)]'
+              : 'border-amber-500/40 group-hover:border-amber-400'
+          }`}
+        >
+          <Check size={16} strokeWidth={4} />
+        </div>
+        <input
+          type="checkbox"
+          checked={foodSafetyAcknowledged}
+          onChange={(e) => onFoodSafetyAcknowledgedChange(e.target.checked)}
+          className="hidden"
+        />
+        <div className="text-[11px] sm:text-xs text-amber-200 font-bold leading-snug sm:leading-relaxed uppercase tracking-wide sm:tracking-wider group-hover:text-white transition-colors">
+          {t(
+            'Entiendo que los productos pueden contener alérgenos y que es posible la contaminación cruzada.',
+            'I understand products may contain allergens and that cross-contamination is possible.'
+          )}
+        </div>
+      </label>
+
+      {/* Terms Consent Checkbox */}
       <label className="flex items-start gap-3 sm:gap-4 cursor-pointer group p-3 sm:p-4 rounded-2xl sm:rounded-3xl transition-colors hover:bg-white/5 border border-white/10">
         <div
           className={`mt-0.5 w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl border-2 flex items-center justify-center transition-all duration-500 flex-shrink-0 ${

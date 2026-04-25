@@ -110,12 +110,19 @@ export async function validateOrderDate(date: string): Promise<{
 }
 
 /**
- * Validate lead time - minimum 48 hours in advance
+ * Validate lead time. Pass `minHours` from business_settings.minimum_lead_time_hours
+ * so the admin-configured value takes effect. Defaults to 48 if omitted, which
+ * preserves behavior for any older caller that hasn't been updated yet.
  */
-export function validateLeadTime(date: string, time: string): {
+export function validateLeadTime(
+  date: string,
+  time: string,
+  minHours: number = 48
+): {
   isValid: boolean;
   error?: string;
   hoursUntilEvent?: number;
+  minHours?: number;
 } {
   if (!date || !time) {
     return { isValid: false, error: 'Date and time are required' };
@@ -134,18 +141,19 @@ export function validateLeadTime(date: string, time: string): {
 
   const hoursUntilEvent = (orderDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
 
-  // Minimum 48 hours lead time
-  if (hoursUntilEvent < 48) {
+  if (hoursUntilEvent < minHours) {
     return {
       isValid: false,
-      error: 'Orders must be placed at least 48 hours in advance',
+      error: `Orders must be placed at least ${minHours} hours in advance`,
       hoursUntilEvent,
+      minHours,
     };
   }
 
   return {
     isValid: true,
     hoursUntilEvent,
+    minHours,
   };
 }
 

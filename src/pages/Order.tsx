@@ -13,7 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { formatPrice } from '@/lib/pricing';
 import { motion, AnimatePresence } from 'framer-motion';
 import LanguageToggle from '@/components/LanguageToggle';
-import { useBusinessHours } from '@/lib/hooks/useCMS';
+import { useBusinessHours, useBusinessSettings } from '@/lib/hooks/useCMS';
 import { api } from '@/lib/api';
 import type { OrderFormOptions } from '@/lib/api/modules/orderOptions';
 import { cn } from '@/lib/utils';
@@ -65,6 +65,13 @@ const Order = () => {
 
   // Dynamic time slots from business hours
   const { data: businessHours } = useBusinessHours();
+  const { data: businessSettings } = useBusinessSettings();
+
+  // Admin-configurable window. These fall through the DateTimeStep into the
+  // <input type="date"> min/max and into validateLeadTime so whatever the
+  // owner sets on the Business Settings page is what the wizard enforces.
+  const minLeadTimeHours = businessSettings?.minimum_lead_time_hours ?? 48;
+  const maxAdvanceDays = businessSettings?.maximum_advance_days ?? 90;
 
   const FALLBACK_TIME_OPTIONS = [
     '10:00', '11:00', '12:00', '13:00', '14:00',
@@ -108,8 +115,18 @@ const Order = () => {
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [consentGiven, setConsentGiven] = useState(false);
+  const [allergies, setAllergies] = useState('');
+  const [foodSafetyAcknowledged, setFoodSafetyAcknowledged] = useState(false);
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [isAddressServiceable, setIsAddressServiceable] = useState<boolean | undefined>(undefined);
+
+  // Submission guards. `submitLockRef` fires synchronously on click, before
+  // React re-renders the disabled button — this is the real double-click
+  // guard. `idempotencyKeyRef` is the client UUID the server keys off to
+  // return the same pending_order on a retry instead of inserting a dup.
+  // Both are refs (not state) so a rapid second click sees the updated value.
+  const submitLockRef = useRef(false);
+  const idempotencyKeyRef = useRef<string | null>(null);
 
   // DB-driven order form options (with fallback to hardcoded arrays)
   const [orderOptions, setOrderOptions] = useState<OrderFormOptions | null>(null);
@@ -413,7 +430,12 @@ const Order = () => {
     const stepId = STEPS[stepIndex].id;
 
     if (stepId === 'date') {
-      const syncError = validateDateTimeStep(formData.dateNeeded, formData.timeNeeded, t);
+      const syncError = validateDateTimeStep(
+        formData.dateNeeded,
+        formData.timeNeeded,
+        t,
+        minLeadTimeHours
+      );
       if (syncError) {
         setValidationError(syncError);
         return false;
@@ -448,6 +470,7 @@ const Order = () => {
         formData.pickupType,
         formData.deliveryAddress,
         consentGiven,
+        foodSafetyAcknowledged,
         t,
         isAddressServiceable
       );
@@ -480,7 +503,23 @@ const Order = () => {
   };
 
   const handleSubmit = async () => {
+    // Hard guard against rapid double-clicks. Runs synchronously before the
+    // React re-render that disables the button, so a fast second click is
+    // dropped. Also protects against the user navigating back and forth.
+    if (submitLockRef.current) return;
+    submitLockRef.current = true;
     setIsSubmitting(true);
+
+    // Generate the client idempotency key on the first attempt and reuse it
+    // for any retry caused by a network flake. The server returns the same
+    // pending_order on a hit. Cleared on error so a corrected retry gets a
+    // fresh key (otherwise a price-change after a rejection would be ignored).
+    if (!idempotencyKeyRef.current) {
+      idempotencyKeyRef.current = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    }
+
     try {
       const cleanPhone = formData.phone.replace(/\D/g, '');
       const selectedSize = activeCakeSizes.find(s => s.value === formData.cakeSize);
@@ -512,11 +551,15 @@ const Order = () => {
         delivery_option: formData.pickupType,
         delivery_address: formData.pickupType === 'delivery' ? formData.deliveryAddress : '',
         delivery_fee: formData.pickupType === 'delivery' ? deliveryFee : 0,
+        subtotal: getTotal() - (formData.pickupType === 'delivery' ? deliveryFee : 0),
+        tax_amount: 0,
         consent_given: true,
         consent_timestamp: new Date().toISOString(),
         total_amount: getTotal(),
         user_id: user?.id || null,
         premium_filling_upcharge: getPremiumFillingUpcharge(),
+        allergies: allergies.trim() || null,
+        client_idempotency_key: idempotencyKeyRef.current,
       };
 
       // Tier A: persist the order to pending_orders server-side BEFORE sending
@@ -542,7 +585,14 @@ const Order = () => {
       navigate(`/payment-checkout?pendingId=${encodeURIComponent(pending.pending_order_id)}`);
     } catch (error: any) {
       console.error('Error preparing payment:', error);
-      toast.error(t('Error del sistema', 'System error'));
+      // Surface the server's message when it's a validation rejection
+      // (capacity full, pricing mismatch, holiday closure). Users deserve
+      // better than a generic "system error" when the server is telling
+      // them something specific.
+      const serverMsg = error?.message || error?.error_description;
+      toast.error(serverMsg || t('Error del sistema', 'System error'));
+      submitLockRef.current = false;
+      idempotencyKeyRef.current = null;
       setIsSubmitting(false);
     }
   };
@@ -689,6 +739,8 @@ const Order = () => {
                 dateNeeded={formData.dateNeeded}
                 timeNeeded={formData.timeNeeded}
                 timeOptions={timeOptions}
+                minLeadTimeHours={minLeadTimeHours}
+                maxAdvanceDays={maxAdvanceDays}
                 onDateChange={(date) => setFormData(prev => ({ ...prev, dateNeeded: date }))}
                 onTimeChange={(time) => setFormData(prev => ({ ...prev, timeNeeded: time }))}
               />
@@ -760,6 +812,8 @@ const Order = () => {
                 email={formData.email}
                 pickupType={formData.pickupType}
                 consentGiven={consentGiven}
+                allergies={allergies}
+                foodSafetyAcknowledged={foodSafetyAcknowledged}
                 deliveryAddress={formData.deliveryAddress}
                 deliveryFee={deliveryFee}
                 isAddressServiceable={isAddressServiceable}
@@ -768,6 +822,8 @@ const Order = () => {
                 onEmailChange={(email) => setFormData(prev => ({ ...prev, email }))}
                 onPickupTypeChange={(type) => setFormData(prev => ({ ...prev, pickupType: type }))}
                 onConsentChange={setConsentGiven}
+                onAllergiesChange={setAllergies}
+                onFoodSafetyAcknowledgedChange={setFoodSafetyAcknowledged}
                 onAddressChange={handleAddressChange}
               />
             )}
