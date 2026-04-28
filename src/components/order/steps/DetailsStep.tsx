@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { CameraCapture } from '@/components/mobile/CameraCapture';
-import { Upload, X, Camera, Loader2, Sparkles, Star } from 'lucide-react';
+import { Upload, X, Camera, Loader2, Sparkles, Star, User } from 'lucide-react';
 
 // FloatingInput helper — co-located here, imported by ContactStep
 export const FloatingInput = ({ label, value, onChange, type = "text", placeholder, icon: Icon, maxLength, className }: any) => {
@@ -39,6 +39,7 @@ interface DetailsStepProps {
   theme: string;
   dedication: string;
   decorationNotes: string;
+  recipientName: string;
   imagePreviewUrl: string | null;
   isUploadingImage: boolean;
   isMobile: boolean;
@@ -46,6 +47,7 @@ interface DetailsStepProps {
   onThemeChange: (theme: string) => void;
   onDedicationChange: (dedication: string) => void;
   onDecorationNotesChange: (notes: string) => void;
+  onRecipientNameChange: (name: string) => void;
   onImageChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onRemoveImage: (e: React.MouseEvent) => void;
   onCameraCapture: (imageDataUrl: string) => void;
@@ -69,6 +71,7 @@ const DetailsStep = ({
   theme,
   dedication,
   decorationNotes,
+  recipientName,
   imagePreviewUrl,
   isUploadingImage,
   isMobile,
@@ -76,6 +79,7 @@ const DetailsStep = ({
   onThemeChange,
   onDedicationChange,
   onDecorationNotesChange,
+  onRecipientNameChange,
   onImageChange,
   onRemoveImage,
   onCameraCapture,
@@ -92,6 +96,14 @@ const DetailsStep = ({
         onChange={(e: any) => onThemeChange(e.target.value)}
         icon={Sparkles}
         placeholder="e.g. Birthday, Wedding..."
+      />
+      <FloatingInput
+        label={t('¿Para quién es?', 'Who is the cake for?')}
+        value={recipientName}
+        onChange={(e: any) => onRecipientNameChange(e.target.value)}
+        icon={User}
+        placeholder={t('Ej. Sabina', 'e.g. Sabina')}
+        maxLength={120}
       />
       <FloatingInput
         label={t('Dedicatoria', 'Message')}

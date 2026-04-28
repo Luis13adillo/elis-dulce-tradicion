@@ -113,8 +113,31 @@ export function BakerTicketCard({ order, onMarkReady }: BakerTicketCardProps) {
                 {/* Cake Size - Most Important */}
                 <div className="bg-gradient-to-r from-pink-500/10 to-purple-500/10 rounded-xl p-4 border border-pink-500/20">
                     <p className="text-pink-400 text-xs font-semibold uppercase tracking-wider mb-1">Cake Size</p>
-                    <p className="text-white text-xl font-bold">{order.cake_size || 'Custom'}</p>
+                    <p className="text-white text-xl font-bold">
+                        {order.cake_size || 'Custom'}
+                        {order.servings ? ` • ${order.servings} ppl` : ''}
+                    </p>
                 </div>
+
+                {/* Bread / Sponge Type */}
+                {order.bread_type && (
+                    <div className="bg-slate-700/30 rounded-xl p-4">
+                        <p className="text-orange-400 text-xs font-semibold uppercase tracking-wider mb-1">
+                            Bread / Sponge
+                        </p>
+                        <p className="text-white font-medium">{order.bread_type}</p>
+                    </div>
+                )}
+
+                {/* Recipient (who the cake is for) */}
+                {order.recipient_name && (
+                    <div className="bg-slate-700/30 rounded-xl p-4">
+                        <p className="text-emerald-400 text-xs font-semibold uppercase tracking-wider mb-1">
+                            For
+                        </p>
+                        <p className="text-white font-medium">{order.recipient_name}</p>
+                    </div>
+                )}
 
                 {/* Filling / Flavors */}
                 {order.filling && (

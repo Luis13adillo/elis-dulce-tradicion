@@ -9,6 +9,8 @@ interface SizeStepProps {
   optionsLoading: boolean;
   isSpanish: boolean;
   onSizeChange: (size: string) => void;
+  servings: string;
+  onServingsChange: (value: string) => void;
 }
 
 export function getSizeSummary(cakeSize: string, activeCakeSizes: any[], isSpanish: boolean): string | null {
@@ -22,7 +24,7 @@ export function validateSizeStep(cakeSize: string, t: any): string | null {
   return null;
 }
 
-const SizeStep = ({ cakeSize, activeCakeSizes, optionsLoading, isSpanish, onSizeChange }: SizeStepProps) => {
+const SizeStep = ({ cakeSize, activeCakeSizes, optionsLoading, isSpanish, onSizeChange, servings, onServingsChange }: SizeStepProps) => {
   const { t } = useLanguage();
 
   return (
@@ -36,6 +38,23 @@ const SizeStep = ({ cakeSize, activeCakeSizes, optionsLoading, isSpanish, onSize
           <p className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-[#C6A649]">{t('Guía de Porciones', 'Serving Guide')}</p>
           <p className="text-xs sm:text-sm text-gray-300 font-medium leading-snug">{t('Escoge según el número de invitados', 'Choose based on your headcount')}</p>
         </div>
+      </div>
+
+      {/* Guest count input */}
+      <div className="space-y-2">
+        <label className="text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-[0.3em] block">
+          {t('¿Cuántas personas?', 'How many guests?')}
+        </label>
+        <input
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={500}
+          value={servings}
+          onChange={(e) => onServingsChange(e.target.value)}
+          placeholder={t('Ej. 12', 'e.g. 12')}
+          className="w-full bg-white/5 border border-white/10 focus:border-[#C6A649]/50 hover:bg-white/10 transition-all rounded-2xl p-3.5 sm:p-4 text-white font-bold outline-none text-base"
+        />
       </div>
 
       {/* Loading Skeleton */}

@@ -103,6 +103,8 @@ const Order = () => {
     theme: '',
     dedication: '',
     decorationNotes: '',
+    recipientName: '',
+    servings: '',
     deliveryAddress: '',
   });
 
@@ -523,6 +525,10 @@ const Order = () => {
     try {
       const cleanPhone = formData.phone.replace(/\D/g, '');
       const selectedSize = activeCakeSizes.find(s => s.value === formData.cakeSize);
+      const selectedBread = activeBreadTypes.find(b => b.value === formData.breadType);
+      const parsedServings = formData.servings.trim()
+        ? parseInt(formData.servings.trim(), 10)
+        : null;
 
       // Build filling description with premium options
       const fillingDescriptions = selectedFillings.map(filling => {
@@ -559,6 +565,12 @@ const Order = () => {
         user_id: user?.id || null,
         premium_filling_upcharge: getPremiumFillingUpcharge(),
         allergies: allergies.trim() || null,
+        bread_type: selectedBread?.label || formData.breadType,
+        bread_type_value: formData.breadType,
+        servings: Number.isFinite(parsedServings) && parsedServings && parsedServings > 0
+          ? parsedServings
+          : null,
+        recipient_name: formData.recipientName.trim() || null,
         client_idempotency_key: idempotencyKeyRef.current,
       };
 
@@ -754,6 +766,8 @@ const Order = () => {
                 optionsLoading={optionsLoading}
                 isSpanish={isSpanish}
                 onSizeChange={(size) => setFormData(prev => ({ ...prev, cakeSize: size }))}
+                servings={formData.servings}
+                onServingsChange={(servings) => setFormData(prev => ({ ...prev, servings }))}
               />
             )}
 
@@ -780,6 +794,7 @@ const Order = () => {
                 theme={formData.theme}
                 dedication={formData.dedication}
                 decorationNotes={formData.decorationNotes}
+                recipientName={formData.recipientName}
                 imagePreviewUrl={imagePreviewUrl}
                 isUploadingImage={isUploadingImage}
                 isMobile={isMobile}
@@ -788,6 +803,7 @@ const Order = () => {
                 onThemeChange={(theme) => setFormData(prev => ({ ...prev, theme }))}
                 onDedicationChange={(dedication) => setFormData(prev => ({ ...prev, dedication }))}
                 onDecorationNotesChange={(decorationNotes) => setFormData(prev => ({ ...prev, decorationNotes }))}
+                onRecipientNameChange={(recipientName) => setFormData(prev => ({ ...prev, recipientName }))}
                 onImageChange={handleImageChange}
                 onRemoveImage={handleRemoveImage}
                 onCameraCapture={(imageDataUrl) => {

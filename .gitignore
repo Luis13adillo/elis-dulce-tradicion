@@ -65,3 +65,4 @@ backend/uploads/*
 # Scratch / tool output
 .firecrawl/
 supabase/.temp/
+.migration/

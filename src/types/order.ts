@@ -57,10 +57,15 @@ export type Order = {
   time_needed?: string;
   cake_size?: string;
   filling?: string;
+  bread_type?: string;
+  bread_type_value?: string;
+  servings?: number;
+  recipient_name?: string;
   theme?: string;
   dedication?: string;
   special_instructions?: string;
   reference_image_path?: string;
+  allergies?: string;
 
   stripe_payment_id?: string;
   items?: any[];
