@@ -5,6 +5,7 @@
 Custom cake ordering website for Eli's Dulce Tradicion bakery. Customers place orders through the website, the owner monitors/manages orders from the Owner Dashboard, and the front desk (kitchen display) receives and processes orders on a tablet.
 
 **Live site:** [elisbakery.com](https://elisbakery.com) — deployed via Vercel, auto-deploys from `main`
+**Repository:** `Luis13adillo/elis-dulce-tradicion` on GitHub (migrated from `LuisMiguel13ad` on 2026-04-28 after the old account was flagged)
 **Order status:** **LIVE and accepting real orders.** Stripe production keys are installed in Vercel; real payments have been processed. The local `.env` file contains `pk_test_` keys for dev only — **do not assume those reflect production**.
 
 **What this project IS:**
