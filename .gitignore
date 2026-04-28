@@ -61,3 +61,7 @@ backend/uploads/*
 .vercel
 .env*.local
 .mcp.json
+
+# Scratch / tool output
+.firecrawl/
+supabase/.temp/
