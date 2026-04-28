@@ -133,7 +133,7 @@ export const CompactOrderCard = memo(function CompactOrderCard({
                 ? isDark ? 'text-yellow-400' : 'text-yellow-700'
                 : isDark ? 'text-slate-300' : 'text-gray-600';
 
-    // Build the cake summary line: size · filling
+    // Build the cake summary line: size [• N ppl] · bread · filling
     const cakeSummary = useMemo(() => {
         if (order.items && order.items.length > 0) {
             // Menu order — show first item summary
@@ -141,9 +141,12 @@ export const CompactOrderCard = memo(function CompactOrderCard({
             const more = order.items.length > 1 ? ` +${order.items.length - 1}` : '';
             return `${first.quantity}× ${first.name}${more}`;
         }
-        const parts = [order.cake_size, order.filling].filter(Boolean);
+        const sizeWithServings = order.cake_size && order.servings
+            ? `${order.cake_size} • ${order.servings} ${t('pers', 'ppl')}`
+            : order.cake_size;
+        const parts = [sizeWithServings, order.bread_type, order.filling].filter(Boolean);
         return parts.length ? parts.join(' · ') : t('Pastel personalizado', 'Custom cake');
-    }, [order.items, order.cake_size, order.filling, t]);
+    }, [order.items, order.cake_size, order.servings, order.bread_type, order.filling, t]);
 
     // Reference image URL (resolved or null) — uses Supabase SDK so it stays in
     // sync with VITE_SUPABASE_URL across environments
@@ -318,6 +321,15 @@ export const CompactOrderCard = memo(function CompactOrderCard({
                 )}>
                     {order.customer_name || t('Cliente', 'Customer')}
                 </h3>
+
+                {order.recipient_name && (
+                    <p className={cn(
+                        "text-[11px] font-semibold leading-tight truncate",
+                        isDark ? "text-emerald-300" : "text-emerald-700"
+                    )}>
+                        {t('Para', 'For')}: {order.recipient_name}
+                    </p>
+                )}
 
                 <p className={cn(
                     "text-xs font-medium truncate",
