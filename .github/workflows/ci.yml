@@ -19,30 +19,34 @@ jobs:
       - run: npm install
       - run: npm run test:frontend
 
-  e2e-tests:
-    name: E2E Tests (Playwright)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-      VITE_STRIPE_PUBLISHABLE_KEY: ${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY }}
-      VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
-      VITE_API_URL: http://localhost:3001
-      TEST_OWNER_EMAIL: ${{ secrets.TEST_OWNER_EMAIL }}
-      TEST_OWNER_PASSWORD: ${{ secrets.TEST_OWNER_PASSWORD }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-      - run: npm install
-      - run: npx playwright install chromium --with-deps
-      - run: npx playwright test --project=chromium
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 7
+  # E2E job temporarily disabled: the e2e/*.spec.ts files are stale
+  # scaffolds (wrong routes / credentials, written before the auth +
+  # order flow was redesigned). Re-enable after rewriting the specs.
+  #
+  # e2e-tests:
+  #   name: E2E Tests (Playwright)
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 20
+  #   env:
+  #     VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+  #     VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+  #     VITE_STRIPE_PUBLISHABLE_KEY: ${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY }}
+  #     VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
+  #     VITE_API_URL: http://localhost:3001
+  #     TEST_OWNER_EMAIL: ${{ secrets.TEST_OWNER_EMAIL }}
+  #     TEST_OWNER_PASSWORD: ${{ secrets.TEST_OWNER_PASSWORD }}
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '22'
+  #         cache: 'npm'
+  #     - run: npm install
+  #     - run: npx playwright install chromium --with-deps
+  #     - run: npx playwright test --project=chromium
+  #     - uses: actions/upload-artifact@v4
+  #       if: failure()
+  #       with:
+  #         name: playwright-report
+  #         path: playwright-report/
+  #         retention-days: 7
