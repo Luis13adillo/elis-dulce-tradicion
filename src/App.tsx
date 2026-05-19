@@ -23,11 +23,10 @@ import { lazyWithRetry } from "@/lib/lazyWithRetry";
 // Vite HMR edge cases now surface as an actionable error instead of a
 // FullScreenLoader that sits forever.
 const Index = lazyWithRetry(() => import("./pages/Index"));
-// Online ordering paused while we resolve a Stripe webhook issue. The /order
-// route renders OrderMaintenance instead — phone + address + email so
-// customers can still place orders. Restore by swapping the import back to
-// `./pages/Order` once webhook delivery is verified end-to-end.
-const Order = lazyWithRetry(() => import("./pages/OrderMaintenance"));
+// DEMO BRANCH ONLY — Order form re-enabled for sales-demo deployment.
+// This branch deploys to a Vercel preview URL with Stripe test keys; the
+// live `main` branch keeps `OrderMaintenance` so elisbakery.com stays paused.
+const Order = lazyWithRetry(() => import("./pages/Order"));
 const PaymentCheckout = lazyWithRetry(() => import("./pages/PaymentCheckout"));
 const OrderConfirmation = lazyWithRetry(() => import("./pages/OrderConfirmation"));
 const FrontDesk = lazyWithRetry(() => import("./pages/FrontDesk"));
