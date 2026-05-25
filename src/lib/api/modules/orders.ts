@@ -1,8 +1,6 @@
 import { BaseApiClient } from '../base';
 import { getAvailableTransitions as getStateMachineTransitions, validateTransition, type OrderStatus, type UserRole } from '../../orderStateMachine';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-
 export class OrdersApi extends BaseApiClient {
     // Default row cap. The dashboard/front-desk only ever render a recent
     // window — fetching the entire orders table every real-time event was
@@ -343,15 +341,17 @@ export class OrdersApi extends BaseApiClient {
         };
     }
 
-    async getCancellationPolicy(orderId: number, hoursBefore: number) {
+    async getCancellationPolicy(_orderId: number, hoursBefore: number) {
         try {
-            const headers = await this.getAuthHeaders();
-            const res = await fetch(
-                `${API_BASE_URL}/api/orders/${orderId}/cancellation-policy?hours=${encodeURIComponent(String(hoursBefore))}`,
-                { headers }
-            );
-            if (!res.ok) return null;
-            return await res.json();
+            const sb = this.ensureSupabase();
+            if (!sb) return null;
+            const { data, error } = await sb.rpc('get_cancellation_policy', { hours_before: Math.floor(hoursBefore) });
+            if (error) {
+                console.error('getCancellationPolicy rpc failed:', error);
+                return null;
+            }
+            const row = Array.isArray(data) ? data[0] : data;
+            return row ?? { hours_before_needed: 0, refund_percentage: 0, description: 'No refund available' };
         } catch (err) {
             console.error('getCancellationPolicy failed:', err);
             return null;
@@ -361,34 +361,28 @@ export class OrdersApi extends BaseApiClient {
     async cancelOrder(
         orderId: number,
         request: { reason: string; reasonDetails?: string }
-    ): Promise<{ success: boolean; refund?: { refundAmount: number; refundPercentage: number; refundStatus: 'pending' | 'processed' | 'failed' }; error?: string }> {
-        const headers = await this.getAuthHeaders();
-        const res = await fetch(`${API_BASE_URL}/api/orders/${orderId}/cancel`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(request),
+    ): Promise<{ success: boolean; refund?: { refundAmount: number; refundPercentage: number; refundStatus: 'pending' | 'processed' | 'failed' | 'not_applicable'; stripeRefundId?: string | null }; error?: string }> {
+        const sb = this.ensureSupabase();
+        if (!sb) throw new Error('Supabase client unavailable');
+        const { data, error } = await sb.functions.invoke('order-cancel', {
+            body: { orderId, ...request },
         });
-        const body = await res.json().catch(() => ({}));
-        if (!res.ok) {
-            throw new Error(body?.error || `Cancel failed (${res.status})`);
-        }
-        return body;
+        if (error) throw new Error((data as { error?: string })?.error || error.message || 'Cancel failed');
+        if (data && (data as { error?: string }).error) throw new Error((data as { error: string }).error);
+        return data as { success: boolean; refund?: { refundAmount: number; refundPercentage: number; refundStatus: 'pending' | 'processed' | 'failed' | 'not_applicable'; stripeRefundId?: string | null } };
     }
 
     async adminCancelOrder(
         orderId: number,
         request: { reason: string; reasonDetails?: string; overrideRefundAmount?: number; adminNotes?: string }
-    ): Promise<{ success: boolean; refund?: { refundAmount: number; refundPercentage: number; refundStatus: 'pending' | 'processed' | 'failed' }; error?: string }> {
-        const headers = await this.getAuthHeaders();
-        const res = await fetch(`${API_BASE_URL}/api/orders/${orderId}/admin-cancel`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(request),
+    ): Promise<{ success: boolean; refund?: { refundAmount: number; refundPercentage: number; refundStatus: 'pending' | 'processed' | 'failed' | 'not_applicable'; stripeRefundId?: string | null }; error?: string }> {
+        const sb = this.ensureSupabase();
+        if (!sb) throw new Error('Supabase client unavailable');
+        const { data, error } = await sb.functions.invoke('order-cancel', {
+            body: { orderId, ...request },
         });
-        const body = await res.json().catch(() => ({}));
-        if (!res.ok) {
-            throw new Error(body?.error || `Admin cancel failed (${res.status})`);
-        }
-        return body;
+        if (error) throw new Error((data as { error?: string })?.error || error.message || 'Admin cancel failed');
+        if (data && (data as { error?: string }).error) throw new Error((data as { error: string }).error);
+        return data as { success: boolean; refund?: { refundAmount: number; refundPercentage: number; refundStatus: 'pending' | 'processed' | 'failed' | 'not_applicable'; stripeRefundId?: string | null } };
     }
 }
