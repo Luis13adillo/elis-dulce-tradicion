@@ -6,7 +6,21 @@ Custom cake ordering website for Eli's Dulce Tradicion bakery. Customers place o
 
 **Live site:** [elisbakery.com](https://elisbakery.com) — deployed via Vercel, auto-deploys from `main`
 **Repository:** `Luis13adillo/elis-dulce-tradicion` on GitHub (migrated from `LuisMiguel13ad` on 2026-04-28 after the old account was flagged)
-**Order status:** **LIVE and accepting real orders.** Stripe production keys are installed in Vercel; real payments have been processed. The local `.env` file contains `pk_test_` keys for dev only — **do not assume those reflect production**.
+**Order status:** **LIVE site with real Stripe payments**, BUT **online ordering is currently PAUSED.** The `/order` route renders `OrderMaintenance` (see `src/App.tsx` lines 26-30) and `business_settings.online_orders_paused` defaults to `true` — a Stripe webhook issue is being resolved. The local `.env` file contains `pk_test_` keys for dev only — **do not assume those reflect production**.
+
+> **AI/code agents:** start with **[docs/AI_CONTEXT.md](docs/AI_CONTEXT.md)**, then see the docs map below. Key fact those docs establish: the production frontend talks to **Supabase (RPC/PostgREST/Realtime/Storage) + Edge Functions directly** — the Express backend in `backend/` is **largely undeployed** (the most recent commit replaced an "undeployed backend route" with an Edge Function). The "Backend: Express.js" rows below describe code that exists, not the live runtime path.
+
+### Documentation map (`docs/`)
+- [docs/AI_CONTEXT.md](docs/AI_CONTEXT.md) — orientation + hard rules (read first)
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — how the system is wired
+- [docs/USER_FLOWS.md](docs/USER_FLOWS.md) — order/payment/frontdesk/owner/tracking journeys
+- [docs/API_ROUTES.md](docs/API_ROUTES.md) — Express route inventory (reference; mostly undeployed)
+- [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) — tables, RPCs, triggers, cron, state machine
+- [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) — env var inventory (no secrets)
+- [docs/DEBUGGING_WORKFLOW.md](docs/DEBUGGING_WORKFLOW.md) — diagnose without breaking prod
+- [docs/KNOWN_BUGS.md](docs/KNOWN_BUGS.md) — open issues, dead code, unfinished work
+- [docs/FEATURE_BUILD_WORKFLOW.md](docs/FEATURE_BUILD_WORKFLOW.md) — add + ship a feature safely
+- [.env.local.example](.env.local.example) — template env file (names only)
 
 **What this project IS:**
 - A custom cake ordering website with a 5-step order wizard

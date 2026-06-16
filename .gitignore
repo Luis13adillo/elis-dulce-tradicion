@@ -35,6 +35,8 @@ test-results
 .env.local
 .env.production
 .env.*
+# Track the committed example template (names only, no secrets)
+!.env.local.example
 
 # Logs directory
 logs/
