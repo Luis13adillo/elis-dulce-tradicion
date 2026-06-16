@@ -23,11 +23,12 @@ import { lazyWithRetry } from "@/lib/lazyWithRetry";
 // Vite HMR edge cases now surface as an actionable error instead of a
 // FullScreenLoader that sits forever.
 const Index = lazyWithRetry(() => import("./pages/Index"));
-// Online ordering paused while we resolve a Stripe webhook issue. The /order
-// route renders OrderMaintenance instead — phone + address + email so
-// customers can still place orders. Restore by swapping the import back to
-// `./pages/Order` once webhook delivery is verified end-to-end.
-const Order = lazyWithRetry(() => import("./pages/OrderMaintenance"));
+// Online ordering is live: the /order route serves the 5-step ordering wizard.
+// (The Stripe webhook reliability fix is deployed and verified end-to-end in
+// Stripe TEST mode on staging, including the retry/dedup regression.) The DB
+// kill switch `business_settings.online_orders_paused` remains as an emergency
+// pause control if ordering ever needs to be halted server-side.
+const Order = lazyWithRetry(() => import("./pages/Order"));
 const PaymentCheckout = lazyWithRetry(() => import("./pages/PaymentCheckout"));
 const OrderConfirmation = lazyWithRetry(() => import("./pages/OrderConfirmation"));
 const FrontDesk = lazyWithRetry(() => import("./pages/FrontDesk"));
