@@ -31,11 +31,31 @@ ALTER TABLE stripe_webhook_events
     ADD COLUMN IF NOT EXISTS processed_at timestamptz,
     ADD COLUMN IF NOT EXISTS last_error   text;
 
--- 2. Backfill existing rows. Under the old insert-before-process logic, an
---    existing row meant "we already received (and almost always processed)
---    this event." Mark them 'processed' so historical events keep
---    short-circuiting and are not reprocessed if Stripe ever re-delivers.
-UPDATE stripe_webhook_events SET status = 'processed' WHERE status IS NULL;
+-- 2. Backfill existing rows WITHOUT masking unrecovered poisoned events.
+--    Blindly marking everything 'processed' would hide exactly the failure this
+--    fix targets: a payment_intent.succeeded that was recorded but whose order
+--    never got promoted. So classify by evidence:
+--      * Non-order-creating events (refunds, disputes, payment_failed, etc.)
+--        don't promote an order — mark 'processed'.
+--      * payment_intent.succeeded WITH a matching orders row (by PaymentIntent
+--        id) genuinely completed — mark 'processed'.
+--      * payment_intent.succeeded with NO matching orders row is a candidate
+--        ORPHAN (paid, never promoted). Leave it 'received' so it stays visible
+--        to the orphan audit and is never silently short-circuited.
+--    Reads orders (SELECT) only; writes the dedup bookkeeping column only.
+--    IMPORTANT: run the read-only orphan audit in
+--    supabase/audits/20260615_webhook_orphan_paid_audit.sql against production
+--    BEFORE applying this migration, and manually recover any orphan found.
+UPDATE stripe_webhook_events e
+SET status = CASE
+    WHEN e.event_type <> 'payment_intent.succeeded' THEN 'processed'
+    WHEN EXISTS (
+        SELECT 1 FROM orders o
+        WHERE o.payment_intent_id = e.payload->'data'->'object'->>'id'
+    ) THEN 'processed'
+    ELSE 'received'  -- paid but no order row: surface, do not hide
+END
+WHERE e.status IS NULL;
 
 -- 3. Now enforce the default + NOT NULL + allowed values.
 ALTER TABLE stripe_webhook_events

@@ -51,6 +51,13 @@ short-circuit. If you see a charge in Stripe (Live) with `succeeded` but no
 `orders` row and a `stripe_webhook_events` row, confirm its `status` — and
 whether the fix is deployed (`supabase functions deploy stripe-webhook` +
 migration `20260615T120000_webhook_event_processing_status.sql`).
+
+**Before deploying that fix**, run the read-only orphan audit
+`supabase/audits/20260615_webhook_orphan_paid_audit.sql` against production
+(read-only — SELECTs only). It surfaces paid Stripe events with no `orders` row
+so real lost orders are recovered before the migration backfills statuses. The
+backfill deliberately leaves a succeeded-but-unmatched event as `received`
+(visible), never `processed`, so the orphan signal is not masked.
 Skill: `elis-bulletproof-payments`.
 
 ### "Order stuck / wrong status"

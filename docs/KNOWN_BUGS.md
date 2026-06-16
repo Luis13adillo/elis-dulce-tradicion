@@ -53,6 +53,15 @@ Open issues, unfinished work, and dead code — backed by evidence from the code
 - **Deploy separately:** this fix is an Edge Function + a migration. A `git push`
   does NOT deploy either. Apply migration via Supabase dashboard / `supabase db push`
   and `supabase functions deploy stripe-webhook`, test-mode dry run first.
+- **Pre-deploy production audit (read-only, REQUIRED):** before applying the
+  migration, run `supabase/audits/20260615_webhook_orphan_paid_audit.sql` against
+  production. It lists any `payment_intent.succeeded` event with no matching
+  `orders` row (a paid-but-lost order) and any `pending_orders` left
+  `awaiting_payment`/`payment_failed` despite having a PaymentIntent. Confirm each
+  candidate in the Stripe Dashboard (Live) and manually recover real orphans
+  **before** deploying. The migration's backfill is written to NOT mask these:
+  succeeded events without a matching order are left `received` (visible), not
+  `processed`.
 
 ## Open hardening items (from CLAUDE.md)
 
