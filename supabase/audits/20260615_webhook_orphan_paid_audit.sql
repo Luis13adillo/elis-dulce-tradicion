@@ -42,21 +42,39 @@ ORDER BY e.received_at DESC;
 -- ---------------------------------------------------------------------
 -- Q2. Succeeded events whose pending_order is NOT in 'promoted' state.
 --     Confirms the promote step never completed for that paid order.
+--
+--     The pending_order_id comes from free-form Stripe metadata, which on
+--     legacy/edge events may be missing, empty, or non-UUID. Casting it
+--     directly to uuid would abort this read-only audit with
+--     "invalid input syntax for type uuid". Extract it as text in a CTE and
+--     only cast when it matches the UUID shape; otherwise leave it NULL (the
+--     LEFT JOIN then yields no pending row, which is itself a valid finding).
 -- ---------------------------------------------------------------------
+WITH succeeded AS (
+    SELECT
+        e.event_id,
+        e.received_at,
+        (e.payload->'data'->'object'->'metadata'->>'pending_order_id') AS pending_order_id_text
+    FROM stripe_webhook_events e
+    WHERE e.event_type = 'payment_intent.succeeded'
+)
 SELECT
-    e.event_id,
-    e.received_at,
-    (e.payload->'data'->'object'->'metadata'->>'pending_order_id')  AS pending_order_id,
-    p.status                                                        AS pending_status,
+    s.event_id,
+    s.received_at,
+    s.pending_order_id_text AS pending_order_id,
+    p.status                AS pending_status,
     p.promoted_order_id,
     p.total_amount,
     p.customer_email
-FROM stripe_webhook_events e
+FROM succeeded s
 LEFT JOIN pending_orders p
-    ON p.id = (e.payload->'data'->'object'->'metadata'->>'pending_order_id')::uuid
-WHERE e.event_type = 'payment_intent.succeeded'
-  AND (p.id IS NULL OR p.status <> 'promoted')
-ORDER BY e.received_at DESC;
+    ON p.id = CASE
+        WHEN s.pending_order_id_text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        THEN s.pending_order_id_text::uuid
+        ELSE NULL
+    END
+WHERE p.id IS NULL OR p.status <> 'promoted'
+ORDER BY s.received_at DESC;
 
 -- ---------------------------------------------------------------------
 -- Q3. pending_orders that already have a PaymentIntent but never promoted.
