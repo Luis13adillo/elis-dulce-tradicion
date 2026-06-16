@@ -4,64 +4,54 @@ Open issues, unfinished work, and dead code — backed by evidence from the code
 `CLAUDE.md`, the `.planning/` artifacts, and the repo's QA docs. Verified on
 2026-06-15. Items without evidence are marked UNKNOWN rather than guessed.
 
-## Current blocker (intentional)
+## Online ordering — RE-ENABLED (2026-06-16)
 
-### Online ordering paused — Stripe webhook under repair
-- **Code-verified:** [src/App.tsx](../src/App.tsx) line 30 imports
-  `OrderMaintenance` for `/order` (the wizard `Order.tsx` is not wired to the
-  route); migration `20260428T160000_pause_online_orders_kill_switch.sql` adds
-  `business_settings.online_orders_paused` with `DEFAULT true`;
-  `create_pending_order` raises an exception when it is set. The migration
-  comment records the trigger: a customer placed an order via a PWA-cached
-  `/order` bundle, so the DB kill switch was added behind the UI swap.
-- **UNKNOWN (production-only):** the live value of `online_orders_paused` in the
-  prod DB (toggleable from the dashboard); whether Stripe live keys are active
-  in Vercel right now.
-- **State:** intentional, not a regression. The webhook promote step
-  (`stripe-webhook` → `promote_pending_order`) must be verified end-to-end
-  before re-enabling. Restore by swapping the import back to `./pages/Order` AND
-  setting `online_orders_paused = false`.
+Online ordering is live again after the Stripe webhook reliability fix.
 
-### Webhook dedup could permanently drop a paid order (FIXED in branch, not deployed)
-- **Confirmed bug (code-verified):** `supabase/functions/stripe-webhook/index.ts`
-  inserted the Stripe `event_id` into `stripe_webhook_events` **before** doing any
-  work, then promoted the pending order + sent email. The insert is its own
-  committed transaction, separate from the processing. If processing threw
-  afterward (transient DB error, lock timeout, `promote_pending_order` raising),
-  the handler returned 500 so Stripe retried — but the dedup row was already
-  committed, so the retry hit the unique-key violation and short-circuited as a
-  "duplicate." The event was **never reprocessed**: customer charged, pending
-  order never promoted, no order at the kitchen, no confirmation email. This is a
-  plausible root cause of the "orders not falling into the system" reports.
-- **Fix (branch `fix/stripe-webhook-promotion-reliability`, NOT yet deployed):**
-  the dedup row now carries a processing status
-  (`received|processing|processed|failed`, migration
-  `20260615T120000_webhook_event_processing_status.sql`). The webhook only
-  treats a duplicate as a no-op when the prior attempt reached `processed`; a row
-  left `processing`/`failed` is reprocessed on Stripe's retry. `promote_pending_order`
-  is already idempotent (locks the pending row, returns `already_promoted` on a
-  second call, `ON CONFLICT (idempotency_key)`), so reprocessing never
-  double-creates an order or double-sends the email. Pure decision logic is in
-  `dedup.ts` with `dedup.test.ts` (`deno test`).
-- **Related, NOT fixed (out of scope, lower severity):** confirmation-email sends
-  are best-effort — `invokeFunction()` swallows errors, so if Resend is down the
-  order still lands but the email is silently lost with no retry. The user's
-  feared "email fails → 500 → retry → duplicate skip → email never sends" loop
-  does **not** occur today precisely because email failures never throw (no 500).
-  A durable per-order `confirmation_email_sent` flag would be the right fix and is
-  deliberately left for a separate change.
-- **Deploy separately:** this fix is an Edge Function + a migration. A `git push`
-  does NOT deploy either. Apply migration via Supabase dashboard / `supabase db push`
-  and `supabase functions deploy stripe-webhook`, test-mode dry run first.
-- **Pre-deploy production audit (read-only, REQUIRED):** before applying the
-  migration, run `supabase/audits/20260615_webhook_orphan_paid_audit.sql` against
-  production. It lists any `payment_intent.succeeded` event with no matching
-  `orders` row (a paid-but-lost order) and any `pending_orders` left
-  `awaiting_payment`/`payment_failed` despite having a PaymentIntent. Confirm each
-  candidate in the Stripe Dashboard (Live) and manually recover real orphans
-  **before** deploying. The migration's backfill is written to NOT mask these:
-  succeeded events without a matching order are left `received` (visible), not
-  `processed`.
+- **Code:** [src/App.tsx](../src/App.tsx) imports `./pages/Order` for `/order`
+  (the 5-step wizard), not `OrderMaintenance`.
+- **Webhook fix deployed to prod** (Edge Function `stripe-webhook` v5 + migration
+  `20260615T120000_webhook_event_processing_status.sql`).
+- **Pre-deploy production audit was clean** (0 orphan paid events, 0 stranded
+  pendings) — `supabase/audits/20260615_webhook_orphan_paid_audit.sql`.
+- **Stripe LIVE endpoint verified:** correct URL, the 4 subscribed events,
+  endpoint enabled.
+- **Staging end-to-end test passed** (Stripe TEST mode, project
+  `elis-dulce-tradicion-staging`): pending → PaymentIntent → webhook → promote →
+  `orders` row → event `processed`; duplicate delivery skipped; and the
+  retry/dedup regression proven fixed (an event forced to `failed` was
+  reprocessed on retry, not dropped, with no duplicate order/email).
+- **Production was untouched** during the staging test.
+- **Emergency control retained:** the DB kill switch
+  `business_settings.online_orders_paused` still exists. Setting it `true` makes
+  `create_pending_order` raise and halts new online orders server-side without a
+  redeploy. (Migration `20260428T160000_pause_online_orders_kill_switch.sql`.)
+- **Note:** re-enabling required both the frontend import swap AND
+  `online_orders_paused = false` in prod. The frontend swap ships in the
+  re-enable PR; the kill-switch flip is a separate prod DB action.
+
+### Historical bug — webhook dedup could permanently drop a paid order (FIXED + deployed + tested)
+- **The bug:** `supabase/functions/stripe-webhook/index.ts` inserted the Stripe
+  `event_id` into `stripe_webhook_events` **before** processing. That insert is its
+  own committed transaction. If processing then threw (transient DB error, lock
+  timeout, `promote_pending_order` raising), the handler returned 500 so Stripe
+  retried — but the dedup row was already committed, so the retry hit the
+  unique-key violation and short-circuited as a "duplicate." The event was
+  **never reprocessed**: customer charged, no order, no confirmation email. Likely
+  root cause of the "orders not falling into the system" reports.
+- **The fix (deployed):** the dedup row carries a processing status
+  (`received|processing|processed|failed`). A duplicate is only a no-op once a
+  prior attempt reached `processed`; a row left `processing`/`failed` is
+  reprocessed on Stripe's retry. `promote_pending_order` is idempotent (row lock,
+  `already_promoted`, `ON CONFLICT (idempotency_key)`), so reprocessing never
+  double-creates an order or double-sends email. Decision logic in `dedup.ts`
+  with `dedup.test.ts`. Merged (PR #2), migrated + function-deployed to prod, and
+  proven end-to-end in staging (incl. the failure-then-retry regression).
+- **Related, still open (lower severity):** confirmation-email sends are
+  best-effort — `invokeFunction()` swallows errors, so if Resend is down the order
+  still lands but the email is silently lost with no retry. A durable per-order
+  `confirmation_email_sent` flag would be the right fix; left for a separate
+  change.
 
 ## Open hardening items (from CLAUDE.md)
 
