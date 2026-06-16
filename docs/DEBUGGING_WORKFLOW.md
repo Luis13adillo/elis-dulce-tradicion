@@ -33,10 +33,24 @@ This is the Tier A webhook path. Trace in order:
 1. `pending_orders` row exists with the `payment_intent_id`? (`get_pending_order`)
 2. Stripe (Live mode): did `payment_intent.succeeded` fire? Did the webhook
    deliver (Stripe → Webhooks → delivery attempts)?
-3. `stripe_webhook_events` has the event id? (proves the function received it)
+3. `stripe_webhook_events` has the event id, and what is its `status`?
+   `processed` = handled; `processing`/`failed` = a prior attempt died mid-flight
+   (check `last_error`) and the next Stripe retry will reprocess it. A row stuck
+   at `processing`/`failed` with no `orders` row is the smoking gun for the dedup
+   bug described in [docs/KNOWN_BUGS.md](KNOWN_BUGS.md) (fixed in branch
+   `fix/stripe-webhook-promotion-reliability`).
 4. Did `promote_pending_order` run / is there an `orders` row with that
    `pending_order_id`?
 5. Edge Function logs for `stripe-webhook`.
+
+**Dedup-poisoning failure mode (historical, pre-fix):** the webhook recorded the
+event id *before* processing. If promotion then failed, Stripe's retry was
+dropped as a "duplicate" and the paid order was never created. The fix tracks a
+processing status on `stripe_webhook_events` so only fully-`processed` events
+short-circuit. If you see a charge in Stripe (Live) with `succeeded` but no
+`orders` row and a `stripe_webhook_events` row, confirm its `status` — and
+whether the fix is deployed (`supabase functions deploy stripe-webhook` +
+migration `20260615T120000_webhook_event_processing_status.sql`).
 Skill: `elis-bulletproof-payments`.
 
 ### "Order stuck / wrong status"

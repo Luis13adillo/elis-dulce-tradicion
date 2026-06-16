@@ -22,6 +22,38 @@ Open issues, unfinished work, and dead code — backed by evidence from the code
   before re-enabling. Restore by swapping the import back to `./pages/Order` AND
   setting `online_orders_paused = false`.
 
+### Webhook dedup could permanently drop a paid order (FIXED in branch, not deployed)
+- **Confirmed bug (code-verified):** `supabase/functions/stripe-webhook/index.ts`
+  inserted the Stripe `event_id` into `stripe_webhook_events` **before** doing any
+  work, then promoted the pending order + sent email. The insert is its own
+  committed transaction, separate from the processing. If processing threw
+  afterward (transient DB error, lock timeout, `promote_pending_order` raising),
+  the handler returned 500 so Stripe retried — but the dedup row was already
+  committed, so the retry hit the unique-key violation and short-circuited as a
+  "duplicate." The event was **never reprocessed**: customer charged, pending
+  order never promoted, no order at the kitchen, no confirmation email. This is a
+  plausible root cause of the "orders not falling into the system" reports.
+- **Fix (branch `fix/stripe-webhook-promotion-reliability`, NOT yet deployed):**
+  the dedup row now carries a processing status
+  (`received|processing|processed|failed`, migration
+  `20260615T120000_webhook_event_processing_status.sql`). The webhook only
+  treats a duplicate as a no-op when the prior attempt reached `processed`; a row
+  left `processing`/`failed` is reprocessed on Stripe's retry. `promote_pending_order`
+  is already idempotent (locks the pending row, returns `already_promoted` on a
+  second call, `ON CONFLICT (idempotency_key)`), so reprocessing never
+  double-creates an order or double-sends the email. Pure decision logic is in
+  `dedup.ts` with `dedup.test.ts` (`deno test`).
+- **Related, NOT fixed (out of scope, lower severity):** confirmation-email sends
+  are best-effort — `invokeFunction()` swallows errors, so if Resend is down the
+  order still lands but the email is silently lost with no retry. The user's
+  feared "email fails → 500 → retry → duplicate skip → email never sends" loop
+  does **not** occur today precisely because email failures never throw (no 500).
+  A durable per-order `confirmation_email_sent` flag would be the right fix and is
+  deliberately left for a separate change.
+- **Deploy separately:** this fix is an Edge Function + a migration. A `git push`
+  does NOT deploy either. Apply migration via Supabase dashboard / `supabase db push`
+  and `supabase functions deploy stripe-webhook`, test-mode dry run first.
+
 ## Open hardening items (from CLAUDE.md)
 
 Non-blocking; the site is live.

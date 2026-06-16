@@ -7,12 +7,17 @@
 // lands and the order still appears on the kitchen/dashboard.
 //
 // Event-ID dedup via stripe_webhook_events guards against Stripe's
-// at-least-once delivery (duplicate webhook = no-op on second delivery).
+// at-least-once delivery. The dedup row tracks a processing status: a
+// duplicate is only a no-op once a prior attempt reached 'processed'. An
+// event whose prior attempt failed (row left 'processing'/'failed') is
+// reprocessed on Stripe's retry instead of being silently dropped — that
+// drop was the bug that stranded paid orders.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { Stripe } from "npm:stripe@^14.0.0";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { Resend } from "npm:resend@^4.0.0";
+import { shouldSkipAsDuplicate } from "./dedup.ts";
 
 const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY");
 const STRIPE_WEBHOOK_SECRET = Deno.env.get("STRIPE_WEBHOOK_SECRET");
@@ -64,20 +69,43 @@ Deno.serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // --- Event-ID dedup (Stripe can deliver the same event multiple times) ---
+    // Record the event as 'processing' BEFORE doing work. On a duplicate key we
+    // inspect the existing row: only a prior 'processed' attempt is a true
+    // no-op. A row still 'processing' or marked 'failed' means an earlier
+    // attempt died mid-flight (e.g. a transient promote_pending_order error that
+    // returned 500 and triggered this Stripe retry) — we must reprocess, not
+    // short-circuit. Dropping it here is exactly what stranded paid orders.
     const { error: dedupError } = await supabase
         .from("stripe_webhook_events")
-        .insert({ event_id: event.id, event_type: event.type, payload: event as unknown as Record<string, unknown> });
+        .insert({
+            event_id: event.id,
+            event_type: event.type,
+            payload: event as unknown as Record<string, unknown>,
+            status: "processing",
+        });
 
     if (dedupError) {
-        // Duplicate key = already processed. Return 200 so Stripe stops retrying.
         if ((dedupError as { code?: string }).code === "23505") {
-            console.log(`Duplicate webhook event ignored: ${event.id}`);
-            return new Response(
-                JSON.stringify({ received: true, duplicate: true }),
-                { status: 200, headers: { "Content-Type": "application/json" } }
-            );
+            const { data: existing } = await supabase
+                .from("stripe_webhook_events")
+                .select("status")
+                .eq("event_id", event.id)
+                .maybeSingle();
+            const existingStatus = (existing as { status?: string } | null)?.status;
+
+            if (shouldSkipAsDuplicate(existingStatus)) {
+                console.log(`Duplicate webhook event ignored (already processed): ${event.id}`);
+                return new Response(
+                    JSON.stringify({ received: true, duplicate: true }),
+                    { status: 200, headers: { "Content-Type": "application/json" } }
+                );
+            }
+            // Incomplete prior attempt — reprocess. promote_pending_order is
+            // idempotent, so a re-run cannot double-create or double-email.
+            console.log(`Reprocessing incomplete webhook event ${event.id} (prior status=${existingStatus ?? "unknown"})`);
+        } else {
+            console.error("Failed to record webhook event (non-fatal):", dedupError);
         }
-        console.error("Failed to record webhook event (non-fatal):", dedupError);
     }
 
     console.log(`Processing webhook event: ${event.type} (${event.id})`);
@@ -108,12 +136,27 @@ Deno.serve(async (req) => {
                 console.log(`Unhandled event type: ${event.type}`);
         }
 
+        // Mark the event fully processed so future deliveries short-circuit.
+        await supabase
+            .from("stripe_webhook_events")
+            .update({ status: "processed", processed_at: new Date().toISOString(), last_error: null })
+            .eq("event_id", event.id);
+
         return new Response(
             JSON.stringify({ received: true, type: event.type }),
             { status: 200, headers: { "Content-Type": "application/json" } }
         );
     } catch (error) {
         console.error("Error processing webhook:", error);
+        // Mark the event 'failed' (not 'processed') so Stripe's retry is
+        // reprocessed instead of being dropped as a duplicate. Best-effort —
+        // even if this update fails the row stays 'processing', which also
+        // reprocesses on retry.
+        await supabase
+            .from("stripe_webhook_events")
+            .update({ status: "failed", last_error: String((error as Error)?.message ?? error) })
+            .eq("event_id", event.id);
+
         // Return 500 so Stripe retries transient errors. But don't retry
         // forever on a permanent failure — Stripe gives up after ~3 days.
         return new Response(
