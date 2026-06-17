@@ -16,13 +16,15 @@ export const FALLBACK_BREAD_TYPES = [
   { value: 'tres-leches', label: '3 Leches', desc: 'Moist & Traditional' },
   { value: 'chocolate', label: 'Chocolate', desc: 'Rich & Decadent' },
   { value: 'vanilla', label: 'Regular', desc: 'Classic Vanilla' },
+  { value: 'red-velvet', label: 'Red Velvet', desc: 'Rich & Velvety' },
+  { value: 'yellow-cake', label: 'Yellow Cake', desc: 'Classic & Buttery' },
+  { value: 'carrot-cake', label: 'Carrot Cake', desc: 'Spiced & Moist' },
 ];
 
 export const FALLBACK_FILLINGS = [
   { value: 'strawberry', label: 'Fresa', sub: 'Strawberry', premium: false },
   { value: 'chocolate-chip', label: 'Choco Chip', sub: 'Dark Chocolate', premium: false },
   { value: 'mocha', label: 'Mocha', sub: 'Coffee Blend', premium: false },
-  { value: 'mousse', label: 'Mousse', sub: 'Whipped', premium: false },
   { value: 'napolitano', label: 'Napolitano', sub: 'Mix', premium: false },
   { value: 'pecan', label: 'Nuez', sub: 'Pecan', premium: false },
   { value: 'coconut', label: 'Coco', sub: 'Coconut', premium: false },
@@ -32,13 +34,19 @@ export const FALLBACK_FILLINGS = [
   { value: 'tiramisu', label: 'Tiramisu', sub: 'Italian Style', premium: true },
   { value: 'relleno-flan', label: 'Relleno de Flan', sub: 'Flan Filling', premium: true },
   { value: 'oreo', label: 'Oreo', sub: 'Cookies & Cream', premium: false },
-  { value: 'red-velvet', label: 'Red Velvet', sub: 'Cream Cheese', premium: false },
+  { value: 'zarzamora', label: 'Zarzamora', sub: 'Blackberry', premium: false },
+  { value: 'chocolate-mousse', label: 'Mousse de Chocolate', sub: 'Chocolate Mousse', premium: false },
+  { value: 'strawberry-mousse', label: 'Mousse de Fresa', sub: 'Strawberry Mousse', premium: false },
+  { value: 'dulce-de-leche', label: 'Dulce de Leche', sub: 'Caramel', premium: false },
+  { value: 'strawberry-shortcake', label: 'Strawberry Shortcake', sub: 'Fresas con Crema', premium: false },
 ];
 
 // Premium filling size options with upcharges (fallback)
+// Option A: 8" and 10" premium upcharge is $10; full-sheet upcharge removed.
+// Only valid while Tiramisu and Relleno de Flan are the sole premium fillings.
 export const FALLBACK_PREMIUM_FILLING_OPTIONS = [
-  { value: '10-round', label: '10"', labelEs: '10"', upcharge: 5 },
-  { value: 'full-sheet', label: 'Full Sheet', labelEs: 'Plancha Completa', upcharge: 20 },
+  { value: '8-round', label: '8"', labelEs: '8"', upcharge: 10 },
+  { value: '10-round', label: '10"', labelEs: '10"', upcharge: 10 },
 ];
 
 export function formatTimeDisplay(time: string): string {
