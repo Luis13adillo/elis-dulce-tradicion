@@ -610,7 +610,7 @@ const Order = () => {
   };
 
   return (
-    <div className="min-h-screen font-sans pb-28 sm:pb-32 relative bg-black flex flex-col selection:bg-[#C6A649]/30">
+    <div className="min-h-screen font-sans pb-[calc(7rem_+_var(--sa-bottom))] sm:pb-[calc(8rem_+_var(--sa-bottom))] relative bg-black flex flex-col selection:bg-[#C6A649]/30">
 
       {/* --- BACKGROUND ANIMATION --- */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
@@ -849,7 +849,7 @@ const Order = () => {
       </main>
 
       {/* --- WIZARD NAVIGATION --- */}
-      <div className="fixed bottom-0 left-0 right-0 px-3 pb-3 pt-5 sm:p-6 z-50 bg-gradient-to-t from-black via-black/90 to-transparent">
+      <div className="fixed bottom-0 left-0 right-0 px-3 pt-5 pb-[calc(0.75rem_+_var(--sa-bottom))] sm:px-6 sm:pt-6 sm:pb-[calc(1.5rem_+_var(--sa-bottom))] z-50 bg-gradient-to-t from-black via-black/90 to-transparent">
         <div className="max-w-md mx-auto bg-black/60 backdrop-blur-3xl rounded-[1.5rem] sm:rounded-[2.5rem] p-3 sm:p-5 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.8)] flex justify-between items-center gap-3">
           <div className="flex flex-col pl-2 sm:pl-4 min-w-0">
             <span className="text-[9px] sm:text-[10px] text-[#C6A649] font-black uppercase tracking-[0.25em] sm:tracking-[0.3em] mb-0.5 sm:mb-1 truncate">{t('Total Estimado', 'Estimated Total')}</span>
