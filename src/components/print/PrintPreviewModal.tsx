@@ -13,6 +13,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import { OrderNotesSection } from './OrderNotesSection';
+import { supabase, STORAGE_BUCKET } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface PrintPreviewModalProps {
     order: Order | null;
@@ -29,6 +31,7 @@ export function PrintPreviewModal({ order, isOpen, onClose, onCancelOrder }: Pri
     const [issueCategory, setIssueCategory] = useState<string>('');
     const [issueDescription, setIssueDescription] = useState('');
     const [issueSubmitting, setIssueSubmitting] = useState(false);
+    const { hasRole } = useAuth();
 
     const handlePrintInvoice = useReactToPrint({
         content: () => invoiceRef.current,
@@ -41,6 +44,20 @@ export function PrintPreviewModal({ order, isOpen, onClose, onCancelOrder }: Pri
     });
 
     if (!order) return null;
+
+    const isOwner = hasRole('owner');
+
+    // Resolve the reference image the same way CompactOrderCard does — via the
+    // Supabase storage SDK so it follows VITE_SUPABASE_URL instead of a
+    // hardcoded project URL. Stored value may be a full URL, an absolute path,
+    // or a bucket-relative storage path.
+    const refImageUrl = (() => {
+        const p = order.reference_image_path;
+        if (!p) return null;
+        if (p.startsWith('http') || p.startsWith('/')) return p;
+        if (!supabase) return null;
+        return supabase.storage.from(STORAGE_BUCKET).getPublicUrl(p).data.publicUrl;
+    })();
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -342,9 +359,9 @@ export function PrintPreviewModal({ order, isOpen, onClose, onCancelOrder }: Pri
                         {/* LEFT: IMAGE & STATUS */}
                         <div className="w-full md:w-1/3 flex flex-col gap-4 shrink-0">
                             <div className="aspect-[3/4] w-full rounded-xl overflow-hidden bg-slate-900 border border-slate-800 relative group">
-                                {order.reference_image_path ? (
+                                {refImageUrl ? (
                                     <img
-                                        src={order.reference_image_path.startsWith('http') ? order.reference_image_path : `https://rnszrscxwkdwvvlsihqc.supabase.co/storage/v1/object/public/reference-images/${order.reference_image_path}`}
+                                        src={refImageUrl}
                                         alt="Cake Design"
                                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                     />
@@ -395,12 +412,34 @@ export function PrintPreviewModal({ order, isOpen, onClose, onCancelOrder }: Pri
                                         </div>
                                     </div>
 
+                                    {order.allergies && (
+                                        <div className="bg-red-50 border-2 border-red-500 rounded-sm p-4 flex items-start gap-3">
+                                            <AlertTriangle className="h-6 w-6 text-red-600 shrink-0 mt-0.5" />
+                                            <div>
+                                                <div className="text-[10px] font-bold text-red-700 uppercase tracking-[0.2em] mb-1">Allergies</div>
+                                                <div className="text-lg font-bold text-red-700 uppercase whitespace-pre-wrap leading-snug">{order.allergies}</div>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="bg-[#FFFBF0] p-4 border-l-4 border-[#C6A649]">
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <div className="text-[10px] font-bold text-[#8B6D1F] uppercase tracking-widest mb-1">Cake Size</div>
                                                 <div className="text-lg font-bold text-[#1A1A2E]">{order.cake_size}</div>
                                             </div>
+                                            {order.servings && (
+                                                <div>
+                                                    <div className="text-[10px] font-bold text-[#8B6D1F] uppercase tracking-widest mb-1">Servings</div>
+                                                    <div className="text-lg font-bold text-[#1A1A2E]">{order.servings}</div>
+                                                </div>
+                                            )}
+                                            {order.bread_type && (
+                                                <div>
+                                                    <div className="text-[10px] font-bold text-[#8B6D1F] uppercase tracking-widest mb-1">Bread / Flavor</div>
+                                                    <div className="text-lg font-bold text-[#1A1A2E]">{order.bread_type}</div>
+                                                </div>
+                                            )}
                                             <div>
                                                 <div className="text-[10px] font-bold text-[#8B6D1F] uppercase tracking-widest mb-1">Flavor / Filling</div>
                                                 <div className="text-lg font-bold text-[#1A1A2E]">{order.filling}</div>
@@ -432,6 +471,9 @@ export function PrintPreviewModal({ order, isOpen, onClose, onCancelOrder }: Pri
                                                 </div>
                                                 <div>
                                                     <div className="font-bold text-[#1A1A2E]">{order.customer_name}</div>
+                                                    {order.recipient_name && (
+                                                        <div className="text-xs text-[#1A1A2E]/60">For: <span className="font-semibold text-[#1A1A2E]/80">{order.recipient_name}</span></div>
+                                                    )}
                                                     {order.customer_phone && (
                                                         <div className="text-xs text-[#1A1A2E]/50 flex items-center gap-1.5">
                                                             <Phone className="h-3 w-3" />
@@ -490,6 +532,9 @@ export function PrintPreviewModal({ order, isOpen, onClose, onCancelOrder }: Pri
                             <div>
                               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Bill To</h3>
                               <div className="text-lg font-bold text-slate-900 mb-1">{order.customer_name}</div>
+                              {order.recipient_name && (
+                                <div className="text-sm text-slate-600 mb-1">For: <span className="font-semibold text-slate-900">{order.recipient_name}</span></div>
+                              )}
                               {order.customer_phone && (
                                 <div className="flex items-center gap-2 text-sm text-slate-600 mb-1">
                                   <Phone className="h-3 w-3" />
@@ -558,6 +603,12 @@ export function PrintPreviewModal({ order, isOpen, onClose, onCancelOrder }: Pri
                                   <td className="py-4">
                                     <div className="space-y-1 text-sm text-slate-600">
                                       <div><span className="font-medium text-slate-900">Size:</span> {order.cake_size}</div>
+                                      {order.servings && (
+                                        <div><span className="font-medium text-slate-900">Servings:</span> {order.servings}</div>
+                                      )}
+                                      {order.bread_type && (
+                                        <div><span className="font-medium text-slate-900">Bread:</span> {order.bread_type}</div>
+                                      )}
                                       <div><span className="font-medium text-slate-900">Flavor:</span> {order.filling}</div>
                                     </div>
                                   </td>
@@ -626,6 +677,13 @@ export function PrintPreviewModal({ order, isOpen, onClose, onCancelOrder }: Pri
                               {order.payment_method && (
                                 <span className="text-slate-400">via {order.payment_method}</span>
                               )}
+                            </div>
+                          )}
+
+                          {/* Owner/admin only — Stripe reference for refunds & disputes */}
+                          {isOwner && order.payment_intent_id && (
+                            <div className="mt-2 text-[11px] text-slate-400 font-mono break-all">
+                              Stripe: {order.payment_intent_id}
                             </div>
                           )}
                         </div>
