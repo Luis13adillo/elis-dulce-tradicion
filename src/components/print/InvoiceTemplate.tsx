@@ -3,6 +3,7 @@ import { Order } from '@/types/order';
 import { format } from 'date-fns';
 import { Upload, MapPin, Phone, Mail, Globe, Crown } from 'lucide-react';
 import TransparentLogo from '@/assets/brand/logo.png';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface InvoiceTemplateProps {
     order: Order;
@@ -10,6 +11,8 @@ interface InvoiceTemplateProps {
 
 export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ order }, ref) => {
     const total = parseFloat(order.total_amount?.toString() || '0');
+    const { hasRole } = useAuth();
+    const isOwner = hasRole('owner');
 
     return (
         <div ref={ref} className="bg-white text-slate-800 p-12 font-sans w-[210mm] min-h-[297mm] mx-auto hidden print:block relative">
@@ -51,6 +54,9 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
                 <div>
                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Bill To</h3>
                     <div className="text-lg font-bold text-slate-900 mb-1">{order.customer_name}</div>
+                    {order.recipient_name && (
+                        <div className="text-sm text-slate-600 mb-1">For: <span className="font-semibold text-slate-900">{order.recipient_name}</span></div>
+                    )}
                     <div className="flex items-center gap-2 text-sm text-slate-600 mb-1">
                         <Phone className="h-3 w-3" /> {order.customer_phone}
                     </div>
@@ -112,6 +118,12 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
                             <td className="py-6">
                                 <div className="space-y-1 text-sm text-slate-600">
                                     <div><span className="font-medium text-slate-900">Size:</span> {order.cake_size}</div>
+                                    {order.servings && (
+                                        <div><span className="font-medium text-slate-900">Servings:</span> {order.servings}</div>
+                                    )}
+                                    {order.bread_type && (
+                                        <div><span className="font-medium text-slate-900">Bread:</span> {order.bread_type}</div>
+                                    )}
                                     <div><span className="font-medium text-slate-900">Flavor:</span> {order.filling}</div>
                                 </div>
                             </td>
@@ -141,6 +153,16 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
                 </table>
             </div>
 
+            {/* ALLERGIES — prominent, only when present */}
+            {order.allergies && (
+                <div className="relative z-10 bg-red-50 p-6 rounded-xl border-2 border-red-500 mb-6">
+                    <h3 className="text-xs font-bold text-red-700 uppercase tracking-widest mb-2">⚠ Allergies</h3>
+                    <p className="text-base font-bold text-red-700 uppercase whitespace-pre-wrap">
+                        {order.allergies}
+                    </p>
+                </div>
+            )}
+
             {/* NOTES */}
             {(order.special_instructions || order.dedication) && (
                 <div className="relative z-10 bg-amber-50/50 p-6 rounded-xl border border-amber-100 mb-12">
@@ -149,6 +171,13 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
                         {order.dedication && <span className="block font-medium italic mb-2">"{order.dedication}"</span>}
                         {order.special_instructions}
                     </p>
+                </div>
+            )}
+
+            {/* Owner/admin only — Stripe reference for refunds & disputes */}
+            {isOwner && order.payment_intent_id && (
+                <div className="relative z-10 text-[11px] text-slate-400 font-mono break-all mb-6">
+                    Stripe: {order.payment_intent_id}
                 </div>
             )}
 

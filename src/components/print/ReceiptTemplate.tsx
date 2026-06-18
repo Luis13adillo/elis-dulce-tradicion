@@ -39,6 +39,18 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
                 </div>
             </div>
 
+            {/* ALLERGIES — prominent, only when present */}
+            {order.allergies && (
+                <div className="border-4 border-black p-2 mb-4 text-center">
+                    <div className="font-bold uppercase tracking-widest text-xs mb-1">
+                        ⚠ ALLERGIES ⚠
+                    </div>
+                    <div className="font-bold text-base uppercase whitespace-pre-wrap break-words">
+                        {order.allergies}
+                    </div>
+                </div>
+            )}
+
             {/* ITEMS */}
             <div className="border-b border-black pb-4 mb-4">
                 <div className="font-bold mb-2">ORDER DETAILS</div>
@@ -46,10 +58,28 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
                     <span>Size:</span>
                     <span className="font-bold text-right">{order.cake_size}</span>
                 </div>
+                {order.servings && (
+                    <div className="flex justify-between mb-1">
+                        <span>Servings:</span>
+                        <span className="font-bold text-right">{order.servings}</span>
+                    </div>
+                )}
+                {order.bread_type && (
+                    <div className="flex justify-between mb-1">
+                        <span>Bread:</span>
+                        <span className="font-bold text-right">{order.bread_type}</span>
+                    </div>
+                )}
                 <div className="flex justify-between mb-1">
                     <span>Flavor:</span>
                     <span className="font-bold text-right">{order.filling}</span>
                 </div>
+                {order.recipient_name && (
+                    <div className="flex justify-between mb-1">
+                        <span>For:</span>
+                        <span className="font-bold text-right">{order.recipient_name}</span>
+                    </div>
+                )}
             </div>
 
             {/* CUSTOM */}
