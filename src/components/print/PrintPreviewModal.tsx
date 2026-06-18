@@ -15,6 +15,7 @@ import { format } from 'date-fns';
 import { OrderNotesSection } from './OrderNotesSection';
 import { supabase, STORAGE_BUCKET } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import type { OrderIssue } from '@/lib/support';
 
 interface PrintPreviewModalProps {
     order: Order | null;
@@ -28,7 +29,7 @@ export function PrintPreviewModal({ order, isOpen, onClose, onCancelOrder }: Pri
     const receiptRef = useRef<HTMLDivElement>(null);
     const [viewMode, setViewMode] = useState<'ticket' | 'invoice'>('ticket');
     const [showIssueForm, setShowIssueForm] = useState(false);
-    const [issueCategory, setIssueCategory] = useState<string>('');
+    const [issueCategory, setIssueCategory] = useState<OrderIssue['issue_category'] | ''>('');
     const [issueDescription, setIssueDescription] = useState('');
     const [issueSubmitting, setIssueSubmitting] = useState(false);
     const { hasRole } = useAuth();
@@ -273,7 +274,7 @@ export function PrintPreviewModal({ order, isOpen, onClose, onCancelOrder }: Pri
                       <div className="space-y-4">
                         <div>
                           <Label htmlFor="issue-category" className="text-sm text-slate-300 mb-1.5 block">Category</Label>
-                          <Select value={issueCategory} onValueChange={setIssueCategory}>
+                          <Select value={issueCategory} onValueChange={(v) => setIssueCategory(v as OrderIssue['issue_category'])}>
                             <SelectTrigger id="issue-category" className="bg-slate-800 border-slate-600 text-white">
                               <SelectValue placeholder="Select issue type..." />
                             </SelectTrigger>
@@ -307,6 +308,7 @@ export function PrintPreviewModal({ order, isOpen, onClose, onCancelOrder }: Pri
                           <Button size="sm" disabled={!issueCategory || !issueDescription.trim() || issueSubmitting}
                             className="bg-red-600 hover:bg-red-700 text-white"
                             onClick={async () => {
+                              if (!issueCategory) return;
                               setIssueSubmitting(true);
                               try {
                                 const { submitOrderIssue } = await import('@/lib/support');
@@ -319,7 +321,7 @@ export function PrintPreviewModal({ order, isOpen, onClose, onCancelOrder }: Pri
                                   customer_name: order.customer_name || 'Unknown',
                                   customer_email: order.customer_email || '',
                                   customer_phone: order.customer_phone,
-                                  issue_category: issueCategory as any,
+                                  issue_category: issueCategory,
                                   issue_description: issueDescription.trim(),
                                 });
 
