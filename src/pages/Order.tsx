@@ -247,35 +247,48 @@ const Order = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Derive active arrays from DB data (or fall back to hardcoded arrays)
-  const activeCakeSizes = orderOptions?.cakeSizes.map(s => ({
-    value: s.value,
-    label: s.label_en,
-    labelEs: s.label_es,
-    price: s.price,
-    serves: s.serves,
-    featured: s.featured,
-  })) || FALLBACK_CAKE_SIZES;
+  // Derive active arrays from DB data (or fall back to hardcoded arrays).
+  // Guard on LENGTH, not just truthiness: `[].map() || FALLBACK` keeps the
+  // empty array (an empty array is truthy), so a backend that returns zero
+  // rows — or a deployment with no backend at all — would render an empty
+  // menu (no size cards to select). The length check makes the hardcoded
+  // fallback load whenever the DB returns nothing.
+  const activeCakeSizes = orderOptions?.cakeSizes?.length
+    ? orderOptions.cakeSizes.map(s => ({
+        value: s.value,
+        label: s.label_en,
+        labelEs: s.label_es,
+        price: s.price,
+        serves: s.serves,
+        featured: s.featured,
+      }))
+    : FALLBACK_CAKE_SIZES;
 
-  const activeBreadTypes = orderOptions?.breadTypes.map(b => ({
-    value: b.value,
-    label: b.label_en,
-    desc: b.description,
-  })) || FALLBACK_BREAD_TYPES;
+  const activeBreadTypes = orderOptions?.breadTypes?.length
+    ? orderOptions.breadTypes.map(b => ({
+        value: b.value,
+        label: b.label_en,
+        desc: b.description,
+      }))
+    : FALLBACK_BREAD_TYPES;
 
-  const activeFillings = orderOptions?.fillings.map(f => ({
-    value: f.value,
-    label: f.label_en,
-    sub: f.sub_label,
-    premium: f.is_premium,
-  })) || FALLBACK_FILLINGS;
+  const activeFillings = orderOptions?.fillings?.length
+    ? orderOptions.fillings.map(f => ({
+        value: f.value,
+        label: f.label_en,
+        sub: f.sub_label,
+        premium: f.is_premium,
+      }))
+    : FALLBACK_FILLINGS;
 
-  const activePremiumOptions = orderOptions?.premiumUpcharges.map(u => ({
-    value: u.size_value,
-    label: u.label_en,
-    labelEs: u.label_es,
-    upcharge: u.upcharge,
-  })) || FALLBACK_PREMIUM_FILLING_OPTIONS;
+  const activePremiumOptions = orderOptions?.premiumUpcharges?.length
+    ? orderOptions.premiumUpcharges.map(u => ({
+        value: u.size_value,
+        label: u.label_en,
+        labelEs: u.label_es,
+        upcharge: u.upcharge,
+      }))
+    : FALLBACK_PREMIUM_FILLING_OPTIONS;
 
   const { pricingBreakdown, isLoading: isCalculatingPrice } = useOptimizedPricing({
     size: formData.cakeSize,
