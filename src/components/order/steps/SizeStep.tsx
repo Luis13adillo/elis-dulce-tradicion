@@ -71,7 +71,7 @@ const SizeStep = ({ cakeSize, activeCakeSizes, optionsLoading, isSpanish, onSize
             <button
               key={s.value}
               onClick={() => onSizeChange(s.value)}
-              className={`relative p-3.5 sm:p-6 rounded-2xl sm:rounded-[2rem] text-left transition-all duration-500 border overflow-hidden group/card ${
+              className={`relative p-3.5 sm:p-6 rounded-2xl sm:rounded-[2rem] text-left transition duration-300 border overflow-hidden group/card ${
                 cakeSize === s.value
                   ? 'bg-white/10 border-[#C6A649]/50 shadow-[0_20px_50px_rgba(0,0,0,0.5)] scale-[1.03]'
                   : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/[0.08] hover:border-[#C6A649]/30 active:scale-95'

@@ -213,6 +213,9 @@ const DateTimeStep = ({
             </div>
           </div>
 
+          {/* Native date input sits ABOVE the visual content (z-20) so a direct
+              tap opens the iOS date picker natively — we no longer rely solely on
+              showPicker() (which is gesture/version-flaky on iOS Safari). */}
           <input
             ref={dateInputRef}
             type="date"
@@ -220,7 +223,7 @@ const DateTimeStep = ({
             max={maxDate}
             value={dateNeeded}
             onChange={(e) => onDateChange(e.target.value)}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
             aria-label={t('Fecha de entrega', 'Pickup date')}
           />
         </button>

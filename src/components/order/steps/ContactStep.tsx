@@ -112,7 +112,7 @@ const ContactStep = ({
       <div className="bg-white/5 p-2 rounded-2xl sm:rounded-[2rem] border border-white/10 grid grid-cols-2 gap-2 shadow-2xl">
         <button
           onClick={() => onPickupTypeChange('pickup')}
-          className={`py-3 sm:py-4 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-black uppercase tracking-wider sm:tracking-widest flex items-center justify-center gap-2 sm:gap-3 transition-all duration-500 ${
+          className={`py-3 sm:py-4 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-black uppercase tracking-wider sm:tracking-widest flex items-center justify-center gap-2 sm:gap-3 transition duration-300 ${
             pickupType === 'pickup'
               ? 'bg-[#C6A649] text-black shadow-[0_10px_20px_rgba(198,166,73,0.3)]'
               : 'text-gray-400 hover:bg-white/5 hover:text-white active:scale-95'
@@ -122,7 +122,7 @@ const ContactStep = ({
         </button>
         <button
           onClick={() => onPickupTypeChange('delivery')}
-          className={`py-3 sm:py-4 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-black uppercase tracking-wider sm:tracking-widest flex items-center justify-center gap-2 sm:gap-3 transition-all duration-500 ${
+          className={`py-3 sm:py-4 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-black uppercase tracking-wider sm:tracking-widest flex items-center justify-center gap-2 sm:gap-3 transition duration-300 ${
             pickupType === 'delivery'
               ? 'bg-[#C6A649] text-black shadow-[0_10px_20px_rgba(198,166,73,0.3)]'
               : 'text-gray-400 hover:bg-white/5 hover:text-white active:scale-95'
@@ -174,7 +174,7 @@ const ContactStep = ({
       {/* Required acknowledgment */}
       <label className="flex items-start gap-3 sm:gap-4 cursor-pointer group p-3 sm:p-4 rounded-2xl sm:rounded-3xl transition-colors hover:bg-white/5 border border-amber-500/20 bg-amber-500/5">
         <div
-          className={`mt-0.5 w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl border-2 flex items-center justify-center transition-all duration-500 flex-shrink-0 ${
+          className={`mt-0.5 w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl border-2 flex items-center justify-center transition duration-300 flex-shrink-0 ${
             foodSafetyAcknowledged
               ? 'bg-amber-500 border-amber-500 text-black shadow-[0_0_15px_rgba(251,191,36,0.4)]'
               : 'border-amber-500/40 group-hover:border-amber-400'
@@ -199,7 +199,7 @@ const ContactStep = ({
       {/* Terms Consent Checkbox */}
       <label className="flex items-start gap-3 sm:gap-4 cursor-pointer group p-3 sm:p-4 rounded-2xl sm:rounded-3xl transition-colors hover:bg-white/5 border border-white/10">
         <div
-          className={`mt-0.5 w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl border-2 flex items-center justify-center transition-all duration-500 flex-shrink-0 ${
+          className={`mt-0.5 w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl border-2 flex items-center justify-center transition duration-300 flex-shrink-0 ${
             consentGiven
               ? 'bg-[#C6A649] border-[#C6A649] text-black shadow-[0_0_15px_rgba(198,166,73,0.4)]'
               : 'border-white/10 group-hover:border-[#C6A649]'

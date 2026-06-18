@@ -11,7 +11,7 @@ import { useOptimizedPricing } from '@/lib/hooks/useOptimizedPricing';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatPrice } from '@/lib/pricing';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import LanguageToggle from '@/components/LanguageToggle';
 import { useBusinessHours, useBusinessSettings } from '@/lib/hooks/useCMS';
 import { api } from '@/lib/api';
@@ -60,6 +60,11 @@ const Order = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const prefersReducedMotion = useReducedMotion();
+  // Only run the infinite background motion on larger screens with motion allowed.
+  // On mobile (or reduced-motion) these huge blurred layers are rendered static to
+  // avoid continuous compositor repaints that starve touch/scroll on iOS Safari.
+  const animateBg = !isMobile && !prefersReducedMotion;
   const isSpanish = language === 'es';
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -618,16 +623,25 @@ const Order = () => {
         <div className="absolute top-1/4 left-1/4 -translate-y-1/2 w-[600px] h-[600px] bg-[#C6A649]/10 rounded-full blur-[140px] pointer-events-none opacity-50" />
         <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-amber-500/5 rounded-full blur-[120px] pointer-events-none opacity-40" />
 
-        <motion.div
-          animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
-          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-          className="absolute -top-[50%] -left-[50%] w-[200%] h-[200%] bg-[radial-gradient(circle_at_50%_50%,rgba(198,166,73,0.05),transparent_70%)]"
-        />
-        <motion.div
-          animate={{ y: [0, -50, 0], x: [0, 30, 0] }}
-          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-0 right-0 w-[800px] h-[800px] bg-[radial-gradient(circle_at_50%_50%,rgba(198,166,73,0.03),transparent_60%)] filter blur-3xl opacity-40"
-        />
+        {animateBg ? (
+          <>
+            <motion.div
+              animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
+              transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+              className="absolute -top-[50%] -left-[50%] w-[200%] h-[200%] bg-[radial-gradient(circle_at_50%_50%,rgba(198,166,73,0.05),transparent_70%)]"
+            />
+            <motion.div
+              animate={{ y: [0, -50, 0], x: [0, 30, 0] }}
+              transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute top-0 right-0 w-[800px] h-[800px] bg-[radial-gradient(circle_at_50%_50%,rgba(198,166,73,0.03),transparent_60%)] filter blur-3xl opacity-40"
+            />
+          </>
+        ) : (
+          <>
+            <div className="absolute -top-[50%] -left-[50%] w-[200%] h-[200%] bg-[radial-gradient(circle_at_50%_50%,rgba(198,166,73,0.05),transparent_70%)]" />
+            <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-[radial-gradient(circle_at_50%_50%,rgba(198,166,73,0.03),transparent_60%)] filter blur-3xl opacity-40" />
+          </>
+        )}
       </div>
 
       {/* --- TOP BAR --- */}
@@ -683,7 +697,7 @@ const Order = () => {
                 >
                   <div
                     className={cn(
-                      "h-1.5 sm:h-2 rounded-full transition-all duration-500 w-full sm:w-10",
+                      "h-1.5 sm:h-2 rounded-full transition-[width,background-color,box-shadow] duration-500 w-full sm:w-10",
                       (isCompleted || isActive)
                         ? "bg-[#C6A649] shadow-[0_0_15px_rgba(198,166,73,0.5)]"
                         : "bg-white/10",
@@ -849,8 +863,8 @@ const Order = () => {
       </main>
 
       {/* --- WIZARD NAVIGATION --- */}
-      <div className="fixed bottom-0 left-0 right-0 px-3 pt-5 pb-[calc(0.75rem_+_var(--sa-bottom))] sm:px-6 sm:pt-6 sm:pb-[calc(1.5rem_+_var(--sa-bottom))] z-50 bg-gradient-to-t from-black via-black/90 to-transparent">
-        <div className="max-w-md mx-auto bg-black/60 backdrop-blur-3xl rounded-[1.5rem] sm:rounded-[2.5rem] p-3 sm:p-5 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.8)] flex justify-between items-center gap-3">
+      <div className="fixed bottom-0 left-0 right-0 px-3 pt-5 pb-[calc(0.75rem_+_var(--sa-bottom))] sm:px-6 sm:pt-6 sm:pb-[calc(1.5rem_+_var(--sa-bottom))] z-50 bg-gradient-to-t from-black via-black/90 to-transparent pointer-events-none">
+        <div className="max-w-md mx-auto bg-black/60 backdrop-blur-3xl rounded-[1.5rem] sm:rounded-[2.5rem] p-3 sm:p-5 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.8)] flex justify-between items-center gap-3 pointer-events-auto">
           <div className="flex flex-col pl-2 sm:pl-4 min-w-0">
             <span className="text-[9px] sm:text-[10px] text-[#C6A649] font-black uppercase tracking-[0.25em] sm:tracking-[0.3em] mb-0.5 sm:mb-1 truncate">{t('Total Estimado', 'Estimated Total')}</span>
             <span className="text-2xl sm:text-3xl font-black text-white tracking-tighter leading-none">
@@ -863,7 +877,7 @@ const Order = () => {
               <button
                 onClick={prevStep}
                 aria-label={t('Atrás', 'Back')}
-                className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-[1.2rem] bg-white/5 border border-white/10 text-white flex items-center justify-center hover:bg-white hover:text-black transition-all duration-500 flex-shrink-0"
+                className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-[1.2rem] bg-white/5 border border-white/10 text-white flex items-center justify-center hover:bg-white hover:text-black transition duration-300 flex-shrink-0"
               >
                 <ChevronLeft size={22} strokeWidth={3} />
               </button>
@@ -872,7 +886,7 @@ const Order = () => {
             <button
               onClick={nextStep}
               disabled={isSubmitting}
-              className={`h-12 sm:h-14 px-5 sm:px-8 rounded-xl sm:rounded-[1.2rem] flex items-center justify-center gap-2 sm:gap-3 font-black text-xs sm:text-sm uppercase tracking-[0.15em] sm:tracking-[0.2em] transition-all duration-500 shadow-[0_0_20px_rgba(198,166,73,0.3)] flex-shrink-0 ${
+              className={`h-12 sm:h-14 px-5 sm:px-8 rounded-xl sm:rounded-[1.2rem] flex items-center justify-center gap-2 sm:gap-3 font-black text-xs sm:text-sm uppercase tracking-[0.15em] sm:tracking-[0.2em] transition duration-300 shadow-[0_0_20px_rgba(198,166,73,0.3)] flex-shrink-0 ${
                 isSubmitting ? 'bg-gray-800 text-gray-500' : 'bg-[#C6A649] text-black hover:bg-white hover:scale-105 active:scale-95'
               }`}
             >

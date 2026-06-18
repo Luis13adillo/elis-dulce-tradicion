@@ -91,7 +91,7 @@ const FlavorStep = ({
               <button
                 key={type.value}
                 onClick={() => onBreadChange(type.value)}
-                className={`p-4 sm:p-6 rounded-2xl sm:rounded-3xl flex items-center justify-between gap-3 border transition-all duration-500 ${
+                className={`p-4 sm:p-6 rounded-2xl sm:rounded-3xl flex items-center justify-between gap-3 border transition duration-300 ${
                   breadType === type.value
                     ? 'bg-[#C6A649] border-[#C6A649] text-black shadow-[0_15px_30px_rgba(198,166,73,0.3)] scale-[1.02]'
                     : 'bg-white/5 border-white/10 text-white hover:bg-white/[0.08] hover:border-[#C6A649]/30 active:scale-[0.98]'
@@ -131,7 +131,7 @@ const FlavorStep = ({
               <button
                 key={f.value}
                 onClick={() => onFillingToggle(f.value)}
-                className={`w-full p-3 sm:p-4 rounded-xl sm:rounded-2xl border text-left transition-all duration-500 relative overflow-hidden group/filling ${
+                className={`w-full p-3 sm:p-4 rounded-xl sm:rounded-2xl border text-left transition duration-300 relative overflow-hidden group/filling ${
                   isSelected
                     ? 'bg-[#C6A649]/20 border-[#C6A649] text-[#C6A649] shadow-[0_10px_20px_rgba(0,0,0,0.3)] scale-[1.03]'
                     : 'bg-white/5 border-white/10 text-gray-400 hover:border-[#C6A649]/30 hover:bg-white/[0.08] active:scale-95'
