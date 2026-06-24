@@ -194,11 +194,21 @@ export const useOrdersFeed = (role?: UserRole, options?: { soundEnabled?: boolea
     [patchOrdersCache]
   );
 
+  // After a realtime dropout, pull any orders that were inserted/updated while
+  // we were disconnected (those changes never arrived as live events). This is
+  // a silent cache refetch — it does NOT go through handleOrderInsert, so it
+  // never fires the new-order sound/toast/full-screen alert. It only guarantees
+  // the grid and the urgent banner reflect reality after a reconnect.
+  const handleReconnect = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+  }, [queryClient]);
+
   const { isConnected, isConnecting, connectionError, reconnect } = useRealtimeOrders({
     filterByUserId: !isAdmin, // Customers only see their orders, admins see all
     onOrderInsert: handleOrderInsert,
     onOrderUpdate: handleOrderUpdate,
     onOrderDelete: handleOrderDelete,
+    onReconnect: handleReconnect,
   });
 
   // Dismiss Alert

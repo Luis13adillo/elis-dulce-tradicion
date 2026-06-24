@@ -14,6 +14,12 @@ export interface UseRealtimeOrdersOptions {
   onOrderInsert?: (order: Order) => void;
   onOrderUpdate?: (order: Order, oldOrder?: Order) => void;
   onOrderDelete?: (order: Order) => void;
+  // Fired when the channel re-subscribes after a genuine dropout (not on the
+  // first connect). Use it to refetch the list so any INSERT/UPDATE that
+  // landed while we were disconnected — and thus never arrived as an event —
+  // is pulled in. Without this, a connection hiccup silently loses orders
+  // until the next manual refresh / stale-time lapse.
+  onReconnect?: () => void;
   filterByUserId?: boolean; // If true, only subscribe to orders for current user
   debounceMs?: number; // Debounce rapid updates
 }
@@ -46,6 +52,7 @@ export function useRealtimeOrders(
     onOrderInsert,
     onOrderUpdate,
     onOrderDelete,
+    onReconnect,
     filterByUserId = false,
   } = options;
 
@@ -54,10 +61,18 @@ export function useRealtimeOrders(
   const insertCallbackRef = useRef(onOrderInsert);
   const updateCallbackRef = useRef(onOrderUpdate);
   const deleteCallbackRef = useRef(onOrderDelete);
+  const reconnectCallbackRef = useRef(onReconnect);
+
+  // True once a genuine dropout (CHANNEL_ERROR / TIMED_OUT) has occurred, so
+  // the next SUBSCRIBED is recognized as a re-subscribe and triggers a
+  // catch-up refetch. Stays false through the initial connect and through
+  // normal dependency-driven re-subscribes (no data was missed there).
+  const pendingCatchUpRef = useRef(false);
 
   useEffect(() => { insertCallbackRef.current = onOrderInsert; }, [onOrderInsert]);
   useEffect(() => { updateCallbackRef.current = onOrderUpdate; }, [onOrderUpdate]);
   useEffect(() => { deleteCallbackRef.current = onOrderDelete; }, [onOrderDelete]);
+  useEffect(() => { reconnectCallbackRef.current = onReconnect; }, [onReconnect]);
 
   // Debounce function
   const debounce = useCallback(
@@ -171,13 +186,21 @@ export function useRealtimeOrders(
           reconnectAttemptsRef.current = 0; // Reset backoff on successful connect
           setIsConnected(true);
           setConnectionError(null);
+          // If this SUBSCRIBED follows a real dropout, pull anything we missed
+          // while offline. Runs once per reconnect, never on the first connect.
+          if (pendingCatchUpRef.current) {
+            pendingCatchUpRef.current = false;
+            reconnectCallbackRef.current?.();
+          }
         } else if (status === 'CHANNEL_ERROR') {
           setIsConnected(false);
           setConnectionError('Channel subscription error');
+          pendingCatchUpRef.current = true;
           reconnect();
         } else if (status === 'TIMED_OUT') {
           setIsConnected(false);
           setConnectionError('Connection timed out');
+          pendingCatchUpRef.current = true;
           reconnect();
         } else if (status === 'CLOSED') {
           setIsConnected(false);
