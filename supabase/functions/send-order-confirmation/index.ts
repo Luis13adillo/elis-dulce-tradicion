@@ -4,6 +4,7 @@ import { Resend } from "npm:resend@^4.0.0";
 import {
   buildEmailHtml,
   formatDate,
+  getBusinessInfo,
   OrderData
 } from "../_shared/emailTemplates.ts";
 
