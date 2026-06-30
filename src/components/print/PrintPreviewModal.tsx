@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import { OrderNotesSection } from './OrderNotesSection';
-import { supabase, STORAGE_BUCKET } from '@/lib/supabase';
+import { resolveReferenceImageUrl } from '@/lib/storage';
 import { useAuth } from '@/contexts/AuthContext';
 import type { OrderIssue } from '@/lib/support';
 
@@ -48,17 +48,10 @@ export function PrintPreviewModal({ order, isOpen, onClose, onCancelOrder }: Pri
 
     const isOwner = hasRole('owner');
 
-    // Resolve the reference image the same way CompactOrderCard does — via the
-    // Supabase storage SDK so it follows VITE_SUPABASE_URL instead of a
-    // hardcoded project URL. Stored value may be a full URL, an absolute path,
-    // or a bucket-relative storage path.
-    const refImageUrl = (() => {
-        const p = order.reference_image_path;
-        if (!p) return null;
-        if (p.startsWith('http') || p.startsWith('/')) return p;
-        if (!supabase) return null;
-        return supabase.storage.from(STORAGE_BUCKET).getPublicUrl(p).data.publicUrl;
-    })();
+    // Resolve the reference image via the shared helper so it follows
+    // VITE_SUPABASE_URL instead of a hardcoded project URL. Stored value may be
+    // a full URL, an absolute path, or a bucket-relative storage path.
+    const refImageUrl = resolveReferenceImageUrl(order.reference_image_path);
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -365,7 +358,7 @@ export function PrintPreviewModal({ order, isOpen, onClose, onCancelOrder }: Pri
                                     <img
                                         src={refImageUrl}
                                         alt="Cake Design"
-                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                        className="w-full h-full object-contain"
                                     />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center text-slate-700">

@@ -12,7 +12,7 @@ import {
   X,
   Maximize2
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { resolveReferenceImageUrl } from '@/lib/storage';
 
 interface ReferenceImageViewerProps {
   imagePath?: string;
@@ -31,24 +31,9 @@ const ReferenceImageViewer = ({
   const [rotation, setRotation] = useState(0);
   const [imageError, setImageError] = useState(false);
 
-  // Get public URL from Supabase storage path
-  const getImageUrl = () => {
-    if (!imagePath) return null;
-    
-    // If it's already a full URL, return as-is
-    if (imagePath.startsWith('http')) {
-      return imagePath;
-    }
-    
-    // Get public URL from Supabase storage
-    const { data } = supabase.storage
-      .from('reference-images')
-      .getPublicUrl(imagePath);
-    
-    return data?.publicUrl || null;
-  };
-
-  const imageUrl = getImageUrl();
+  // Resolve via the shared helper (handles full URLs, absolute paths, and
+  // bucket-relative storage paths; follows VITE_SUPABASE_URL).
+  const imageUrl = resolveReferenceImageUrl(imagePath);
 
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.25, 3));
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.25, 0.5));

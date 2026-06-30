@@ -6,7 +6,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { uploadReferenceImage } from '@/lib/storage';
-import { isValidImageType, isValidFileSize, compressImage } from '@/lib/imageCompression';
+import { isValidImageType, isValidFileSize, isHeicFile, compressImage } from '@/lib/imageCompression';
 import { useOptimizedPricing } from '@/lib/hooks/useOptimizedPricing';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/contexts/AuthContext';
@@ -119,7 +119,14 @@ const Order = () => {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
-  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
+  // Canonical stored value: the bucket-relative STORAGE PATH (e.g.
+  // "orders/temp_123.jpg"), not a full URL. Consumers resolve it via
+  // resolveReferenceImageUrl so it never bakes in a project ref.
+  const [uploadedImagePath, setUploadedImagePath] = useState<string | null>(null);
+  // True only when the customer picked an image but the upload did NOT
+  // succeed. Lets us (a) keep showing their selection, (b) block the step,
+  // and (c) avoid silently submitting an order with a missing reference photo.
+  const [imageUploadFailed, setImageUploadFailed] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [consentGiven, setConsentGiven] = useState(false);
   const [allergies, setAllergies] = useState('');
@@ -376,6 +383,14 @@ const Order = () => {
     const file = e.target.files?.[0] || null;
     if (!file) return;
 
+    // iPhone HEIC/HEIF — clear, actionable message instead of a silent failure.
+    if (isHeicFile(file)) {
+      toast.error(t(
+        'Las fotos HEIC del iPhone no son compatibles. Sube JPG, PNG o WebP (en iPhone: Ajustes › Cámara › Formatos › Más compatible).',
+        "iPhone HEIC photos aren't supported. Please upload JPG, PNG, or WebP (on iPhone: Settings › Camera › Formats › Most Compatible)."
+      ));
+      return;
+    }
     if (!isValidImageType(file)) {
       toast.error(t('Tipo de archivo no válido. Solo JPG, PNG o WebP.', 'Invalid file type. Only JPG, PNG or WebP.'));
       return;
@@ -385,6 +400,9 @@ const Order = () => {
       return;
     }
 
+    // New selection — reset prior success/failure state.
+    setUploadedImagePath(null);
+    setImageUploadFailed(false);
     const previewUrl = URL.createObjectURL(file);
     setImagePreviewUrl(previewUrl);
     setIsUploadingImage(true);
@@ -398,17 +416,26 @@ const Order = () => {
       });
 
       const result = await uploadReferenceImage(compressedFile);
-      if (result.success && result.url) {
-        setUploadedImageUrl(result.url);
-        toast.success(t('Imagen optimizada y subida', 'Image optimized and uploaded'));
+      // Store the bucket-relative PATH (env-portable), not the absolute URL.
+      if (result.success && result.path) {
+        setUploadedImagePath(result.path);
+        setImageUploadFailed(false);
+        toast.success(t('Imagen subida correctamente', 'Image uploaded successfully'));
       } else {
         throw new Error(result.error || 'Upload failed');
       }
     } catch (error) {
       console.error('Error uploading image:', error);
       const errorMsg = error instanceof Error ? error.message : 'Error uploading image';
-      toast.error(errorMsg);
-      setImagePreviewUrl(null);
+      // Keep the preview visible and flag the failure so the customer can
+      // retry — do NOT clear it, otherwise the order would submit with no
+      // reference photo and the customer wouldn't know.
+      setUploadedImagePath(null);
+      setImageUploadFailed(true);
+      toast.error(t(
+        'No se pudo subir la imagen. Tócala para reintentar.',
+        `Could not upload the image: ${errorMsg}. Tap it to retry.`
+      ));
     } finally {
       setIsUploadingImage(false);
     }
@@ -417,7 +444,8 @@ const Order = () => {
   const handleRemoveImage = (e: React.MouseEvent) => {
     e.stopPropagation();
     setImagePreviewUrl(null);
-    setUploadedImageUrl(null);
+    setUploadedImagePath(null);
+    setImageUploadFailed(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -478,6 +506,22 @@ const Order = () => {
     }
 
     if (stepId === 'details') {
+      // Block advancing while an upload is in flight or unresolved.
+      if (isUploadingImage) {
+        const msg = t('Espera a que termine de subir la foto', 'Wait for the photo to finish uploading');
+        setValidationError(msg);
+        return false;
+      }
+      // Customer selected an image but it isn't safely stored (failed or
+      // still resolving) — don't let them move on and lose it silently.
+      if (imagePreviewUrl && !uploadedImagePath) {
+        const msg = t(
+          'La foto no se subió. Reintenta o quítala para continuar.',
+          'The photo did not upload. Retry it or remove it to continue.'
+        );
+        setValidationError(msg);
+        return false;
+      }
       const err = validateDetailsStep();
       if (err) { setValidationError(err); return false; }
     }
@@ -523,6 +567,22 @@ const Order = () => {
   };
 
   const handleSubmit = async () => {
+    // Belt-and-suspenders image guard (the Details step already blocks this,
+    // but a fast back/forward race could reach submit mid-upload). Never
+    // submit while an upload is in flight or after a failed/unresolved upload —
+    // it would charge the customer for a cake with no reference photo.
+    if (isUploadingImage) {
+      toast.error(t('Espera a que termine de subir la foto', 'Wait for the photo to finish uploading'));
+      return;
+    }
+    if (imagePreviewUrl && !uploadedImagePath) {
+      toast.error(t(
+        'La foto no se subió. Reintenta o quítala antes de finalizar.',
+        'The photo did not upload. Retry it or remove it before checking out.'
+      ));
+      return;
+    }
+
     // Hard guard against rapid double-clicks. Runs synchronously before the
     // React re-render that disables the button, so a fast second click is
     // dropped. Also protects against the user navigating back and forth.
@@ -571,7 +631,7 @@ const Order = () => {
         filling_values: selectedFillings,          // string[] of filling slugs e.g. ['strawberry', 'tiramisu']
         theme: [formData.theme, formData.decorationNotes].filter(Boolean).join(' — ') || 'Custom',
         dedication: formData.dedication || '',
-        reference_image_path: uploadedImageUrl || '',
+        reference_image_path: uploadedImagePath || '',
         delivery_option: formData.pickupType,
         delivery_address: formData.pickupType === 'delivery' ? formData.deliveryAddress : '',
         delivery_fee: formData.pickupType === 'delivery' ? deliveryFee : 0,
@@ -693,7 +753,7 @@ const Order = () => {
                 getDateTimeSummary(formData.dateNeeded, formData.timeNeeded),
                 getSizeSummary(formData.cakeSize, activeCakeSizes, isSpanish),
                 getFlavorSummary(formData.breadType, selectedFillings, activeBreadTypes, activeFillings),
-                getDetailsSummary(formData.theme, uploadedImageUrl, t),
+                getDetailsSummary(formData.theme, uploadedImagePath, t),
                 getContactSummary(formData.customerName, formData.pickupType, t),
               ][i];
               const isCompleted = i < currentStep;
@@ -824,6 +884,8 @@ const Order = () => {
                 recipientName={formData.recipientName}
                 imagePreviewUrl={imagePreviewUrl}
                 isUploadingImage={isUploadingImage}
+                imageUploaded={!!uploadedImagePath}
+                imageUploadFailed={imageUploadFailed}
                 isMobile={isMobile}
                 fileInputRef={fileInputRef}
                 showCamera={showCamera}

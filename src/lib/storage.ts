@@ -131,6 +131,29 @@ export async function deleteReferenceImage(imagePath: string): Promise<{
 }
 
 /**
+ * Resolve a stored `reference_image_path` to a displayable URL.
+ *
+ * This is the SINGLE source of truth for turning whatever is stored on the
+ * order into something an <img src> can render. The stored value may be:
+ *   - a bucket-relative storage path (e.g. "orders/temp_123.jpg") — the
+ *     canonical format new uploads use; resolved against the CURRENT
+ *     VITE_SUPABASE_URL so it never hardcodes a project ref,
+ *   - a legacy absolute public URL (starts with "http"), returned as-is,
+ *   - an absolute path (starts with "/"), returned as-is.
+ *
+ * Returns null for empty/missing values. Every consumer (kitchen cards, print
+ * modal, reference viewer) MUST use this instead of building URLs by hand —
+ * the old hand-built URLs baked in a stale project ref and broke after the
+ * prod Supabase cutover.
+ */
+export function resolveReferenceImageUrl(value?: string | null): string | null {
+  if (!value) return null;
+  if (value.startsWith('http') || value.startsWith('/')) return value;
+  if (!supabase) return null;
+  return supabase.storage.from(STORAGE_BUCKET).getPublicUrl(value).data.publicUrl || null;
+}
+
+/**
  * Extracts the storage path from a full URL
  * @param url - Full Supabase Storage URL
  * @returns Storage path or null
