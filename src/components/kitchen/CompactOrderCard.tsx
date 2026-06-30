@@ -1,7 +1,7 @@
 import { memo, useMemo, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Order, OrderAction } from "@/types/order";
-import { Globe, Store, Timer, ChevronRight, Truck, ShoppingBag } from "lucide-react";
+import { Globe, Store, Timer, ChevronRight, Truck, ShoppingBag, AlertTriangle } from "lucide-react";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -318,6 +318,23 @@ export const CompactOrderCard = memo(function CompactOrderCard({
                 )}>
                     {order.customer_name || t('Cliente', 'Customer')}
                 </h3>
+
+                {/* Allergy banner — safety-critical, shown at-a-glance on the card
+                    face (not just in the detail modal). Never truncated. */}
+                {order.allergies && order.allergies.trim() && (
+                    <div className={cn(
+                        "flex items-start gap-1.5 rounded-md px-2 py-1 border",
+                        isDark
+                            ? "bg-red-500/15 border-red-500/40 text-red-200"
+                            : "bg-red-50 border-red-300 text-red-700"
+                    )}>
+                        <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-px" />
+                        <span className="text-[11px] font-bold leading-tight break-words">
+                            <span className="uppercase tracking-wide">{t('Alergias', 'Allergy')}:</span>{' '}
+                            <span className="font-semibold">{order.allergies.trim()}</span>
+                        </span>
+                    </div>
+                )}
 
                 {order.recipient_name && (
                     <p className={cn(
