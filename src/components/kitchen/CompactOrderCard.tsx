@@ -6,7 +6,7 @@ import { format, parseISO, differenceInMinutes } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { formatCurrency, formatTime } from "@/lib/i18n-utils";
-import { supabase, STORAGE_BUCKET } from "@/lib/supabase";
+import { resolveReferenceImageUrl } from "@/lib/storage";
 
 interface CompactOrderCardProps {
     order: Order;
@@ -148,15 +148,12 @@ export const CompactOrderCard = memo(function CompactOrderCard({
         return parts.length ? parts.join(' · ') : t('Pastel personalizado', 'Custom cake');
     }, [order.items, order.cake_size, order.servings, order.bread_type, order.filling, t]);
 
-    // Reference image URL (resolved or null) — uses Supabase SDK so it stays in
+    // Reference image URL (resolved or null) — shared resolver keeps it in
     // sync with VITE_SUPABASE_URL across environments
-    const refImageUrl = useMemo(() => {
-        if (!order.reference_image_path) return null;
-        const p = order.reference_image_path;
-        if (p.startsWith('http') || p.startsWith('/')) return p;
-        if (!supabase) return null;
-        return supabase.storage.from(STORAGE_BUCKET).getPublicUrl(p).data.publicUrl;
-    }, [order.reference_image_path]);
+    const refImageUrl = useMemo(
+        () => resolveReferenceImageUrl(order.reference_image_path),
+        [order.reference_image_path]
+    );
 
     const fallbackAvatar = useMemo(
         () => dicebearAvatar(order.customer_name ?? 'guest'),

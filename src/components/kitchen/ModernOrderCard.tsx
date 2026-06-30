@@ -7,6 +7,7 @@ import { format, parseISO, differenceInMinutes } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
 import ReferenceImageViewer from "@/components/order/ReferenceImageViewer";
+import { resolveReferenceImageUrl } from "@/lib/storage";
 
 interface ModernOrderCardProps {
     order: Order;
@@ -186,14 +187,9 @@ export const ModernOrderCard = memo(function ModernOrderCard({
                         "h-10 w-10 rounded-full overflow-hidden border relative",
                         variant === 'dark' ? "bg-slate-700 border-slate-600" : "bg-gray-100 border-gray-200"
                     )}>
-                        {order.reference_image_path ? (
+                        {resolveReferenceImageUrl(order.reference_image_path) ? (
                             <img
-                                src={order.reference_image_path.startsWith('http')
-                                    ? order.reference_image_path
-                                    : order.reference_image_path.startsWith('/')
-                                        ? order.reference_image_path
-                                        : `https://rnszrscxwkdwvvlsihqc.supabase.co/storage/v1/object/public/reference-images/${order.reference_image_path}`
-                                }
+                                src={resolveReferenceImageUrl(order.reference_image_path)!}
                                 alt="Ref"
                                 className="h-full w-full object-cover"
                                 onError={(e) => {
@@ -458,10 +454,8 @@ export const ModernOrderCard = memo(function ModernOrderCard({
             </div>
 
             {/* Reference Photo — prominent inline display */}
-            {order.reference_image_path && (() => {
-                const imgUrl = order.reference_image_path.startsWith('http')
-                    ? order.reference_image_path
-                    : `https://rnszrscxwkdwvvlsihqc.supabase.co/storage/v1/object/public/reference-images/${order.reference_image_path}`;
+            {resolveReferenceImageUrl(order.reference_image_path) && (() => {
+                const imgUrl = resolveReferenceImageUrl(order.reference_image_path)!;
                 return (
                     <div
                         data-ref-section="true"
@@ -487,7 +481,7 @@ export const ModernOrderCard = memo(function ModernOrderCard({
                         <img
                             src={imgUrl}
                             alt={t('Referencia de pastel', 'Cake reference')}
-                            className="w-full h-32 object-cover"
+                            className="w-full h-44 object-contain bg-black/40"
                             onError={(e) => {
                                 (e.currentTarget.closest('[data-ref-section="true"]') as HTMLElement | null)?.remove();
                             }}

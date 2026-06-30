@@ -10,6 +10,27 @@ export interface CompressionOptions {
 }
 
 /**
+ * Detects iPhone HEIC / HEIF photos.
+ *
+ * iOS sometimes auto-transcodes these to JPEG when picked via <input type=file>,
+ * but not always (depends on iOS version, source app, and "Most Compatible" vs
+ * "High Efficiency" camera setting). When it doesn't, the browser can't decode
+ * the file, compression fails, and the upload silently breaks. We detect HEIC by
+ * MIME type AND by extension (iOS frequently reports an empty MIME for HEIC) so
+ * we can show a clear, actionable message instead of a generic failure.
+ */
+export function isHeicFile(file: File): boolean {
+  const type = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+  return (
+    type === 'image/heic' ||
+    type === 'image/heif' ||
+    name.endsWith('.heic') ||
+    name.endsWith('.heif')
+  );
+}
+
+/**
  * Validates if the file is a valid image type
  */
 export function isValidImageType(file: File): boolean {

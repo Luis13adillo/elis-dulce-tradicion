@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { CameraCapture } from '@/components/mobile/CameraCapture';
-import { Upload, X, Camera, Loader2, Sparkles, Star, User } from 'lucide-react';
+import { Upload, X, Camera, Loader2, Sparkles, Star, User, CheckCircle2, AlertTriangle, RefreshCw } from 'lucide-react';
 
 // FloatingInput helper — co-located here, imported by ContactStep
 export const FloatingInput = ({ label, value, onChange, type = "text", placeholder, icon: Icon, maxLength, className }: any) => {
@@ -42,6 +42,8 @@ interface DetailsStepProps {
   recipientName: string;
   imagePreviewUrl: string | null;
   isUploadingImage: boolean;
+  imageUploaded: boolean;
+  imageUploadFailed: boolean;
   isMobile: boolean;
   fileInputRef: React.RefObject<HTMLInputElement>;
   onThemeChange: (theme: string) => void;
@@ -74,6 +76,8 @@ const DetailsStep = ({
   recipientName,
   imagePreviewUrl,
   isUploadingImage,
+  imageUploaded,
+  imageUploadFailed,
   isMobile,
   fileInputRef,
   onThemeChange,
@@ -160,11 +164,14 @@ const DetailsStep = ({
                 <span className="text-[9px] sm:text-[10px] font-bold text-gray-600 uppercase tracking-widest">JPG, PNG, WEBP</span>
               </div>
             </button>
-            <input ref={fileInputRef} type="file" accept="image/*" onChange={onImageChange} className="hidden" />
           </div>
         ) : (
-          <div className="relative rounded-2xl sm:rounded-[2rem] overflow-hidden shadow-2xl group h-48 sm:h-64 border border-white/10">
-            <img src={imagePreviewUrl} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" alt="Preview" />
+          // object-contain (not cover) so the customer and the bakery see the
+          // WHOLE uploaded image — letterboxed on a neutral bg — instead of a
+          // center-cropped version that may hide the part of the cake that
+          // matters. Background mat makes the letterboxing look intentional.
+          <div className="relative rounded-2xl sm:rounded-[2rem] overflow-hidden shadow-2xl group h-56 sm:h-72 border border-white/10 bg-black/40">
+            <img src={imagePreviewUrl} className="w-full h-full object-contain" alt={t('Vista previa de la referencia', 'Reference preview')} />
             <button
               onClick={onRemoveImage}
               className="absolute top-3 right-3 z-30 bg-black/60 backdrop-blur-md p-2.5 rounded-full text-white hover:bg-red-500/80 active:scale-95 transition-all border border-white/10"
@@ -172,16 +179,52 @@ const DetailsStep = ({
             >
               <X size={18} />
             </button>
+
+            {/* Uploading overlay */}
             {isUploadingImage && (
-              <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-30">
+              <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center gap-2 z-30">
                 <Loader2 className="animate-spin text-[#C6A649]" size={40} />
+                <p className="text-[10px] sm:text-xs font-bold text-white/80 uppercase tracking-widest">{t('Subiendo…', 'Uploading…')}</p>
               </div>
             )}
-            <div className="absolute bottom-3 left-3 z-10 bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
-              <p className="text-[10px] sm:text-xs font-black text-white uppercase tracking-widest">{t('Referencia Visual', 'Visual Reference')}</p>
-            </div>
+
+            {/* Upload FAILED — tap anywhere to retry */}
+            {!isUploadingImage && imageUploadFailed && (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center gap-2 z-30 text-center px-4"
+                aria-label={t('Reintentar subida', 'Retry upload')}
+              >
+                <AlertTriangle className="text-red-400" size={36} />
+                <p className="text-[11px] sm:text-sm font-black text-white uppercase tracking-wide leading-tight">
+                  {t('No se pudo subir', 'Upload failed')}
+                </p>
+                <span className="inline-flex items-center gap-1.5 mt-1 text-[10px] sm:text-xs font-bold text-[#C6A649] uppercase tracking-widest">
+                  <RefreshCw size={14} /> {t('Tocar para reintentar', 'Tap to retry')}
+                </span>
+              </button>
+            )}
+
+            {/* Uploaded SUCCESSFULLY — only after the storage path exists */}
+            {!isUploadingImage && !imageUploadFailed && imageUploaded && (
+              <div className="absolute bottom-3 left-3 z-10 flex items-center gap-1.5 bg-emerald-600/90 backdrop-blur-md px-3 py-1.5 rounded-full border border-emerald-300/30 shadow-lg">
+                <CheckCircle2 size={14} className="text-white" />
+                <p className="text-[10px] sm:text-xs font-black text-white uppercase tracking-widest">{t('Subida correctamente', 'Uploaded successfully')}</p>
+              </div>
+            )}
+
+            {/* Neutral label while neither success nor failure has resolved */}
+            {!isUploadingImage && !imageUploadFailed && !imageUploaded && (
+              <div className="absolute bottom-3 left-3 z-10 bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
+                <p className="text-[10px] sm:text-xs font-black text-white uppercase tracking-widest">{t('Referencia Visual', 'Visual Reference')}</p>
+              </div>
+            )}
           </div>
         )}
+
+        {/* File input lives outside the preview/empty branch so it stays mounted
+            for retry (tap-to-retry above re-opens it). */}
+        <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={onImageChange} className="hidden" />
       </div>
 
       {showCamera && (
