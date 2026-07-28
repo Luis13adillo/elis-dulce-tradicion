@@ -155,6 +155,7 @@ function resendClient(): { resend: Resend; from: string; frontendUrl: string } |
 }
 
 // deno-lint-ignore no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function sendPaymentLinkEmail(result: any): Promise<void> {
     const ctx = resendClient();
     if (!ctx) return;
@@ -219,6 +220,7 @@ async function sendPaymentLinkEmail(result: any): Promise<void> {
 }
 
 // deno-lint-ignore no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function sendDeclineEmail(result: any, reason: string): Promise<void> {
     const ctx = resendClient();
     if (!ctx) return;

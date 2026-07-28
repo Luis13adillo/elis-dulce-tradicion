@@ -160,6 +160,7 @@ Deno.serve(async (req) => {
 });
 
 // deno-lint-ignore no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function sendReminderEmail(row: any): Promise<void> {
     const ctx = resendClient();
     if (!ctx) return;
@@ -214,6 +215,7 @@ async function sendReminderEmail(row: any): Promise<void> {
 }
 
 // deno-lint-ignore no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function sendStuckStaffAlert(row: any): Promise<void> {
     const ctx = resendClient();
     if (!ctx) return;

@@ -203,6 +203,7 @@ Deno.serve(async (req) => {
 // ---------------------------------------------------------------------------
 
 // deno-lint-ignore no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function runAiReview(pending: any): Promise<Verdict> {
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     if (!ANTHROPIC_API_KEY) {
@@ -299,6 +300,7 @@ async function runAiReview(pending: any): Promise<Verdict> {
 // ---------------------------------------------------------------------------
 
 // deno-lint-ignore no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function sendHoldNotifications(pending: any, verdict: Verdict): Promise<void> {
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
     if (!RESEND_API_KEY) {
