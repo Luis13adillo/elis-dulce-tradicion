@@ -292,6 +292,23 @@ export class OrdersApi extends BaseApiClient {
         return data as Record<string, unknown> | null;
     }
 
+    /**
+     * Pre-payment AI photo review. Returns only the routing decision — the
+     * verdict itself never reaches the browser. Fail-closed at the caller:
+     * if this invoke fails for an order that has a photo, route to the
+     * holding page; the create-payment-intent gate is the real protection.
+     */
+    async reviewOrderImage(pendingId: string): Promise<{ held: boolean }> {
+        const sb = this.ensureSupabase();
+        if (!sb) throw new Error('Database connection not available.');
+
+        const { data, error } = await sb.functions.invoke('review-order-image', {
+            body: { pending_order_id: pendingId },
+        });
+        if (error) throw error;
+        return { held: Boolean((data as { held?: boolean })?.held) };
+    }
+
     async verifyPaymentByPending(pendingId: string): Promise<{
         verified: boolean;
         status: string;

@@ -32,6 +32,7 @@ class ApiClient extends BaseApiClient {
     searchOrders = this.ordersModule.searchOrders.bind(this.ordersModule);
     createPendingOrder = this.ordersModule.createPendingOrder.bind(this.ordersModule);
     getPendingOrder = this.ordersModule.getPendingOrder.bind(this.ordersModule);
+    reviewOrderImage = this.ordersModule.reviewOrderImage.bind(this.ordersModule);
     verifyPaymentByPending = this.ordersModule.verifyPaymentByPending.bind(this.ordersModule);
     cancelOrder = this.ordersModule.cancelOrder.bind(this.ordersModule);
     adminCancelOrder = this.ordersModule.adminCancelOrder.bind(this.ordersModule);
@@ -140,7 +141,19 @@ class ApiClient extends BaseApiClient {
                 ? { pending_order_id: input.pending_order_id }
                 : { amount: input.amount, currency: 'usd', metadata: input.metadata };
         const { data, error } = await sb.functions.invoke('create-payment-intent', { body });
-        if (error) throw error;
+        if (error) {
+            // FunctionsHttpError hides the function's JSON body behind
+            // error.context — surface { error, code } so callers can branch
+            // (e.g. code 'image_review_required' redirects to the holding page).
+            const ctx = (error as { context?: Response }).context;
+            let parsed: { error?: string; code?: string } | null = null;
+            if (ctx && typeof ctx.json === 'function') {
+                try { parsed = await ctx.json(); } catch { /* body not JSON */ }
+            }
+            const surfaced = new Error(parsed?.error || error.message) as Error & { code?: string };
+            if (parsed?.code) surfaced.code = parsed.code;
+            throw surfaced;
+        }
         return data as { clientSecret: string; id: string };
     }
 

@@ -30,6 +30,7 @@ const Index = lazyWithRetry(() => import("./pages/Index"));
 // pause control if ordering ever needs to be halted server-side.
 const Order = lazyWithRetry(() => import("./pages/Order"));
 const PaymentCheckout = lazyWithRetry(() => import("./pages/PaymentCheckout"));
+const OrderReviewPending = lazyWithRetry(() => import("./pages/OrderReviewPending"));
 const OrderConfirmation = lazyWithRetry(() => import("./pages/OrderConfirmation"));
 const FrontDesk = lazyWithRetry(() => import("./pages/FrontDesk"));
 const OwnerDashboard = lazyWithRetry(() => import("./pages/OwnerDashboard"));
@@ -88,6 +89,7 @@ const App = () => {
                     <Route path="/" element={<Index />} />
                     <Route path="/order" element={<Order />} />
                     <Route path="/payment-checkout" element={<PaymentCheckout />} />
+                    <Route path="/order-received" element={<OrderReviewPending />} />
                     <Route path="/order-confirmation" element={<OrderConfirmation />} />
                     <Route path="/login" element={<Login />} />
                     <Route path="/signup" element={<Signup />} />

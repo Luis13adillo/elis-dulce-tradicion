@@ -103,6 +103,13 @@ const PaymentCheckout = () => {
             .catch(err => {
               console.error('Payment Init Error:', err);
               paymentIntentRequested.current = false;
+              // Photo review gate: this order can't pay until the bakery
+              // approves its design photo — send the customer to the
+              // holding page instead of showing a payment error.
+              if ((err as { code?: string }).code === 'image_review_required') {
+                navigate(`/order-received?pendingId=${encodeURIComponent(urlPendingId)}`);
+                return;
+              }
               const msg = err.message || JSON.stringify(err) || 'Failed to initialize payment';
               setError(`Payment System Error: ${msg}`);
               toast.error('Payment initialization failed: ' + msg);
