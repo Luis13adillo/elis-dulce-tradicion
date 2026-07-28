@@ -1,12 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ClipboardList, LogOut, CalendarDays, Bell, Boxes, Truck, BarChart3 } from "lucide-react";
+import { ClipboardList, LogOut, CalendarDays, Bell, Boxes, Truck, BarChart3, ScanSearch } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import TransparentLogo from '@/assets/brand/logo.png';
 
 interface KitchenSidebarProps {
-    activeView: 'queue' | 'upcoming' | 'inventory' | 'deliveries' | 'reports';
-    onChangeView: (view: 'queue' | 'upcoming' | 'inventory' | 'deliveries' | 'reports') => void;
+    activeView: 'queue' | 'review' | 'upcoming' | 'inventory' | 'deliveries' | 'reports';
+    onChangeView: (view: 'queue' | 'review' | 'upcoming' | 'inventory' | 'deliveries' | 'reports') => void;
     onLogout: () => void;
     compact?: boolean;
     darkMode?: boolean;
@@ -25,6 +25,12 @@ export function KitchenSidebar({ activeView, onChangeView, onLogout, compact = f
             label: t('Ordenes', 'Orders'),
             icon: ClipboardList,
             view: 'queue' as const
+        },
+        {
+            id: 'review',
+            label: t('Revisión de Fotos', 'Photo Review'),
+            icon: ScanSearch,
+            view: 'review' as const
         },
         {
             id: 'upcoming',

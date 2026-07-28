@@ -439,6 +439,68 @@ export function BusinessSettingsManager() {
           </Card>
           <Card>
             <CardHeader>
+              <CardTitle>{isSpanish ? 'Revisión de Fotos (IA)' : 'Photo Review (AI)'}</CardTitle>
+              <CardDescription>
+                {isSpanish
+                  ? 'Revisión de la foto de diseño ANTES del pago. Solo una coincidencia clara pasa directo al pago; lo demás va a revisión manual sin cobrar.'
+                  : 'Design-photo review BEFORE payment. Only a clear match goes straight to checkout; everything else is held for manual review with no charge.'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="image_review_mode">{isSpanish ? 'Modo' : 'Mode'}</Label>
+                <select
+                  id="image_review_mode"
+                  className="flex h-10 w-56 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={formData.image_review_mode ?? 'off'}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      image_review_mode: e.target.value as 'off' | 'shadow' | 'enforce',
+                    })
+                  }
+                >
+                  <option value="off">{isSpanish ? 'Apagado' : 'Off'}</option>
+                  <option value="shadow">{isSpanish ? 'Sombra (solo registra)' : 'Shadow (record only)'}</option>
+                  <option value="enforce">{isSpanish ? 'Activo (bloquea el pago)' : 'Enforce (blocks payment)'}</option>
+                </select>
+                <p className="text-xs text-gray-400">
+                  {isSpanish
+                    ? 'Sombra: la IA registra veredictos sin retener a nadie (calibración). Activo: los pedidos retenidos no pueden pagar hasta ser aprobados.'
+                    : 'Shadow: the AI records verdicts without holding anyone (calibration). Enforce: held orders cannot pay until approved.'}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="review_payment_link_hours">
+                  {isSpanish ? 'Validez del enlace de pago (horas)' : 'Payment link validity (hours)'}
+                </Label>
+                <div className="flex items-center gap-3">
+                  <Input
+                    id="review_payment_link_hours"
+                    type="number"
+                    min={1}
+                    max={168}
+                    value={formData.review_payment_link_hours ?? 48}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        review_payment_link_hours: parseInt(e.target.value, 10) || 48,
+                      })
+                    }
+                    className="w-24"
+                  />
+                  <span className="text-sm text-gray-500">{isSpanish ? 'horas' : 'hours'}</span>
+                </div>
+                <p className="text-xs text-gray-400">
+                  {isSpanish
+                    ? 'Tras aprobar, el cliente tiene este tiempo para pagar (con un recordatorio a mitad). Al expirar, la fecha se libera automáticamente.'
+                    : 'After approval the customer has this long to pay (one reminder midway). On expiry the date frees up automatically.'}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
               <CardTitle>{isSpanish ? 'Seguridad de Sesión' : 'Session Security'}</CardTitle>
               <CardDescription>
                 {isSpanish

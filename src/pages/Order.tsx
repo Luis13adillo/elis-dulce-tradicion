@@ -672,7 +672,32 @@ const Order = () => {
       );
       sessionStorage.removeItem('pendingOrder'); // retire legacy key
       localStorage.removeItem(STORAGE_KEY);
-      navigate(`/payment-checkout?pendingId=${encodeURIComponent(pending.pending_order_id)}`);
+
+      // Pre-payment photo review. Only a MATCH (or no photo / feature off)
+      // proceeds straight to checkout. A held verdict — or a review call that
+      // fails or times out — routes to the holding page, never to checkout
+      // (fail-closed). The create-payment-intent gate is the authoritative
+      // server-side protection either way.
+      let reviewHeld = false;
+      if (uploadedImagePath) {
+        const reviewToastId = toast.loading(
+          t('Revisando tu foto de diseño…', 'Checking your design photo…')
+        );
+        try {
+          ({ held: reviewHeld } = await api.reviewOrderImage(pending.pending_order_id));
+        } catch (reviewErr) {
+          console.error('Image review unavailable — holding order (fail-closed):', reviewErr);
+          reviewHeld = true;
+        } finally {
+          toast.dismiss(reviewToastId);
+        }
+      }
+
+      navigate(
+        reviewHeld
+          ? `/order-received?pendingId=${encodeURIComponent(pending.pending_order_id)}`
+          : `/payment-checkout?pendingId=${encodeURIComponent(pending.pending_order_id)}`
+      );
     } catch (error: any) {
       console.error('Error preparing payment:', error);
       // Surface the server's message when it's a validation rejection

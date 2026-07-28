@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
         if (body.pending_order_id) {
             const { data: pending, error } = await supabase
                 .from("pending_orders")
-                .select("id, order_number, customer_name, customer_email, customer_phone, customer_language, total_amount, status, payment_intent_id, expires_at, date_needed, time_needed, cake_size, filling, delivery_option, delivery_address")
+                .select("id, order_number, customer_name, customer_email, customer_phone, customer_language, total_amount, status, payment_intent_id, expires_at, date_needed, time_needed, cake_size, filling, delivery_option, delivery_address, reference_image_path, image_review_status, price_revision")
                 .eq("id", body.pending_order_id)
                 .maybeSingle();
 
@@ -97,6 +97,33 @@ Deno.serve(async (req) => {
                 );
             }
 
+            // Image-review gate (authoritative, server-side). When enforcement
+            // is on, an order that carries a reference photo may only pay after
+            // its photo review has passed (AI match) or been approved by staff.
+            // Derived from image presence so a client that skips the review
+            // call — or a crafted request straight at this endpoint — is still
+            // blocked. 'off'/'shadow' modes never gate.
+            const hasReferenceImage = typeof pending.reference_image_path === "string"
+                && pending.reference_image_path.trim() !== "";
+            if (hasReferenceImage) {
+                const { data: settings } = await supabase
+                    .from("business_settings")
+                    .select("image_review_mode")
+                    .limit(1)
+                    .maybeSingle();
+                const reviewMode = settings?.image_review_mode ?? "off";
+                const reviewStatus = pending.image_review_status ?? "not_required";
+                if (reviewMode === "enforce" && !["passed", "approved"].includes(reviewStatus)) {
+                    return new Response(
+                        JSON.stringify({
+                            error: "This order's design photo is being reviewed by our bakers. We'll email you a secure payment link once it's confirmed.",
+                            code: "image_review_required",
+                        }),
+                        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                    );
+                }
+            }
+
             const amount = Number(pending.total_amount);
             if (!amount || amount <= 0 || amount > 10000) {
                 return new Response(
@@ -110,13 +137,27 @@ Deno.serve(async (req) => {
             if (pending.payment_intent_id) {
                 try {
                     const existing = await stripe.paymentIntents.retrieve(pending.payment_intent_id);
-                    if (existing.status === "requires_payment_method"
-                        || existing.status === "requires_confirmation"
-                        || existing.status === "requires_action") {
+                    // Only reuse a PI whose amount still matches the row. A staff
+                    // price revision after review nulls payment_intent_id, but if
+                    // a stale PI ever survives (race, partial failure) reusing it
+                    // would charge the OLD amount — create a fresh one instead.
+                    const amountMatches = existing.amount === Math.round(Number(pending.total_amount) * 100);
+                    if (amountMatches
+                        && (existing.status === "requires_payment_method"
+                            || existing.status === "requires_confirmation"
+                            || existing.status === "requires_action")) {
                         return new Response(
                             JSON.stringify({ clientSecret: existing.client_secret, id: existing.id }),
                             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
                         );
+                    }
+                    if (!amountMatches && existing.status !== "succeeded" && existing.status !== "canceled") {
+                        // Best-effort: cancel the stale-amount PI so it can never be confirmed
+                        try {
+                            await stripe.paymentIntents.cancel(existing.id);
+                        } catch (cancelErr) {
+                            console.warn("stale PI cancel failed (continuing):", cancelErr);
+                        }
                     }
                 } catch (retrieveErr) {
                     // PI gone or invalid — fall through and create a fresh one
@@ -159,7 +200,11 @@ Deno.serve(async (req) => {
                     },
                     receipt_email: pending.customer_email ?? undefined,
                 },
-                { idempotencyKey: `pending_${pending.id}` }
+                // Versioned by price_revision: a staff price change after review
+                // must produce a NEW Stripe idempotency scope — reusing the old
+                // key with a different amount would be rejected by Stripe (or
+                // worse, replay the old-amount PI within the idempotency window).
+                { idempotencyKey: `pending_${pending.id}_v${pending.price_revision ?? 0}` }
             );
 
             // Store the PI id on the pending row so subsequent calls can reuse it

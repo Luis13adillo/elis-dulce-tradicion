@@ -30,8 +30,8 @@ const ClockDisplay = memo(({ darkMode }: { darkMode: boolean }) => {
 
 interface KitchenRedesignedLayoutProps {
     children: React.ReactNode;
-    activeView: 'queue' | 'upcoming' | 'inventory' | 'deliveries' | 'reports';
-    onChangeView: (view: 'queue' | 'upcoming' | 'inventory' | 'deliveries' | 'reports') => void;
+    activeView: 'queue' | 'review' | 'upcoming' | 'inventory' | 'deliveries' | 'reports';
+    onChangeView: (view: 'queue' | 'review' | 'upcoming' | 'inventory' | 'deliveries' | 'reports') => void;
     isConnected?: boolean;
     connectionError?: string | null;
     onLogout: () => void;

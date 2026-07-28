@@ -27,6 +27,7 @@ import { QuickStatsWidget } from '@/components/dashboard/QuickStatsWidget';
 import { UrgentOrdersBanner } from '@/components/kitchen/UrgentOrdersBanner';
 import { Package, AlertTriangle, ChevronLeft, ChevronRight, WifiOff, RefreshCw, PlusCircle, FlaskConical } from 'lucide-react';
 import { WalkInOrderModal } from '@/components/kitchen/WalkInOrderModal';
+import { ReviewQueuePanel, useReviewQueueCount } from '@/components/kitchen/ReviewQueuePanel';
 import { AuthenticatorAssuranceCheck } from '@/components/auth/AuthenticatorAssuranceCheck';
 import { useInactivityTimeout } from '@/hooks/useInactivityTimeout';
 import { SessionTimeoutModal } from '@/components/auth/SessionTimeoutModal';
@@ -148,7 +149,8 @@ const FrontDesk = () => {
 
   // State
   const [activeTab, setActiveTab] = useState<KitchenTab>('active');
-  const [activeView, setActiveView] = useState<'queue' | 'upcoming' | 'inventory' | 'deliveries' | 'reports'>('queue');
+  const [activeView, setActiveView] = useState<'queue' | 'review' | 'upcoming' | 'inventory' | 'deliveries' | 'reports'>('queue');
+  const reviewQueueCount = useReviewQueueCount();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   // Theme: light-only product. Previously a useState(true) that drove a never-wired-up toggle.
@@ -432,6 +434,10 @@ const FrontDesk = () => {
   }, [selectedOrder, filteredOrders]);
 
   const renderContent = () => {
+    if (activeView === 'review') {
+      return <ReviewQueuePanel darkMode={isDarkMode} />;
+    }
+
     if (activeView === 'inventory') {
       return <FrontDeskInventory darkMode={isDarkMode} />;
     }
@@ -718,7 +724,7 @@ const FrontDesk = () => {
       onNotificationClick={() => setIsNotificationPanelOpen(true)}
       onRefresh={refreshOrders}
       isRefreshing={isRefreshing}
-      badgeCounts={{ queue: counts.new }}
+      badgeCounts={{ queue: counts.new, review: reviewQueueCount }}
       soundEnabled={isSoundEnabled}
       onToggleSound={() => setIsSoundEnabled(!isSoundEnabled)}
       userName={user?.profile?.full_name || user?.email?.split('@')[0] || 'Staff'}
