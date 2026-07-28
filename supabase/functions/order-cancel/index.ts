@@ -200,19 +200,24 @@ Deno.serve(async (req) => {
     try {
         await supabase.functions.invoke("send-status-update", {
             body: {
-                order_number: order.order_number,
-                customer_name: order.customer_name,
-                customer_email: order.customer_email,
-                customer_language: order.customer_language,
-                old_status: oldStatus,
-                new_status: "cancelled",
-                date_needed: order.date_needed,
-                time_needed: order.time_needed,
-                delivery_option: order.delivery_option,
-                notes:
-                    `Cancellation reason: ${reason}` +
-                    (refundAmount > 0 ? `. Refund amount: $${refundAmount.toFixed(2)}` : "") +
-                    (isAdmin && adminNotes ? `. Admin notes: ${adminNotes}` : ""),
+                // send-status-update destructures { order, oldStatus } — a flat
+                // body is rejected with 400 and the customer never gets the email.
+                order: {
+                    order_number: order.order_number,
+                    customer_name: order.customer_name,
+                    customer_email: order.customer_email,
+                    customer_language: order.customer_language,
+                    old_status: oldStatus,
+                    new_status: "cancelled",
+                    date_needed: order.date_needed,
+                    time_needed: order.time_needed,
+                    delivery_option: order.delivery_option,
+                    notes:
+                        `Cancellation reason: ${reason}` +
+                        (refundAmount > 0 ? `. Refund amount: $${refundAmount.toFixed(2)}` : "") +
+                        (isAdmin && adminNotes ? `. Admin notes: ${adminNotes}` : ""),
+                },
+                oldStatus,
             },
         });
     } catch (emailErr) {
