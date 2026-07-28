@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import { resolveReferenceImageUrl } from '@/lib/storage';
 import {
   CreditCard,
   Loader2,
@@ -262,9 +263,9 @@ return (
                         </p>
                         <div className="relative rounded-xl overflow-hidden aspect-video bg-black/30">
                           <img
-                            src={orderData.reference_image_path}
+                            src={resolveReferenceImageUrl(orderData.reference_image_path) ?? undefined}
                             alt="Reference"
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-contain"
                           />
                         </div>
                       </div>
