@@ -293,6 +293,51 @@ export class OrdersApi extends BaseApiClient {
     }
 
     /**
+     * Staff photo-review queue (owner/baker only — table grant + RLS).
+     * Includes held, approved-awaiting-payment, and reopenable rows.
+     */
+    async getReviewQueue(): Promise<Record<string, unknown>[]> {
+        const sb = this.ensureSupabase();
+        if (!sb) throw new Error('Database connection not available.');
+
+        const { data, error } = await sb
+            .from('pending_orders')
+            .select('id, order_number, status, image_review_status, image_review_result, image_reviewed_at, customer_name, customer_email, customer_phone, customer_language, date_needed, time_needed, cake_size, servings, filling, theme, dedication, recipient_name, total_amount, original_total_amount, price_revision, delivery_option, delivery_address, delivery_fee, reference_image_path, expires_at, payment_link_sent_at, payment_reminder_sent_at, created_at')
+            .in('image_review_status', ['needs_review', 'approved', 'review_expired', 'declined'])
+            .order('created_at', { ascending: false })
+            .limit(100);
+        if (error) throw error;
+        return data ?? [];
+    }
+
+    /** Staff resolution of a held photo review via the review-resolve Edge Function. */
+    async resolveImageReview(input: {
+        pending_order_id: string;
+        action: 'approve' | 'decline' | 'expire' | 'reopen';
+        updates?: Record<string, unknown>;
+        final_total?: number;
+        notes?: string;
+        contacted_customer?: boolean;
+    }): Promise<Record<string, unknown>> {
+        const sb = this.ensureSupabase();
+        if (!sb) throw new Error('Database connection not available.');
+
+        const { data, error } = await sb.functions.invoke('review-resolve', { body: input });
+        if (error) {
+            const ctx = (error as { context?: Response }).context;
+            let parsed: { error?: string; code?: string; details?: unknown } | null = null;
+            if (ctx && typeof ctx.json === 'function') {
+                try { parsed = await ctx.json(); } catch { /* body not JSON */ }
+            }
+            const surfaced = new Error(parsed?.error || error.message) as Error & { code?: string; details?: unknown };
+            if (parsed?.code) surfaced.code = parsed.code;
+            if (parsed?.details) surfaced.details = parsed.details;
+            throw surfaced;
+        }
+        return data as Record<string, unknown>;
+    }
+
+    /**
      * Pre-payment AI photo review. Returns only the routing decision — the
      * verdict itself never reaches the browser. Fail-closed at the caller:
      * if this invoke fails for an order that has a photo, route to the

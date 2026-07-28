@@ -33,6 +33,8 @@ class ApiClient extends BaseApiClient {
     createPendingOrder = this.ordersModule.createPendingOrder.bind(this.ordersModule);
     getPendingOrder = this.ordersModule.getPendingOrder.bind(this.ordersModule);
     reviewOrderImage = this.ordersModule.reviewOrderImage.bind(this.ordersModule);
+    getReviewQueue = this.ordersModule.getReviewQueue.bind(this.ordersModule);
+    resolveImageReview = this.ordersModule.resolveImageReview.bind(this.ordersModule);
     verifyPaymentByPending = this.ordersModule.verifyPaymentByPending.bind(this.ordersModule);
     cancelOrder = this.ordersModule.cancelOrder.bind(this.ordersModule);
     adminCancelOrder = this.ordersModule.adminCancelOrder.bind(this.ordersModule);

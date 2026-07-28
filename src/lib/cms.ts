@@ -30,6 +30,10 @@ export interface BusinessSettings {
   session_timeout_minutes?: number;
   auto_confirm_enabled?: boolean;
   auto_confirm_prep_minutes?: number;
+  image_review_mode?: 'off' | 'shadow' | 'enforce';
+  review_payment_link_hours?: number;
+  review_hold_days?: number;
+  review_reminder_hours?: number;
 }
 
 export interface BusinessHours {
