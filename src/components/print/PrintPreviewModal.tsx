@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import { OrderNotesSection } from './OrderNotesSection';
-import { resolveReferenceImageUrl } from '@/lib/storage';
+import { useReferenceImageUrl } from '@/hooks/useReferenceImageUrl';
 import { useAuth } from '@/contexts/AuthContext';
 import type { OrderIssue } from '@/lib/support';
 
@@ -44,14 +44,13 @@ export function PrintPreviewModal({ order, isOpen, onClose, onCancelOrder }: Pri
         documentTitle: order ? `Ticket-${order.order_number}` : 'Ticket',
     });
 
+    // Signed reference-image URL. Called BEFORE the early return below so the
+    // hook order stays stable across renders (rules of hooks).
+    const refImageUrl = useReferenceImageUrl(order?.reference_image_path);
+
     if (!order) return null;
 
     const isOwner = hasRole('owner');
-
-    // Resolve the reference image via the shared helper so it follows
-    // VITE_SUPABASE_URL instead of a hardcoded project URL. Stored value may be
-    // a full URL, an absolute path, or a bucket-relative storage path.
-    const refImageUrl = resolveReferenceImageUrl(order.reference_image_path);
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>

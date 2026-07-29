@@ -9,7 +9,7 @@ import { Clock, Calendar, Check } from "lucide-react";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
-import { resolveReferenceImageUrl } from "@/lib/storage";
+import { useReferenceImageUrl } from '@/hooks/useReferenceImageUrl';
 
 interface BakerTicketCardProps {
     order: Order;
@@ -46,7 +46,8 @@ export function BakerTicketCard({ order, onMarkReady }: BakerTicketCardProps) {
     // Resolve via the shared helper so the URL follows VITE_SUPABASE_URL and
     // the correct bucket (this used to hardcode a stale project ref AND the
     // wrong bucket "orders" instead of "reference-images").
-    const imageUrl = imageError ? null : resolveReferenceImageUrl(order.reference_image_path);
+    const signedUrl = useReferenceImageUrl(order.reference_image_path);
+    const imageUrl = imageError ? null : signedUrl;
 
     return (
         <div className="bg-slate-800 rounded-2xl overflow-hidden border border-slate-700/50 flex flex-col h-full">

@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { Resend } from "npm:resend@^4.0.0";
 import { buildEmailHtml, getBusinessInfo } from "../_shared/emailTemplates.ts";
+import { requireStaffOrService, isDenied } from "../_shared/authz.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -296,22 +297,28 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // Auth FIRST — before any other work, including the RESEND_API_KEY check.
+  // Authorization must never sit behind a configuration check, or the error
+  // that check returns becomes an unauthenticated oracle.
+  //
+  // Accepts: cron secret OR internal service-role OR a signed-in owner/baker.
+  //
+  // SECURITY (2026-07-28): this previously accepted ANY header starting with
+  // "Bearer ", so the literal string "Bearer x" passed. Since the response
+  // body returns aggregate revenue / order counts / AOV, that leaked the
+  // bakery's financials to anyone who could reach the URL, and let them
+  // trigger a report email to the owner at will.
+  const cronSecret = req.headers.get("x-cron-secret");
+  const isCronAuth = Boolean(cronSecret && CRON_SECRET && cronSecret === CRON_SECRET);
+
+  if (!isCronAuth) {
+    const auth = await requireStaffOrService(req);
+    if (isDenied(auth)) return auth;
+  }
+
   try {
     if (!RESEND_API_KEY) {
       throw new Error("RESEND_API_KEY is not set");
-    }
-
-    // Auth: accept cron secret OR standard Supabase auth
-    const cronSecret = req.headers.get("x-cron-secret");
-    const authHeader = req.headers.get("authorization");
-    const isCronAuth = cronSecret && CRON_SECRET && cronSecret === CRON_SECRET;
-    const isBearerAuth = authHeader && authHeader.startsWith("Bearer ");
-
-    if (!isCronAuth && !isBearerAuth) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
     }
 
     // Parse request body

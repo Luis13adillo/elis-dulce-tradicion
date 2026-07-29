@@ -76,7 +76,11 @@ export class OrdersApi extends BaseApiClient {
             payment_status: orderData.payment_status || 'pending',
         };
 
-        const { data, error } = await sb.rpc('create_new_order', { payload: orderPayload });
+        // staff_create_new_order (not create_new_order): the raw RPC trusts the
+        // payload completely — it can set status, payment_status and
+        // total_amount — and was reachable by anonymous callers until the
+        // 2026-07-28 lockdown. The staff_ wrapper enforces owner/baker.
+        const { data, error } = await sb.rpc('staff_create_new_order', { payload: orderPayload });
 
         if (error) {
             console.error('Error creating order:', error);
@@ -91,12 +95,14 @@ export class OrdersApi extends BaseApiClient {
         if (!sb) return { success: false, error: 'Database connection not available.' };
 
         try {
-            const { data: { user } } = await sb.auth.getUser();
-
-            const { data, error } = await sb.rpc('transition_order_status', {
+            // staff_transition_order_status (not transition_order_status):
+            // enforces owner/baker, and derives order_status_history.changed_by
+            // from auth.uid() server-side. p_user_id is deliberately NOT sent —
+            // it was client-supplied and therefore forgeable, which let a caller
+            // stamp someone else's UUID on their own action.
+            const { data, error } = await sb.rpc('staff_transition_order_status', {
                 p_order_id: id,
                 p_new_status: status,
-                p_user_id: user?.id || null,
                 p_reason: metadata?.reason || null,
                 p_metadata: metadata || {}
             });

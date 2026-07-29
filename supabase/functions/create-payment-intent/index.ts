@@ -1,16 +1,17 @@
 // create-payment-intent — Tier A version.
 //
-// Input: { pending_order_id }  (or legacy: { amount, metadata })
+// Input: { pending_order_id }  — REQUIRED. There is no other accepted shape.
 //
-// Tier A path: we read the pending_order row server-side, recompute amount
-// from that row, and put the pending_order_id in PaymentIntent metadata so
-// the webhook knows exactly which row to promote. The idempotency key is
-// the pending_order_id itself — if the frontend retries the create call,
-// Stripe returns the same PaymentIntent instead of creating a second.
+// We read the pending_order row server-side, take the amount from that row
+// (never from the request), and put the pending_order_id in PaymentIntent
+// metadata so the webhook knows exactly which row to promote. The idempotency
+// key is the pending_order_id plus its price_revision — if the frontend
+// retries, Stripe returns the same PaymentIntent instead of creating a second,
+// and a staff price change forces a fresh one.
 //
-// Legacy path (backwards-compatible with pre-Tier-A calls): still honors
-// { amount, metadata } so a deploy in flight doesn't break active sessions.
-// Remove after 24h once no old frontend bundles are alive.
+// The legacy { amount, metadata } path was REMOVED on 2026-07-28. It let any
+// anonymous caller mint a PaymentIntent for an arbitrary amount against the
+// live Stripe account. See the comment at the rejection branch below.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { Stripe } from "npm:stripe@^14.0.0";
@@ -219,37 +220,29 @@ Deno.serve(async (req) => {
             );
         }
 
-        // ---- Legacy path (pre-Tier-A frontend bundle) ----
-        const { amount, currency, metadata, idempotencyKey } = body;
-        if (!amount) {
-            return new Response(
-                JSON.stringify({ error: "Missing amount or pending_order_id" }),
-                { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
-        }
-        if (amount > 10000) {
-            return new Response(
-                JSON.stringify({ error: "Amount exceeds maximum allowed" }),
-                { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
-        }
-
-        const effectiveIdempotencyKey = idempotencyKey
-            || `${metadata?.order_number || "order"}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-
-        const paymentIntent = await stripe.paymentIntents.create(
-            {
-                amount: Math.round(amount * 100),
-                currency: currency || "usd",
-                automatic_payment_methods: { enabled: true },
-                metadata: metadata || {},
-            },
-            { idempotencyKey: effectiveIdempotencyKey }
-        );
-
+        // ---- Legacy caller-supplied-amount path: REMOVED 2026-07-28 ----
+        //
+        // This branch used to accept { amount, metadata } and create a
+        // PaymentIntent for whatever the caller asked for, with no link to a
+        // pending_order and no server-side price lookup. The audit on
+        // 2026-07-28 found it still live three months after its own "remove
+        // after 24h" comment, and reachable by anyone holding the public anon
+        // key. Two proven abuses:
+        //   1. Card testing against the LIVE Stripe account ($0.50 loops),
+        //      which gets a real bakery's Stripe account restricted.
+        //   2. Passing metadata.order_number for a REAL order, paying 50c, and
+        //      having the webhook's matching legacy branch stamp that order
+        //      "paid" and overwrite stripe_payment_id — which then breaks the
+        //      genuine customer's refund.
+        //
+        // Every payment must now be tied to a pending_order whose total the
+        // server computed and re-verified. There is deliberately no fallback.
         return new Response(
-            JSON.stringify({ clientSecret: paymentIntent.client_secret, id: paymentIntent.id }),
-            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            JSON.stringify({
+                error: "pending_order_id is required",
+                code: "PENDING_ORDER_REQUIRED",
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
     } catch (error) {
         console.error("Payment intent error:", error);

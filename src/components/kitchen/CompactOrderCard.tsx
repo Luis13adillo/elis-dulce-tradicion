@@ -6,7 +6,7 @@ import { format, parseISO, differenceInMinutes } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { formatCurrency, formatTime } from "@/lib/i18n-utils";
-import { resolveReferenceImageUrl } from "@/lib/storage";
+import { useReferenceImageUrl } from '@/hooks/useReferenceImageUrl';
 
 interface CompactOrderCardProps {
     order: Order;
@@ -150,10 +150,7 @@ export const CompactOrderCard = memo(function CompactOrderCard({
 
     // Reference image URL (resolved or null) — shared resolver keeps it in
     // sync with VITE_SUPABASE_URL across environments
-    const refImageUrl = useMemo(
-        () => resolveReferenceImageUrl(order.reference_image_path),
-        [order.reference_image_path]
-    );
+    const refImageUrl = useReferenceImageUrl(order.reference_image_path);
 
     const fallbackAvatar = useMemo(
         () => dicebearAvatar(order.customer_name ?? 'guest'),

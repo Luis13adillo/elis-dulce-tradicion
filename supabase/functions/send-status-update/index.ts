@@ -7,6 +7,7 @@ import {
   formatStatus,
   getBusinessInfo,
 } from "../_shared/emailTemplates.ts";
+import { requireStaffOrService, isDenied } from "../_shared/authz.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const FRONTEND_URL = Deno.env.get("FRONTEND_URL") || "https://elisbakery.com";
@@ -47,6 +48,12 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
+
+  // SECURITY (2026-07-28): sensitive — sends mail from the bakery domain.
+  // Callers must be an internal service-role caller (Stripe webhook,
+  // order-cancel, scheduled-order-transitions) or a signed-in owner/baker.
+  const auth = await requireStaffOrService(req);
+  if (isDenied(auth)) return auth;
 
   try {
     if (!RESEND_API_KEY) {

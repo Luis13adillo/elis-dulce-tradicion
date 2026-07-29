@@ -12,7 +12,7 @@ import {
   X,
   Maximize2
 } from 'lucide-react';
-import { resolveReferenceImageUrl } from '@/lib/storage';
+import { useReferenceImageUrl } from '@/hooks/useReferenceImageUrl';
 
 interface ReferenceImageViewerProps {
   imagePath?: string;
@@ -33,7 +33,7 @@ const ReferenceImageViewer = ({
 
   // Resolve via the shared helper (handles full URLs, absolute paths, and
   // bucket-relative storage paths; follows VITE_SUPABASE_URL).
-  const imageUrl = resolveReferenceImageUrl(imagePath);
+  const imageUrl = useReferenceImageUrl(imagePath);
 
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.25, 3));
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.25, 0.5));
