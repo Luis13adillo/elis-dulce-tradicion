@@ -771,19 +771,37 @@ $function$;
 -- The bakery moved to Norristown; business_settings still carried the old
 -- Bensalem address (never displayed to customers, but it is the admin-
 -- editable "source of truth" and must not contradict the site).
-UPDATE business_settings
-SET address_street = '324 W Marshall St',
-    address_city   = 'Norristown',
-    address_state  = 'PA',
-    address_zip    = '19401',
-    updated_at     = now()
-WHERE address_street = '846 Street Rd.' OR address_city = 'Bensalem';
+-- Conditional: the staging project's business_settings has no address
+-- columns, so guard on their existence to keep this migration portable.
+DO $$ BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'business_settings'
+          AND column_name = 'address_city'
+    ) THEN
+        UPDATE business_settings
+        SET address_street = '324 W Marshall St',
+            address_city   = 'Norristown',
+            address_state  = 'PA',
+            address_zip    = '19401',
+            updated_at     = now()
+        WHERE address_street = '846 Street Rd.' OR address_city = 'Bensalem';
+    END IF;
+END $$;
 
 -- -------------------------------------------------------------------------
 -- 8. De-expose stale ZIP-zone machinery (delivery_zones is empty and MUST
---    NOT influence pricing; keep the table for now, close the RPC surface)
+--    NOT influence pricing; keep the table for now, close the RPC surface).
+--    Conditional: the function only exists on production.
 -- -------------------------------------------------------------------------
-REVOKE EXECUTE ON FUNCTION public.find_delivery_zone(text) FROM PUBLIC, anon, authenticated;
+DO $$ BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'public' AND p.proname = 'find_delivery_zone'
+    ) THEN
+        REVOKE EXECUTE ON FUNCTION public.find_delivery_zone(text) FROM PUBLIC, anon, authenticated;
+    END IF;
+END $$;
 
 -- -------------------------------------------------------------------------
 -- 9. Grants — explicit, and LAST so a partial apply can never leave the
