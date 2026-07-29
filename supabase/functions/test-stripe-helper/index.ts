@@ -8,7 +8,10 @@
 //   1. Requires the project's service_role key as the bearer token.
 //   2. Refuses to run at all if STRIPE_SECRET_KEY is a LIVE-mode key —
 //      so even an accidental production deploy can never touch live money.
-//   3. Only three read/confirm actions exist; no refunds, no transfers.
+//   3. Only identity/retrieve/confirm actions exist; no refunds, no
+//      transfers. `identity` returns the Stripe ACCOUNT the configured
+//      key belongs to (id + display name, never key material) so the
+//      harness can verify the credential is Eli's own sandbox.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { Stripe } from "npm:stripe@^14.0.0";
@@ -38,10 +41,23 @@ Deno.serve(async (req) => {
         return json({ error: "Invalid JSON body" }, 400);
     }
     const { action, payment_intent_id, payment_method } = body;
-    if (!payment_intent_id) return json({ error: "payment_intent_id required" }, 400);
+    if (action !== "identity" && !payment_intent_id) {
+        return json({ error: "payment_intent_id required" }, 400);
+    }
 
     const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2023-10-16" });
     try {
+        if (action === "identity") {
+            // Whose key is this? Asks Stripe for the account behind the
+            // configured secret; the test-mode prefix was enforced above.
+            const acct = await stripe.accounts.retrieve();
+            return json({
+                account_id: acct.id,
+                livemode: false,
+                display_name: acct.settings?.dashboard?.display_name ?? null,
+                key_prefix: STRIPE_SECRET_KEY.slice(0, 8),
+            });
+        }
         if (action === "retrieve") {
             const pi = await stripe.paymentIntents.retrieve(payment_intent_id);
             return json({ id: pi.id, status: pi.status, amount: pi.amount, currency: pi.currency, metadata: pi.metadata });

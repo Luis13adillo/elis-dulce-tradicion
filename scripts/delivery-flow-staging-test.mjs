@@ -10,14 +10,20 @@
 //   node scripts/delivery-flow-staging-test.mjs
 //
 // Two tiers:
-//   * Tier A (always runs): verdicts, fee enforcement, payment gating,
-//     quote resolution, price_revision/PI-invalidation at the DB level,
+//   * Tier A: verdicts, fee enforcement, payment gating, quote
+//     resolution, price_revision/PI-invalidation at the DB level,
 //     signed-webhook promotion + retry dedup (synthetic PI ids), pickup
 //     parity, direct-RPC bypass protection.
-//   * Tier B (runs iff staging STRIPE_SECRET_KEY is a live-enough TEST
-//     key): real PaymentIntent creation/amounts, real card confirm, real
-//     stale-PI cancellation at Stripe. When the key is expired these
-//     checks SKIP (not fail) and the matrix reports the blocker.
+//   * Tier B: real PaymentIntent creation/amounts, real card confirm,
+//     real stale-PI cancellation at Stripe.
+//
+// ELI CREDENTIAL GUARD (permanent, fail-closed, added 2026-07-29): the
+// matrix refuses to run AT ALL — no skips — unless (a) the target is the
+// Eli staging project jfjqiuozcpuqpybguivv, (b) the configured Stripe
+// key is TEST-mode, and (c) Stripe confirms the key belongs to Eli's own
+// sandbox account. A missing, expired, live-mode, or wrong-business key
+// stops the run with an Eli-specific error. Never borrow or substitute
+// credentials from any other project.
 //
 // Coverage maps to the goal spec of 2026-07-29 items 1-7 + bypass.
 // =====================================================================
@@ -31,7 +37,12 @@ const FN = `https://${REF}.supabase.co/functions/v1`;
 const REST = `https://${REF}.supabase.co/rest/v1`;
 
 if (!TOKEN) { console.error("SUPABASE_ACCESS_TOKEN not set"); process.exit(1); }
-if (REF === "bebmkekmzcrgeraeakmp") { console.error("Refusing to run against production"); process.exit(1); }
+// Allowlist, not blocklist: the ONLY project this harness may touch is the
+// Eli staging sandbox. Anything else (production included) is refused.
+if (REF !== "jfjqiuozcpuqpybguivv") {
+    console.error(`Refusing to run: pinned to Eli staging project jfjqiuozcpuqpybguivv, got "${REF}"`);
+    process.exit(1);
+}
 
 const TEST_EMAIL = "delivery-test@example.com";
 const NEAR_ADDRESS = "600 W Marshall St, Norristown, PA 19401";      // ~0.5 driving mi
@@ -169,16 +180,33 @@ check("setup: staging STRIPE_WEBHOOK_SECRET set for this run", setSecret.status 
 console.log("  (waiting 10s for function secret propagation)");
 await sleep(10_000);
 
-// Is the staging Stripe TEST key usable? Probe through the staging-only
-// helper: an invalid PI id on a live key errors "No such payment_intent";
-// an expired key errors "Expired API Key".
-const probe = await call("test-stripe-helper", { action: "retrieve", payment_intent_id: "pi_probe_000" }, { Authorization: `Bearer ${serviceKey}` });
-const probeMsg = String(probe.json?.stripe_error ?? probe.json?.error ?? "");
-const STRIPE_ALIVE = probe.status !== 401 && !/expired api key/i.test(probeMsg) && /no such payment_intent/i.test(probeMsg);
-check("setup: test-stripe-helper reachable with service key", probe.status !== 401, JSON.stringify(probe.json));
-console.log(STRIPE_ALIVE
-    ? "  Stripe TEST key: ALIVE — full Tier B runs"
-    : `  Stripe TEST key: NOT usable (${probeMsg.slice(0, 60)}) — Tier B checks will SKIP`);
+// -----------------------------------------------------------------
+// ELI CREDENTIAL GUARD — permanent, fail-closed. The run stops here
+// (no tests, no skips) unless Stripe itself confirms the staging key
+// is a TEST-mode credential belonging to Eli's own sandbox account.
+// The account id below is the non-secret account fragment of Eli's
+// sandbox keys; the secret key value is never fetched or printed.
+// -----------------------------------------------------------------
+const ELI_SANDBOX_ACCOUNT_ID = "acct_1SsSVrCFnlaVsEnt"; // Eli's Dulce Tradicion — Stripe sandbox
+const eliStop = (why) => {
+    console.error(`\nELI GUARD: refusing to run — ${why}.`);
+    console.error("This matrix only runs against Eli's Dulce Tradicion Stripe sandbox on staging project jfjqiuozcpuqpybguivv.");
+    console.error("Fix: in Eli's Stripe sandbox (Developers → API keys), copy the sk_test_ secret key and set it as STRIPE_SECRET_KEY in Supabase staging → Edge Functions → Secrets. Never use MT Barbershop, Neurovia, or any other business's credential.");
+    process.exit(1);
+};
+const idn = await call("test-stripe-helper", { action: "identity" }, { Authorization: `Bearer ${serviceKey}` });
+if (idn.status === 401) eliStop("staging test-stripe-helper rejected the service key");
+if (idn.status === 500) eliStop("no STRIPE_SECRET_KEY is configured on the staging project (Eli sandbox key MISSING)");
+if (idn.status === 403) eliStop("the staging STRIPE_SECRET_KEY is a LIVE-mode key — remove it; only Eli's sandbox TEST key is allowed");
+const idnErr = String(idn.json?.stripe_error ?? idn.json?.error ?? "");
+if (/expired api key/i.test(idnErr)) eliStop("the staging STRIPE_SECRET_KEY is EXPIRED — mint a fresh key in Eli's Stripe sandbox");
+if (idn.status !== 200 || !idn.json?.account_id) eliStop(`Stripe would not confirm the key's identity (${idnErr.slice(0, 80) || `status ${idn.status}`})`);
+if (idn.json.account_id !== ELI_SANDBOX_ACCOUNT_ID) {
+    eliStop(`the staging key belongs to Stripe account ${idn.json.account_id}, not Eli's sandbox ${ELI_SANDBOX_ACCOUNT_ID} — wrong business's credential`);
+}
+check("setup: Stripe key is TEST-mode and belongs to Eli's sandbox account", true);
+console.log(`  Stripe identity: ${idn.json.account_id}${idn.json.display_name ? ` (${idn.json.display_name})` : ""} — TEST mode, key prefix ${idn.json.key_prefix}`);
+const STRIPE_ALIVE = true; // the guard above exits otherwise — Tier B always runs
 
 // Clean slate for rerunnability.
 await sql(`delete from orders where customer_email = '${TEST_EMAIL}'`);
