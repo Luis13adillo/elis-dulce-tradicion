@@ -7,7 +7,7 @@ import { format, parseISO, differenceInMinutes } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
 import ReferenceImageViewer from "@/components/order/ReferenceImageViewer";
-import { resolveReferenceImageUrl } from "@/lib/storage";
+import { useReferenceImageUrl } from "@/hooks/useReferenceImageUrl";
 
 interface ModernOrderCardProps {
     order: Order;
@@ -28,6 +28,9 @@ export const ModernOrderCard = memo(function ModernOrderCard({
     variant = 'default'
 }: ModernOrderCardProps) {
     const { t } = useLanguage();
+
+    // Signed URL for the customer's reference photo (private bucket).
+    const refImageUrl = useReferenceImageUrl(order.reference_image_path);
 
     // Tick every 60 s so time-based values update live
     const [now, setNow] = useState(() => Date.now());
@@ -187,9 +190,9 @@ export const ModernOrderCard = memo(function ModernOrderCard({
                         "h-10 w-10 rounded-full overflow-hidden border relative",
                         variant === 'dark' ? "bg-slate-700 border-slate-600" : "bg-gray-100 border-gray-200"
                     )}>
-                        {resolveReferenceImageUrl(order.reference_image_path) ? (
+                        {refImageUrl ? (
                             <img
-                                src={resolveReferenceImageUrl(order.reference_image_path)!}
+                                src={refImageUrl}
                                 alt="Ref"
                                 className="h-full w-full object-cover"
                                 onError={(e) => {
@@ -454,8 +457,8 @@ export const ModernOrderCard = memo(function ModernOrderCard({
             </div>
 
             {/* Reference Photo — prominent inline display */}
-            {resolveReferenceImageUrl(order.reference_image_path) && (() => {
-                const imgUrl = resolveReferenceImageUrl(order.reference_image_path)!;
+            {refImageUrl && (() => {
+                const imgUrl = refImageUrl;
                 return (
                     <div
                         data-ref-section="true"

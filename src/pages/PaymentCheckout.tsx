@@ -8,7 +8,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
-import { resolveReferenceImageUrl } from '@/lib/storage';
 import {
   CreditCard,
   Loader2,
@@ -268,12 +267,22 @@ return (
                           <ImageIcon size={12} />
                           {t('Imagen de Referencia', 'Reference Image')}
                         </p>
-                        <div className="relative rounded-xl overflow-hidden aspect-video bg-black/30">
-                          <img
-                            src={resolveReferenceImageUrl(orderData.reference_image_path) ?? undefined}
-                            alt="Reference"
-                            className="w-full h-full object-contain"
-                          />
+                        {/*
+                          The reference-images bucket is private (migration
+                          20260728T211000) because anonymous callers could list
+                          and download every customer's photo. Guests check out
+                          without an account and so cannot mint a signed URL, so
+                          we confirm the upload in text instead of rendering an
+                          image. This previously rendered a raw bucket-relative
+                          path and showed a broken image to every customer, so
+                          nothing that worked before has been taken away.
+                        */}
+                        <div className="rounded-xl bg-black/30 px-4 py-3 flex items-center gap-2">
+                          <ImageIcon size={14} className="text-gray-400 shrink-0" />
+                          <span className="text-gray-300 text-sm">
+                            {t('Tu foto de referencia fue adjuntada a esta orden.',
+                               'Your reference photo is attached to this order.')}
+                          </span>
                         </div>
                       </div>
                     )}

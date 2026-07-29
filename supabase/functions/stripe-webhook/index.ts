@@ -205,9 +205,58 @@ async function handlePaymentSucceeded(
     }
 
     // --- Legacy flow: old metadata with order_number (pre-Tier-A) ---
-    // Supports any PaymentIntent created before Tier A ships. UPDATE the
+    // Supports any PaymentIntent created before Tier A shipped. UPDATE the
     // existing row (created client-side in the old flow).
+    //
+    // SECURITY (2026-07-28): this branch used to update unconditionally on
+    // order_number alone, with no amount check. Combined with the (now
+    // removed) caller-supplied-amount path in create-payment-intent, anyone
+    // could pay 50c quoting a real order number and (a) flip an unpaid order
+    // to "paid", and (b) overwrite an already-paid order's stripe_payment_id,
+    // which made the real customer's later refund fail in Stripe.
+    //
+    // Two guards added, both fail loudly rather than silently:
+    //   1. never touch a row that is already marked paid;
+    //   2. the PaymentIntent amount must match the order total to the cent.
     if (orderNumberMeta) {
+        const { data: existingOrder, error: loadErr } = await supabase
+            .from("orders")
+            .select("id, order_number, payment_status, total_amount")
+            .eq("order_number", orderNumberMeta)
+            .maybeSingle();
+
+        if (loadErr) {
+            console.error("Legacy order lookup failed:", loadErr);
+            await sendOrphanAlert(pi, `Legacy lookup failed for order ${orderNumberMeta}: ${loadErr.message}`);
+            throw loadErr;
+        }
+
+        if (!existingOrder) {
+            await sendOrphanAlert(pi, `No order row found for legacy order_number ${orderNumberMeta}`);
+            return;
+        }
+
+        if (existingOrder.payment_status === "paid") {
+            // Already settled. Do NOT overwrite stripe_payment_id — that is
+            // what breaks refunds. Surface it instead.
+            await sendOrphanAlert(
+                pi,
+                `Legacy PI ${pi.id} targeted order ${orderNumberMeta}, which is ALREADY paid. ` +
+                `Refusing to overwrite payment references. Investigate manually.`,
+            );
+            return;
+        }
+
+        const expectedCents = Math.round(Number(existingOrder.total_amount) * 100);
+        if (pi.amount !== expectedCents) {
+            await sendOrphanAlert(
+                pi,
+                `Legacy PI ${pi.id} amount ${pi.amount} does not match order ${orderNumberMeta} ` +
+                `total ${expectedCents}. Refusing to mark paid.`,
+            );
+            return;
+        }
+
         const { data: updated, error } = await supabase
             .from("orders")
             .update({
@@ -217,6 +266,7 @@ async function handlePaymentSucceeded(
                 updated_at: new Date().toISOString(),
             })
             .eq("order_number", orderNumberMeta)
+            .neq("payment_status", "paid")
             .select()
             .maybeSingle();
 
@@ -230,9 +280,15 @@ async function handlePaymentSucceeded(
             console.log(`Legacy order ${orderNumberMeta} marked paid`);
             await triggerOrderConfirmationEmail(updated, supabase);
         } else {
-            // UPDATE matched zero rows — this is the exact bug that created
-            // Mahesh/Ana/Erik/Varun. Alert loudly so it never hides again.
-            await sendOrphanAlert(pi, `No order row found for legacy order_number ${orderNumberMeta}`);
+            // UPDATE matched zero rows. The row existed and was unpaid when we
+            // read it a moment ago, so a concurrent delivery just settled it.
+            // Alert loudly rather than assume — this class of silent no-op is
+            // what produced the earlier orphaned-payment incidents.
+            await sendOrphanAlert(
+                pi,
+                `Legacy update for order ${orderNumberMeta} matched zero rows ` +
+                `(likely settled concurrently). Verify the order is paid exactly once.`,
+            );
         }
         return;
     }

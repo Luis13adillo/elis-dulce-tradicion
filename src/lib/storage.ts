@@ -67,14 +67,11 @@ export async function uploadReferenceImage(
       };
     }
 
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from(STORAGE_BUCKET)
-      .getPublicUrl(data.path);
-
+    // The bucket is PRIVATE (migration 20260728T211000). There is no public
+    // URL to hand back — callers store `path` and display it later through
+    // getSignedReferenceImageUrl / useReferenceImageUrl.
     return {
       success: true,
-      url: urlData.publicUrl,
       path: data.path,
     };
   } catch (error) {
@@ -148,9 +145,63 @@ export async function deleteReferenceImage(imagePath: string): Promise<{
  */
 export function resolveReferenceImageUrl(value?: string | null): string | null {
   if (!value) return null;
-  if (value.startsWith('http') || value.startsWith('/')) return value;
+  // Local object URLs / app-relative previews are already displayable.
+  if (value.startsWith('/')) return value;
+  // Absolute URLs that are NOT our storage host (rare, historical) pass through.
+  if (value.startsWith('http') && extractStoragePath(value) === null) return value;
+  // Anything stored in our bucket now requires a signed URL — the bucket was
+  // made private on 2026-07-28 because anonymous callers could list and
+  // download every customer's reference photo. Use getSignedReferenceImageUrl
+  // (or the useReferenceImageUrl hook) instead.
+  return null;
+}
+
+/**
+ * Mint a short-lived signed URL for a reference image.
+ *
+ * The `reference-images` bucket is private (migration 20260728T211000), so
+ * this is the ONLY way to render a stored photo. Signing requires SELECT on
+ * storage.objects, which the RLS policy grants to staff (owner/baker) — so
+ * this resolves for Front Desk / Owner Dashboard users and returns null for
+ * everyone else, which callers render as "no image".
+ *
+ * Accepts the same shapes `reference_image_path` has historically held:
+ *   - a bucket-relative path ("orders/temp_123.jpg") — the canonical format
+ *   - a legacy absolute public URL — the path is extracted and re-signed,
+ *     because the old /object/public/ route no longer resolves
+ *   - an app-relative path ("/preview.png") — returned as-is
+ */
+export async function getSignedReferenceImageUrl(
+  value?: string | null,
+  expiresInSeconds = 3600,
+): Promise<string | null> {
+  if (!value) return null;
+  if (value.startsWith('/')) return value;
+
+  let path = value;
+  if (value.startsWith('http')) {
+    const extracted = extractStoragePath(value);
+    // Absolute URL pointing somewhere other than our bucket: pass through.
+    if (extracted === null) return value;
+    path = extracted;
+  }
+
   if (!supabase) return null;
-  return supabase.storage.from(STORAGE_BUCKET).getPublicUrl(value).data.publicUrl || null;
+
+  try {
+    const { data, error } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .createSignedUrl(path, expiresInSeconds);
+
+    if (error || !data?.signedUrl) {
+      // Most common cause: the viewer is not staff, so the storage RLS policy
+      // denies SELECT. Not an error worth shouting about.
+      return null;
+    }
+    return data.signedUrl;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -160,10 +211,16 @@ export function resolveReferenceImageUrl(value?: string | null): string | null {
  */
 export function extractStoragePath(url: string): string | null {
   try {
-    // Supabase Storage URLs typically look like:
-    // https://{project}.supabase.co/storage/v1/object/public/{bucket}/{path}
-    const match = url.match(/\/storage\/v1\/object\/public\/[^/]+\/(.+)$/);
-    return match ? match[1] : null;
+    // Supabase Storage URLs come in three shapes:
+    //   .../storage/v1/object/public/{bucket}/{path}         (legacy public)
+    //   .../storage/v1/object/sign/{bucket}/{path}?token=... (signed)
+    //   .../storage/v1/object/authenticated/{bucket}/{path}
+    const match = url.match(
+      /\/storage\/v1\/object\/(?:public|sign|authenticated)\/[^/]+\/(.+)$/,
+    );
+    if (!match) return null;
+    // Drop any query string (signed URLs carry ?token=...)
+    return match[1].split('?')[0];
   } catch {
     return null;
   }

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { resolveReferenceImageUrl } from '@/lib/storage';
+import { useReferenceImageUrl } from '@/hooks/useReferenceImageUrl';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -167,7 +167,7 @@ function ReviewCard({
   accentClass: string;
   t: (es: string, en: string) => string;
 }) {
-  const imageUrl = resolveReferenceImageUrl(String(row.reference_image_path ?? ''));
+  const imageUrl = useReferenceImageUrl(String(row.reference_image_path ?? ''));
   const result = (row.image_review_result ?? {}) as {
     verdict?: string;
     confidence?: string;

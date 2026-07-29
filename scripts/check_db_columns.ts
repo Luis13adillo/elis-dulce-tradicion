@@ -1,8 +1,15 @@
+// SECURITY (2026-07-28): credentials were hardcoded in this file and
+// committed to git. They are now read from the environment. The
+// previously committed key MUST be treated as compromised and rotated --
+// see SECURITY_KEY_ROTATION.md at the repo root.
 
 import { createClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL = "https://rnszrscxwkdwvvlsihqc.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuc3pyc2N4d2tkd3Z2bHNpaHFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUwMzgwNzcsImV4cCI6MjA4MDYxNDA3N30.BKsyb-2ST8EQyZUAsmYf6p5PeTRq1SFkztIUx4GXM94";
+const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ?? "";
+if (!SUPABASE_ANON_KEY) {
+  throw new Error("SUPABASE_ANON_KEY is not set. Export it before running this script.");
+}
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 

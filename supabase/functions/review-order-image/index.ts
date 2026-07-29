@@ -210,11 +210,63 @@ async function runAiReview(pending: any): Promise<Verdict> {
         return { verdict: "ANALYSIS_FAILED", error: "ANTHROPIC_API_KEY not configured" };
     }
 
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-    const path = String(pending.reference_image_path);
-    const imageUrl = path.startsWith("http")
-        ? path
-        : `${SUPABASE_URL}/storage/v1/object/public/reference-images/${path}`;
+    // The reference-images bucket is PRIVATE as of migration
+    // 20260728T211000, so the old /object/public/ URL no longer resolves and
+    // the AI reviewer would receive a 400. Mint a short-lived signed URL
+    // instead — this function runs with the service-role key, which bypasses
+    // storage RLS. 10 minutes is ample for one model call and keeps the URL
+    // from being useful if it ends up in a log.
+    const rawPath = String(pending.reference_image_path ?? "");
+    let objectPath = rawPath;
+
+    if (rawPath.startsWith("http")) {
+        // Legacy absolute URL: recover the object path so it can be re-signed.
+        const m = rawPath.match(
+            /\/storage\/v1\/object\/(?:public|sign|authenticated)\/reference-images\/(.+?)(?:\?|$)/,
+        );
+        if (!m) {
+            // An absolute URL that is not ours — hand it over unchanged.
+            return await callAnthropic(ANTHROPIC_API_KEY, pending, rawPath);
+        }
+        objectPath = m[1];
+    }
+
+    // Read from env here: the handler's SUPABASE_URL/SERVICE_KEY consts are
+    // scoped to Deno.serve and are not visible in this function.
+    const admin = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    );
+    const { data: signed, error: signErr } = await admin.storage
+        .from("reference-images")
+        .createSignedUrl(objectPath, 600);
+
+    if (signErr || !signed?.signedUrl) {
+        // Fail CLOSED, consistent with the rest of this function: if the photo
+        // cannot be read it is held for a human rather than passed unreviewed.
+        console.error(
+            `review-order-image: could not sign reference image "${objectPath}":`,
+            signErr?.message,
+        );
+        return {
+            verdict: "ANALYSIS_FAILED",
+            error: "reference image could not be read for review",
+        };
+    }
+
+    const imageUrl = signed.signedUrl;
+    return await callAnthropic(ANTHROPIC_API_KEY, pending, imageUrl);
+}
+
+// Split out so the signed-URL plumbing above stays readable. Everything below
+// is the original review call, unchanged except for taking the URL as an arg.
+async function callAnthropic(
+    ANTHROPIC_API_KEY: string,
+    // deno-lint-ignore no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    pending: any,
+    imageUrl: string,
+): Promise<Verdict> {
 
     // Decoration notes live inside raw_payload (no dedicated column)
     let decorationNotes = "";

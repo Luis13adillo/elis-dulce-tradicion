@@ -24,7 +24,9 @@ export class AnalyticsApi extends BaseApiClient {
         }
 
         const today = new Date().toLocaleDateString('en-CA');
-        const { data: summary, error } = await sb.rpc('get_dashboard_summary', { p_start_date: today });
+        // staff_ wrapper: the raw get_dashboard_summary was proven readable by
+        // anonymous callers in production on 2026-07-28.
+        const { data: summary, error } = await sb.rpc('staff_get_dashboard_summary', { p_start_date: today });
 
         if (error) {
             console.error('Dashboard RPC error:', error);
@@ -122,7 +124,9 @@ export class AnalyticsApi extends BaseApiClient {
 
         // Delegates grouping to Postgres. The RPC returns one row per
         // distinct status; we only need to compute percentages client-side.
-        const { data, error } = await sb.rpc('get_orders_by_status');
+        // staff_ wrapper: the raw get_orders_by_status returned lifetime
+        // revenue to anonymous callers until the 2026-07-28 lockdown.
+        const { data, error } = await sb.rpc('staff_get_orders_by_status');
         if (error) {
             console.warn('get_orders_by_status RPC failed:', error);
             return [];

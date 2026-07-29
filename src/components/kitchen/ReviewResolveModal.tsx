@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { resolveReferenceImageUrl } from '@/lib/storage';
+import { useReferenceImageUrl } from '@/hooks/useReferenceImageUrl';
 import {
   Dialog,
   DialogContent,
@@ -49,7 +49,7 @@ export function ReviewResolveModal({ row, onClose, onResolved }: ReviewResolveMo
   const [newTotal, setNewTotal] = useState('');
   const [serverError, setServerError] = useState<string | null>(null);
 
-  const imageUrl = resolveReferenceImageUrl(String(row.reference_image_path ?? ''));
+  const imageUrl = useReferenceImageUrl(String(row.reference_image_path ?? ''));
   const isReopenable = ['review_expired', 'declined'].includes(String(row.image_review_status))
     || row.status === 'expired';
 
