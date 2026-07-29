@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
           ${issue.photo_urls && issue.photo_urls.length > 0 ? `
           <div style="margin-top:14px;">
             <p style="color:#777;font-size:13px;margin:0 0 8px;"><strong>Photos:</strong></p>
-            <div>${issue.photo_urls.map(url => `<a href="${url}" style="display:inline-block;margin:4px;"><img src="${url}" width="90" height="90" style="border-radius:6px;border:1px solid #e8dcc8;object-fit:cover;" /></a>`).join('')}</div>
+            <div>${issue.photo_urls.map(url => `<a href="${escapeHtml(url)}" style="display:inline-block;margin:4px;"><img src="${escapeHtml(url)}" width="90" height="90" style="border-radius:6px;border:1px solid #e8dcc8;object-fit:cover;" /></a>`).join('')}</div>
           </div>` : ''}
         </div>
 
@@ -207,7 +207,7 @@ Deno.serve(async (req) => {
              } catch (error) {
                    console.error("Error in send-order-issue-notification:", error);
                    return new Response(
-                           JSON.stringify({ error: error.message }),
+                           JSON.stringify({ error: (error as Error).message }),
                      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
                          );
              }

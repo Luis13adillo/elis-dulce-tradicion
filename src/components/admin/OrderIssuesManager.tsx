@@ -12,6 +12,26 @@ import { useOrderIssues, useUpdateOrderIssueStatus } from '@/lib/hooks/useSuppor
 import { toast } from 'sonner';
 import { AlertCircle, Eye, CheckCircle2, XCircle, Loader2, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
+import { useReferenceImageUrl } from '@/hooks/useReferenceImageUrl';
+
+// Issue photos are stored as private-bucket paths (reference-images bucket,
+// private since 2026-07-28) — staff viewers resolve them to short-lived
+// signed URLs. Legacy rows holding absolute URLs pass through unchanged.
+const IssuePhoto = ({ path, index }: { path: string; index: number }) => {
+  const url = useReferenceImageUrl(path);
+  if (!url) {
+    return <div className="w-full h-32 rounded-lg border bg-muted animate-pulse" />;
+  }
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" className="block">
+      <img
+        src={url}
+        alt={`Issue photo ${index + 1}`}
+        className="w-full h-32 object-cover rounded-lg border"
+      />
+    </a>
+  );
+};
 
 const OrderIssuesManager = () => {
   const { t, language } = useLanguage();
@@ -229,20 +249,8 @@ const OrderIssuesManager = () => {
                 <div>
                   <p className="text-sm font-semibold text-muted-foreground mb-2">{t('Fotos', 'Photos')}</p>
                   <div className="grid grid-cols-3 gap-2">
-                    {selectedIssue.photo_urls.map((url: string, index: number) => (
-                      <a
-                        key={index}
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block"
-                      >
-                        <img
-                          src={url}
-                          alt={`Issue photo ${index + 1}`}
-                          className="w-full h-32 object-cover rounded-lg border"
-                        />
-                      </a>
+                    {selectedIssue.photo_urls.map((path: string, index: number) => (
+                      <IssuePhoto key={index} path={path} index={index} />
                     ))}
                   </div>
                 </div>
