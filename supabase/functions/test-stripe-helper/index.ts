@@ -63,8 +63,13 @@ Deno.serve(async (req) => {
             return json({ id: pi.id, status: pi.status, amount: pi.amount, currency: pi.currency, metadata: pi.metadata });
         }
         if (action === "confirm") {
+            // Eli's sandbox has redirect-based payment methods enabled in its
+            // dashboard, so Stripe requires a return_url on ANY confirm even
+            // though pm_card_visa never redirects. The real checkout supplies
+            // one from the browser (StripeCheckoutForm); tests supply a dummy.
             const pi = await stripe.paymentIntents.confirm(payment_intent_id, {
                 payment_method: payment_method ?? "pm_card_visa",
+                return_url: "https://example.com/stripe-test-return",
             });
             return json({ id: pi.id, status: pi.status, amount: pi.amount });
         }
