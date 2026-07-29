@@ -69,7 +69,6 @@ import OrderIssuesManager from '@/components/admin/OrderIssuesManager';
 import { FAQManager } from '@/components/admin/FAQManager';
 import { GalleryManager } from '@/components/admin/GalleryManager';
 import { AnnouncementManager } from '@/components/admin/AnnouncementManager';
-import { DeliveryZoneManager } from '@/components/admin/DeliveryZoneManager';
 import { useBusinessSettings, useBusinessHours } from '@/lib/hooks/useCMS';
 import { AuthenticatorAssuranceCheck } from '@/components/auth/AuthenticatorAssuranceCheck';
 import { useInactivityTimeout } from '@/hooks/useInactivityTimeout';
@@ -106,7 +105,10 @@ const OwnerDashboard = () => {
 
   const [revenuePeriod, setRevenuePeriod] = useState<'today' | 'week' | 'month'>('today');
   const [settingsSubTab, setSettingsSubTab] = useState<'business' | 'hours' | 'contacts' | 'issues'>('business');
-  const [websiteSubTab, setWebsiteSubTab] = useState<'gallery' | 'faq' | 'announcements' | 'delivery'>('gallery');
+  // 'delivery' (DeliveryZoneManager) removed 2026-07-29: ZIP-zone pricing is
+  // obsolete — delivery is a flat $5 within 5 miles / staff quote beyond,
+  // handled in the Front Desk delivery-quotes panel.
+  const [websiteSubTab, setWebsiteSubTab] = useState<'gallery' | 'faq' | 'announcements'>('gallery');
 
   // --- SERVER STATE (React Query) ---
   // Each endpoint is its own query, so a refetch of one doesn't block
@@ -803,7 +805,6 @@ const OwnerDashboard = () => {
                     { id: 'gallery' as const, label: t('Galería', 'Gallery') },
                     { id: 'faq' as const, label: t('Preguntas Frecuentes', 'FAQ') },
                     { id: 'announcements' as const, label: t('Anuncios', 'Announcements') },
-                    { id: 'delivery' as const, label: t('Zonas de Entrega', 'Delivery Zones') },
                   ]).map(tab => (
                     <button
                       key={tab.id}
@@ -823,7 +824,6 @@ const OwnerDashboard = () => {
                   {websiteSubTab === 'gallery' && <GalleryManager />}
                   {websiteSubTab === 'faq' && <FAQManager />}
                   {websiteSubTab === 'announcements' && <AnnouncementManager />}
-                  {websiteSubTab === 'delivery' && <DeliveryZoneManager />}
                 </div>
               </div>
             </TabsContent>

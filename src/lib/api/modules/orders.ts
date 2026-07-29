@@ -277,16 +277,35 @@ export class OrdersApi extends BaseApiClient {
         order_number: string;
         total_amount: number;
         expires_at: string;
+        delivery_quote_status?: string;
+        delivery_fee?: number;
+        delivery_distance_miles?: number | null;
     }> {
         const sb = this.ensureSupabase();
         if (!sb) throw new Error('Database connection not available.');
 
-        const { data, error } = await sb.rpc('create_pending_order', { payload });
-        if (error) throw error;
-        if (!data || !data.pending_order_id) {
-            throw new Error('create_pending_order returned no id');
+        // Goes through the create-pending-order Edge Function (not the RPC
+        // directly) so the server computes the delivery verdict: flat $5
+        // within 5 driving miles of the bakery, otherwise quote_required.
+        const { data, error } = await sb.functions.invoke('create-pending-order', { body: payload });
+        if (error) {
+            // Surface the server's validation message (capacity full, pricing
+            // mismatch, holiday closure…) hidden behind FunctionsHttpError.
+            const ctx = (error as { context?: Response }).context;
+            let parsed: { error?: string } | null = null;
+            if (ctx && typeof ctx.json === 'function') {
+                try { parsed = await ctx.json(); } catch { /* body not JSON */ }
+            }
+            throw new Error(parsed?.error || error.message);
         }
-        return data as { pending_order_id: string; order_number: string; total_amount: number; expires_at: string };
+        if (!data || !data.pending_order_id) {
+            throw new Error('create-pending-order returned no id');
+        }
+        return data as {
+            pending_order_id: string; order_number: string; total_amount: number;
+            expires_at: string; delivery_quote_status?: string; delivery_fee?: number;
+            delivery_distance_miles?: number | null;
+        };
     }
 
     async getPendingOrder(pendingId: string): Promise<Record<string, unknown> | null> {
@@ -337,6 +356,47 @@ export class OrdersApi extends BaseApiClient {
             }
             const surfaced = new Error(parsed?.error || error.message) as Error & { code?: string; details?: unknown };
             if (parsed?.code) surfaced.code = parsed.code;
+            if (parsed?.details) surfaced.details = parsed.details;
+            throw surfaced;
+        }
+        return data as Record<string, unknown>;
+    }
+
+    /**
+     * Staff delivery-quote queue (owner/baker only — table grant + RLS).
+     * quote_required rows block payment until staff enters the fee.
+     */
+    async getDeliveryQuoteQueue(): Promise<Record<string, unknown>[]> {
+        const sb = this.ensureSupabase();
+        if (!sb) throw new Error('Database connection not available.');
+
+        const { data, error } = await sb
+            .from('pending_orders')
+            .select('id, order_number, status, delivery_quote_status, delivery_distance_miles, delivery_verify_method, customer_name, customer_email, customer_phone, customer_language, date_needed, time_needed, cake_size, filling, theme, delivery_address, delivery_apartment, delivery_instructions, delivery_fee, total_amount, original_total_amount, price_revision, expires_at, payment_link_sent_at, created_at')
+            .in('delivery_quote_status', ['quote_required', 'quoted'])
+            .order('created_at', { ascending: false })
+            .limit(100);
+        if (error) throw error;
+        return data ?? [];
+    }
+
+    /** Staff enters the final delivery fee via the resolve-delivery-quote Edge Function. */
+    async resolveDeliveryQuote(input: {
+        pending_order_id: string;
+        delivery_fee: number;
+        notes?: string;
+    }): Promise<Record<string, unknown>> {
+        const sb = this.ensureSupabase();
+        if (!sb) throw new Error('Database connection not available.');
+
+        const { data, error } = await sb.functions.invoke('resolve-delivery-quote', { body: input });
+        if (error) {
+            const ctx = (error as { context?: Response }).context;
+            let parsed: { error?: string; details?: unknown } | null = null;
+            if (ctx && typeof ctx.json === 'function') {
+                try { parsed = await ctx.json(); } catch { /* body not JSON */ }
+            }
+            const surfaced = new Error(parsed?.error || error.message) as Error & { details?: unknown };
             if (parsed?.details) surfaced.details = parsed.details;
             throw surfaced;
         }

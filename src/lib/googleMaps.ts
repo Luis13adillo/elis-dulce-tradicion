@@ -25,43 +25,11 @@ export const buildGoogleMapsUrl = (address: string): string => {
   }
 };
 
-const BAKERY_ADDRESS = '324 W Marshall St, Norristown, PA 19401';
-const BAKERY_LAT = 40.1063;
-const BAKERY_LNG = -74.9526;
-
-/**
- * Calculate distance from bakery to delivery address
- * Uses Google Maps Distance Matrix API
- */
-export async function calculateDistance(deliveryAddress: string): Promise<number> {
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-  
-  if (!apiKey) {
-    console.warn('Google Maps API key not configured, using default distance');
-    return 5.0; // Default 5 miles
-  }
-
-  try {
-    const origin = encodeURIComponent(BAKERY_ADDRESS);
-    const destination = encodeURIComponent(deliveryAddress);
-    
-    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${origin}&destinations=${destination}&units=imperial&key=${apiKey}`;
-    
-    const response = await fetch(url);
-    const data = await response.json();
-    
-    if (data.status === 'OK' && data.rows[0]?.elements[0]?.distance) {
-      const distanceInMiles = data.rows[0].elements[0].distance.value / 1609.34; // Convert meters to miles
-      return Math.round(distanceInMiles * 10) / 10; // Round to 1 decimal place
-    }
-    
-    console.warn('Could not calculate distance from Google Maps, using default');
-    return 5.0; // Default fallback
-  } catch (error) {
-    console.error('Error calculating distance:', error);
-    return 5.0; // Default fallback
-  }
-}
+// Distance/fee calculation moved SERVER-SIDE on 2026-07-29
+// (supabase/functions/_shared/delivery.ts — the one authoritative bakery
+// origin). This file previously carried the pre-move Bensalem coordinates
+// (40.1063, -74.9526) labeled with the Norristown address; the browser no
+// longer measures delivery distance at all.
 
 /**
  * Geocode an address to get coordinates and formatted address
@@ -186,16 +154,5 @@ export async function validateAddress(address: string): Promise<{
     console.error('Error validating address:', error);
     return { isValid: false, error: 'Error validating address' };
   }
-}
-
-/**
- * Get bakery coordinates
- */
-export function getBakeryLocation(): { lat: number; lng: number; address: string } {
-  return {
-    lat: BAKERY_LAT,
-    lng: BAKERY_LNG,
-    address: BAKERY_ADDRESS,
-  };
 }
 

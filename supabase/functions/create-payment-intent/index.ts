@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
         if (body.pending_order_id) {
             const { data: pending, error } = await supabase
                 .from("pending_orders")
-                .select("id, order_number, customer_name, customer_email, customer_phone, customer_language, total_amount, status, payment_intent_id, expires_at, date_needed, time_needed, cake_size, filling, delivery_option, delivery_address, reference_image_path, image_review_status, price_revision")
+                .select("id, order_number, customer_name, customer_email, customer_phone, customer_language, total_amount, status, payment_intent_id, expires_at, date_needed, time_needed, cake_size, filling, delivery_option, delivery_address, delivery_fee, delivery_quote_status, reference_image_path, image_review_status, price_revision")
                 .eq("id", body.pending_order_id)
                 .maybeSingle();
 
@@ -123,6 +123,24 @@ Deno.serve(async (req) => {
                         { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
                     );
                 }
+            }
+
+            // Delivery-quote gate (authoritative, server-side). An order
+            // flagged "Delivery Quote Required" (beyond the 5-mile flat-fee
+            // radius, or the address/distance could not be verified) may not
+            // pay until staff entered the final delivery fee — its stored
+            // total does not include delivery yet, so charging it would be
+            // charging the wrong amount. resolve_delivery_quote flips the
+            // status to 'quoted', bumps price_revision and re-opens payment.
+            if (pending.delivery_option === "delivery"
+                && pending.delivery_quote_status === "quote_required") {
+                return new Response(
+                    JSON.stringify({
+                        error: "We're confirming your delivery cost. We'll email you a secure payment link as soon as it's ready.",
+                        code: "delivery_quote_required",
+                    }),
+                    { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                );
             }
 
             const amount = Number(pending.total_amount);
@@ -197,6 +215,7 @@ Deno.serve(async (req) => {
                         filling: truncate(pending.filling),
                         delivery_option: truncate(pending.delivery_option),
                         delivery_address: truncate(pending.delivery_address),
+                        delivery_fee: String(pending.delivery_fee ?? ""),
                         total_amount: String(pending.total_amount ?? ""),
                     },
                     receipt_email: pending.customer_email ?? undefined,

@@ -102,10 +102,12 @@ const PaymentCheckout = () => {
             .catch(err => {
               console.error('Payment Init Error:', err);
               paymentIntentRequested.current = false;
-              // Photo review gate: this order can't pay until the bakery
-              // approves its design photo — send the customer to the
-              // holding page instead of showing a payment error.
-              if ((err as { code?: string }).code === 'image_review_required') {
+              // Server-side payment gates: this order can't pay yet —
+              // either its design photo awaits bakery approval, or its
+              // delivery address needs a staff-entered delivery quote.
+              // Send the customer to the holding page, not a payment error.
+              const gateCode = (err as { code?: string }).code;
+              if (gateCode === 'image_review_required' || gateCode === 'delivery_quote_required') {
                 navigate(`/order-received?pendingId=${encodeURIComponent(urlPendingId)}`);
                 return;
               }

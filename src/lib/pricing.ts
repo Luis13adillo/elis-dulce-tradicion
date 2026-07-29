@@ -159,30 +159,11 @@ export async function calculateDeliveryFee(
     return 15.00; // Fallback default
   }
   
-  // Calculate distance (would use Google Maps API in production)
-  // For now, use base fee + estimate based on zone
-  let distance = 0;
-  
-  try {
-    // Use Google Maps Distance Matrix API if available
-    const { calculateDistance } = await import('./googleMaps');
-    distance = await calculateDistance(address);
-  } catch (error) {
-    console.warn('Could not calculate distance, using base fee:', error);
-    // Use base fee if distance calculation fails
-    return parseFloat(zone.base_fee.toString());
-  }
-  
-  // Apply max distance limit if set
-  if (zone.max_distance && distance > zone.max_distance) {
-    // Use max distance for calculation
-    distance = zone.max_distance;
-  }
-  
-  const baseFee = parseFloat(zone.base_fee.toString());
-  const perMileRate = parseFloat(zone.per_mile_rate.toString());
-  
-  return baseFee + (distance * perMileRate);
+  // DEAD CODE PATH (kept only because this module exports formatPrice used
+  // by live pages): the real delivery fee is computed server-side by the
+  // delivery-quote / create-pending-order Edge Functions since 2026-07-29.
+  // Zone-based per-mile pricing is not used by the live order flow.
+  return parseFloat(zone.base_fee.toString());
 }
 
 /**

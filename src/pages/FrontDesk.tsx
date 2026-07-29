@@ -28,6 +28,7 @@ import { UrgentOrdersBanner } from '@/components/kitchen/UrgentOrdersBanner';
 import { Package, AlertTriangle, ChevronLeft, ChevronRight, WifiOff, RefreshCw, PlusCircle, FlaskConical } from 'lucide-react';
 import { WalkInOrderModal } from '@/components/kitchen/WalkInOrderModal';
 import { ReviewQueuePanel, useReviewQueueCount } from '@/components/kitchen/ReviewQueuePanel';
+import { DeliveryQuotePanel, useDeliveryQuoteCount } from '@/components/kitchen/DeliveryQuotePanel';
 import { AuthenticatorAssuranceCheck } from '@/components/auth/AuthenticatorAssuranceCheck';
 import { useInactivityTimeout } from '@/hooks/useInactivityTimeout';
 import { SessionTimeoutModal } from '@/components/auth/SessionTimeoutModal';
@@ -151,6 +152,7 @@ const FrontDesk = () => {
   const [activeTab, setActiveTab] = useState<KitchenTab>('active');
   const [activeView, setActiveView] = useState<'queue' | 'review' | 'upcoming' | 'inventory' | 'deliveries' | 'reports'>('queue');
   const reviewQueueCount = useReviewQueueCount();
+  const deliveryQuoteCount = useDeliveryQuoteCount();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   // Theme: light-only product. Previously a useState(true) that drove a never-wired-up toggle.
@@ -435,7 +437,13 @@ const FrontDesk = () => {
 
   const renderContent = () => {
     if (activeView === 'review') {
-      return <ReviewQueuePanel darkMode={isDarkMode} />;
+      // Both pre-payment holds live here: photo reviews and delivery quotes.
+      return (
+        <div className="space-y-10">
+          <DeliveryQuotePanel darkMode={isDarkMode} />
+          <ReviewQueuePanel darkMode={isDarkMode} />
+        </div>
+      );
     }
 
     if (activeView === 'inventory') {
@@ -724,7 +732,7 @@ const FrontDesk = () => {
       onNotificationClick={() => setIsNotificationPanelOpen(true)}
       onRefresh={refreshOrders}
       isRefreshing={isRefreshing}
-      badgeCounts={{ queue: counts.new, review: reviewQueueCount }}
+      badgeCounts={{ queue: counts.new, review: reviewQueueCount + deliveryQuoteCount }}
       soundEnabled={isSoundEnabled}
       onToggleSound={() => setIsSoundEnabled(!isSoundEnabled)}
       userName={user?.profile?.full_name || user?.email?.split('@')[0] || 'Staff'}

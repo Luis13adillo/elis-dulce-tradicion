@@ -16,7 +16,7 @@ interface ContactStepProps {
   foodSafetyAcknowledged: boolean;
   deliveryAddress: string;
   deliveryFee: number;
-  isAddressServiceable?: boolean;
+  deliveryQuoteStatus?: 'flat' | 'quote_required';
   onNameChange: (name: string) => void;
   onPhoneChange: (phone: string) => void;
   onEmailChange: (email: string) => void;
@@ -41,15 +41,15 @@ export function validateContactStep(
   deliveryAddress: string,
   consentGiven: boolean,
   foodSafetyAcknowledged: boolean,
-  t: any,
-  isAddressServiceable?: boolean
+  t: any
 ): string | null {
   if (!customerName.trim()) return t('Por favor ingresa tu nombre', 'Please enter your name');
   if (!phone.trim()) return t('Por favor ingresa tu teléfono', 'Please enter your phone');
   if (!email.trim() || !email.includes('@')) return t('Por favor ingresa un email válido', 'Please enter a valid email');
   if (pickupType === 'delivery' && !deliveryAddress.trim()) return t('Por favor ingresa tu dirección', 'Please enter your delivery address');
-  if (pickupType === 'delivery' && deliveryAddress && isAddressServiceable === false)
-    return t('Dirección fuera de área de entrega (máx. 4.5 millas)', 'Address outside delivery area (max 4.5 miles)');
+  // No distance-based rejection here: far or unverifiable addresses are
+  // accepted as "Delivery Quote Required" and the bakery confirms the fee
+  // before payment. Never block, never silently switch to pickup.
   if (!foodSafetyAcknowledged)
     return t(
       'Por favor confirma que entiendes la advertencia de alérgenos',
@@ -69,7 +69,7 @@ const ContactStep = ({
   foodSafetyAcknowledged,
   deliveryAddress,
   deliveryFee,
-  isAddressServiceable: _isAddressServiceable,
+  deliveryQuoteStatus,
   onNameChange,
   onPhoneChange,
   onEmailChange,
@@ -145,6 +145,17 @@ const ContactStep = ({
             <div className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-[#C6A649]/10 border border-[#C6A649]/20 rounded-xl text-[#C6A649] text-[10px] sm:text-xs font-black uppercase tracking-wider sm:tracking-widest">
               <MapPin size={13} className="flex-shrink-0" />
               <span>{t('Tarifa de entrega:', 'Delivery fee:')} {formatPrice(deliveryFee)}</span>
+            </div>
+          )}
+          {deliveryQuoteStatus !== 'flat' && (
+            <div className="flex items-start gap-2 px-3 sm:px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-gray-400 text-[10px] sm:text-xs leading-relaxed">
+              <MapPin size={13} className="flex-shrink-0 mt-0.5" />
+              <span>
+                {t(
+                  'Entrega: $5 hasta 5 millas de la pastelería. Para otras direcciones, confirmaremos el costo y te enviaremos un enlace de pago.',
+                  "Delivery: $5 within 5 miles of the bakery. For other addresses, we'll confirm the cost and send you a payment link."
+                )}
+              </span>
             </div>
           )}
         </div>

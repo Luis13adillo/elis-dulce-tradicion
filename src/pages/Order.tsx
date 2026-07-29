@@ -132,7 +132,11 @@ const Order = () => {
   const [allergies, setAllergies] = useState('');
   const [foodSafetyAcknowledged, setFoodSafetyAcknowledged] = useState(false);
   const [deliveryFee, setDeliveryFee] = useState(0);
-  const [isAddressServiceable, setIsAddressServiceable] = useState<boolean | undefined>(undefined);
+  // 'flat' = verified within 5 driving miles ($5 fee shown up front);
+  // 'quote_required' = accepted, but the bakery confirms the fee after
+  // submission (payment waits for the quote). Display-only — the server
+  // recomputes the authoritative verdict when the order is created.
+  const [deliveryQuoteStatus, setDeliveryQuoteStatus] = useState<'flat' | 'quote_required' | undefined>(undefined);
 
   // Submission guards. `submitLockRef` fires synchronously on click, before
   // React re-renders the disabled button — this is the real double-click
@@ -451,16 +455,19 @@ const Order = () => {
 
   const handleAddressChange = (address: string, _isValid: boolean, _placeDetails?: any, deliveryInfo?: any) => {
     setFormData(prev => ({ ...prev, deliveryAddress: address }));
-    setIsAddressServiceable(deliveryInfo?.serviceable);
-    if (deliveryInfo && !deliveryInfo.serviceable) {
-      setFormData(prev => ({ ...prev, pickupType: 'pickup' }));
+    // Never block the order and never silently switch to pickup: a far or
+    // unverified address is submitted as "Delivery Quote Required" and the
+    // bakery confirms the fee before any payment happens.
+    if (deliveryInfo?.status === 'flat') {
+      setDeliveryQuoteStatus('flat');
+      setDeliveryFee(Number(deliveryInfo.fee) || 0);
+    } else if (deliveryInfo) {
+      setDeliveryQuoteStatus('quote_required');
       setDeliveryFee(0);
-      toast.error(t(
-        'Dirección fuera del área de entrega. Cambiado a Pickup.',
-        'Address outside delivery area. Switched to Pickup.'
-      ));
-    } else if (deliveryInfo?.serviceable) {
-      setDeliveryFee(deliveryInfo.fee || 0);
+    } else {
+      // Typed manually with no verification yet — the server decides at submit.
+      setDeliveryQuoteStatus(undefined);
+      setDeliveryFee(0);
     }
   };
 
@@ -535,8 +542,7 @@ const Order = () => {
         formData.deliveryAddress,
         consentGiven,
         foodSafetyAcknowledged,
-        t,
-        isAddressServiceable
+        t
       );
       if (err) { setValidationError(err); return false; }
     }
@@ -693,8 +699,13 @@ const Order = () => {
         }
       }
 
+      // Two holds can route to the received page instead of checkout:
+      // a design photo under review, or a delivery address that needs a
+      // staff quote (beyond 5 miles / unverifiable). Both are enforced
+      // server-side by create-payment-intent regardless of this routing.
+      const quoteRequired = pending.delivery_quote_status === 'quote_required';
       navigate(
-        reviewHeld
+        reviewHeld || quoteRequired
           ? `/order-received?pendingId=${encodeURIComponent(pending.pending_order_id)}`
           : `/payment-checkout?pendingId=${encodeURIComponent(pending.pending_order_id)}`
       );
@@ -946,7 +957,7 @@ const Order = () => {
                 foodSafetyAcknowledged={foodSafetyAcknowledged}
                 deliveryAddress={formData.deliveryAddress}
                 deliveryFee={deliveryFee}
-                isAddressServiceable={isAddressServiceable}
+                deliveryQuoteStatus={deliveryQuoteStatus}
                 onNameChange={(name) => setFormData(prev => ({ ...prev, customerName: name }))}
                 onPhoneChange={handlePhoneChange}
                 onEmailChange={(email) => setFormData(prev => ({ ...prev, email }))}

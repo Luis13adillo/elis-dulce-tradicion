@@ -3,9 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { api } from '@/lib/api';
-import { calculateDistance } from '@/lib/googleMaps';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { CheckCircle2, Info, Loader2 } from 'lucide-react';
 
 interface AddressAutocompleteProps {
   value: string;
@@ -145,24 +144,21 @@ const AddressAutocomplete = ({
           address_components: addressComponents
         };
 
-        // Check delivery zone and fee if enabled
-        if (isValid && showDeliveryInfo && zipCode) {
+        // Delivery fee pre-check (display only — the server recomputes the
+        // authoritative verdict at submit time). Flat $5 within 5 driving
+        // miles of the bakery; anything farther or unverifiable is accepted
+        // as "quote required" — never blocked, never switched to pickup.
+        if (isValid && showDeliveryInfo) {
           setIsCheckingDelivery(true);
           try {
-            const distance = await calculateDistance(place.formatted_address);
-            if (distance > 4.5) {
-              setIsValidAddress(false);
-              const outInfo = { serviceable: false, distance };
-              setDeliveryInfo(outInfo);
-              onChange(place.formatted_address, false, placeDetails, outInfo);
-              return;
-            }
-            const deliveryData = await api.calculateDeliveryFee(formattedAddress, zipCode);
-            setDeliveryInfo(deliveryData);
-            onChange(formattedAddress, isValid, placeDetails, deliveryData);
+            const quote = await api.getDeliveryQuote(place.formatted_address || formattedAddress);
+            setDeliveryInfo(quote);
+            onChange(formattedAddress, isValid, placeDetails, quote);
           } catch (error) {
             console.error('Error checking delivery:', error);
-            onChange(formattedAddress, isValid, placeDetails);
+            const fallback = { status: 'quote_required', fee: 0, distance_miles: null };
+            setDeliveryInfo(fallback);
+            onChange(formattedAddress, isValid, placeDetails, fallback);
           } finally {
             setIsCheckingDelivery(false);
           }
@@ -232,38 +228,35 @@ const AddressAutocomplete = ({
           
           {deliveryInfo && !isCheckingDelivery && (
             <div className="rounded-lg border bg-muted/50 p-3 space-y-2">
-              {deliveryInfo.serviceable ? (
+              {deliveryInfo.status === 'flat' ? (
                 <>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-green-600" />
                     <Badge variant="default" className="bg-green-100 text-green-800">
-                      {deliveryInfo.zone?.name || t('Zona de Entrega', 'Delivery Zone')}
+                      {t('Entrega Disponible', 'Delivery Available')}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">
                       {t('Tarifa de Entrega', 'Delivery Fee')}:
                     </span>
-                    <span className="font-semibold">${deliveryInfo.fee?.toFixed(2) || '0.00'}</span>
+                    <span className="font-semibold">${Number(deliveryInfo.fee ?? 0).toFixed(2)}</span>
                   </div>
-                  {deliveryInfo.distance && (
+                  {deliveryInfo.distance_miles != null && (
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>{t('Distancia', 'Distance')}:</span>
-                      <span>{deliveryInfo.distance} {t('millas', 'miles')}</span>
-                    </div>
-                  )}
-                  {deliveryInfo.zone?.estimated_delivery_minutes && (
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{t('Tiempo Estimado', 'Estimated Time')}:</span>
-                      <span>{deliveryInfo.zone.estimated_delivery_minutes} {t('minutos', 'minutes')}</span>
+                      <span>{deliveryInfo.distance_miles} {t('millas', 'miles')}</span>
                     </div>
                   )}
                 </>
               ) : (
-                <div className="flex items-center gap-2 text-red-600">
-                  <XCircle className="h-4 w-4" />
-                  <span className="text-sm font-semibold">
-                    {t('Fuera del área de entrega', 'Outside delivery area')}
+                <div className="flex items-start gap-2 text-amber-600">
+                  <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">
+                    {t(
+                      'Tu dirección está fuera de nuestra zona de tarifa fija de 5 millas. Puedes hacer tu pedido — te confirmaremos el costo de entrega y te enviaremos un enlace de pago.',
+                      "Your address is outside our 5-mile flat-fee area. You can still place your order — we'll confirm your delivery cost and send you a payment link."
+                    )}
                   </span>
                 </div>
               )}
