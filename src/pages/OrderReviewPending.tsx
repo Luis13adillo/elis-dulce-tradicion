@@ -26,6 +26,10 @@ const OrderReviewPending = () => {
   const [searchParams] = useSearchParams();
   const pendingId = searchParams.get('pendingId');
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
+  // True when the hold is (also) a delivery quote: the bakery must enter
+  // the delivery fee before payment, so this page must NOT auto-forward to
+  // checkout — the customer gets an emailed payment link instead.
+  const [quoteRequired, setQuoteRequired] = useState<boolean>(false);
   const recheckCount = useRef(0);
 
   useEffect(() => {
@@ -47,11 +51,21 @@ const OrderReviewPending = () => {
 
     const recheck = async () => {
       try {
-        const { held } = await api.reviewOrderImage(pendingId);
+        // The quote hold is cleared only by staff (resolve-delivery-quote),
+        // never by waiting — so a quote-held order stays on this page.
+        // Forwarding it to checkout would bounce straight back here
+        // (create-payment-intent refuses quote_required orders).
+        const pending = await api.getPendingOrder(pendingId) as { delivery_quote_status?: string } | null;
         if (cancelled) return;
-        if (!held) {
-          navigate(`/payment-checkout?pendingId=${encodeURIComponent(pendingId)}`);
-          return;
+        const needsQuote = pending?.delivery_quote_status === 'quote_required';
+        setQuoteRequired(needsQuote);
+        if (!needsQuote) {
+          const { held } = await api.reviewOrderImage(pendingId);
+          if (cancelled) return;
+          if (!held) {
+            navigate(`/payment-checkout?pendingId=${encodeURIComponent(pendingId)}`);
+            return;
+          }
         }
       } catch {
         // Still can't get a verdict — stay held (fail-closed).
@@ -80,8 +94,17 @@ const OrderReviewPending = () => {
               {t('Pedido Recibido', 'Order Received')}
             </span>
             <h1 className="font-display text-4xl md:text-5xl font-black uppercase tracking-tighter mb-4">
-              {t('Estamos revisando', "We're reviewing")}{' '}
-              <span className="text-[#C6A649]">{t('tu diseño', 'your design')}</span>
+              {quoteRequired ? (
+                <>
+                  {t('Estamos confirmando', "We're confirming")}{' '}
+                  <span className="text-[#C6A649]">{t('tu entrega', 'your delivery')}</span>
+                </>
+              ) : (
+                <>
+                  {t('Estamos revisando', "We're reviewing")}{' '}
+                  <span className="text-[#C6A649]">{t('tu diseño', 'your design')}</span>
+                </>
+              )}
             </h1>
             {orderNumber && (
               <p className="text-gray-400 font-bold mb-10">
@@ -94,10 +117,15 @@ const OrderReviewPending = () => {
                 <div className="flex gap-4">
                   <ChefHat className="h-8 w-8 shrink-0 text-[#C6A649]" />
                   <p className="text-gray-300 leading-relaxed">
-                    {t(
-                      'Nuestros reposteros están revisando personalmente la foto de tu diseño para asegurarnos de que podamos hacerlo perfecto.',
-                      'Our bakers are personally reviewing your design photo to make sure we can make it perfect.'
-                    )}
+                    {quoteRequired
+                      ? t(
+                          'Tu dirección está fuera de nuestra zona de tarifa fija de 5 millas, así que estamos confirmando el costo exacto de tu entrega.',
+                          "Your address is outside our 5-mile flat-fee area, so we're confirming the exact cost of your delivery."
+                        )
+                      : t(
+                          'Nuestros reposteros están revisando personalmente la foto de tu diseño para asegurarnos de que podamos hacerlo perfecto.',
+                          'Our bakers are personally reviewing your design photo to make sure we can make it perfect.'
+                        )}
                   </p>
                 </div>
                 <div className="flex gap-4">

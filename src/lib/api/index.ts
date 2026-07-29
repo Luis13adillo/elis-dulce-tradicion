@@ -36,6 +36,8 @@ class ApiClient extends BaseApiClient {
     getReviewQueue = this.ordersModule.getReviewQueue.bind(this.ordersModule);
     resolveImageReview = this.ordersModule.resolveImageReview.bind(this.ordersModule);
     verifyPaymentByPending = this.ordersModule.verifyPaymentByPending.bind(this.ordersModule);
+    getDeliveryQuoteQueue = this.ordersModule.getDeliveryQuoteQueue.bind(this.ordersModule);
+    resolveDeliveryQuote = this.ordersModule.resolveDeliveryQuote.bind(this.ordersModule);
     cancelOrder = this.ordersModule.cancelOrder.bind(this.ordersModule);
     adminCancelOrder = this.ordersModule.adminCancelOrder.bind(this.ordersModule);
     getCancellationPolicy = this.ordersModule.getCancellationPolicy.bind(this.ordersModule);
@@ -159,24 +161,37 @@ class ApiClient extends BaseApiClient {
         return data as { clientSecret: string; id: string };
     }
 
-    async calculateDeliveryFee(address: string, zipCode: string): Promise<{
-        serviceable: boolean;
+    /**
+     * Display-only delivery pre-check for the order wizard, served by the
+     * delivery-quote Edge Function (which measures driving distance from the
+     * Norristown bakery). 'flat' = $5 fee within 5 miles; anything else is
+     * 'quote_required' — the order is still accepted, payment waits for a
+     * staff quote. The authoritative verdict is recomputed server-side at
+     * submit time; this result only drives what the wizard shows.
+     * Replaced the old localhost/Express endpoint (never deployed) 2026-07-29.
+     */
+    async getDeliveryQuote(address: string): Promise<{
+        status: 'flat' | 'quote_required';
         fee: number;
-        zone?: string;
-        distance?: number;
-        estimatedTime?: string;
+        distance_miles: number | null;
+        flat_fee: number;
+        flat_radius_miles: number;
     }> {
-        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const fallback = {
+            status: 'quote_required' as const, fee: 0, distance_miles: null,
+            flat_fee: 5, flat_radius_miles: 5,
+        };
+        const sb = this.ensureSupabase();
+        if (!sb) return fallback;
         try {
-            const params = new URLSearchParams({ address, zipCode });
-            const res = await fetch(
-                `${API_BASE_URL}/api/v1/delivery/calculate-fee?${params.toString()}`,
-                { credentials: 'include' } // Required for CSRF cookie cross-origin
-            );
-            if (!res.ok) return { serviceable: false, fee: 0 };
-            return res.json();
+            const { data, error } = await sb.functions.invoke('delivery-quote', { body: { address } });
+            if (error || !data?.status) return fallback;
+            return data as {
+                status: 'flat' | 'quote_required'; fee: number; distance_miles: number | null;
+                flat_fee: number; flat_radius_miles: number;
+            };
         } catch {
-            return { serviceable: false, fee: 0 };
+            return fallback;
         }
     }
 }
