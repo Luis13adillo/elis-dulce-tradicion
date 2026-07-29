@@ -72,6 +72,18 @@ async function call(path, body, headers = {}) {
     });
     let jsonBody = null;
     try { jsonBody = await res.json(); } catch { /* non-JSON */ }
+    // create-payment-intent rate-limits 10 calls/min per IP. A single matrix
+    // run stays under that, but a run started within a minute of a previous
+    // one (watcher + manual, or two back-to-back reruns) overlaps the window
+    // and 429s its tail calls. That's the limiter working, not a product bug —
+    // wait out the advertised Retry-After once and repeat the call so
+    // adjacent runs can't poison each other's results.
+    if (res.status === 429 && path === "create-payment-intent") {
+        const wait = (Number(jsonBody?.retryAfter) || 60) + 2;
+        console.log(`  (rate-limited by an adjacent run — waiting ${wait}s and retrying once)`);
+        await sleep(wait * 1000);
+        return call(path, body, headers);
+    }
     return { status: res.status, json: jsonBody };
 }
 

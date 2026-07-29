@@ -45,9 +45,20 @@ describe('DB lockdown: frontend calls the guarded staff_* wrappers', () => {
     expect(analytics).not.toContain("rpc('get_orders_by_status'");
   });
 
+  it('creates pending orders through the server-verdict Edge Function', () => {
+    // Since the 2026-07-29 delivery flow, the browser must NOT call the
+    // create_pending_order RPC — the create-pending-order Edge Function owns
+    // the server-side delivery verdict (flat $5 within 5 miles / quote
+    // required beyond). The public RPC survives only as a degraded wrapper
+    // for stale cached bundles, and it forces delivery to quote_required.
+    expect(orders).toContain("invoke('create-pending-order'");
+    expect(orders).not.toContain("rpc('create_pending_order'");
+    // The trusted variant is service_role-only and must never be in the bundle.
+    expect(orders).not.toContain('create_pending_order_secure');
+  });
+
   it('still calls the genuinely public customer RPCs directly', () => {
     // Guard against over-correction: locking these would break ordering.
-    expect(orders).toContain("rpc('create_pending_order'");
     expect(orders).toContain("rpc('get_public_order'");
     expect(orders).toContain("rpc('get_pending_order'");
   });
@@ -95,7 +106,16 @@ describe('Edge Function lockdown: sensitive functions are guarded', () => {
 });
 
 describe('Payments: no caller-supplied amount path remains', () => {
-  const src = read('supabase/functions/create-payment-intent/index.ts');
+  // The handler logic moved to handler.ts (2026-07-29) so unit tests can run
+  // it with a mocked network; index.ts must stay a thin Deno.serve wrapper
+  // around that same handler.
+  const src = read('supabase/functions/create-payment-intent/handler.ts');
+
+  it('index.ts serves exactly the tested handler', () => {
+    const entry = read('supabase/functions/create-payment-intent/index.ts');
+    expect(entry).toContain("import { handler } from \"./handler.ts\"");
+    expect(entry).toContain('Deno.serve(handler)');
+  });
 
   it('rejects requests without a pending_order_id', () => {
     expect(src).toContain('PENDING_ORDER_REQUIRED');
