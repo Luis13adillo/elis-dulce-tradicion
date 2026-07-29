@@ -13,6 +13,23 @@ import { useResponseTemplates } from '@/lib/hooks/useSupport';
 import { toast } from 'sonner';
 import { MessageCircle, Eye, CheckCircle2, XCircle, Mail, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { useReferenceImageUrl } from '@/hooks/useReferenceImageUrl';
+
+// Attachments are stored as private-bucket paths (reference-images bucket,
+// private since 2026-07-28) — staff viewers resolve them to short-lived
+// signed URLs. Legacy rows holding absolute URLs pass through unchanged.
+const AttachmentLink = ({ path }: { path: string }) => {
+  const { t } = useLanguage();
+  const url = useReferenceImageUrl(path);
+  if (!url) {
+    return <p className="text-sm text-muted-foreground">{t('Cargando adjunto...', 'Loading attachment...')}</p>;
+  }
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+      {t('Ver adjunto', 'View attachment')}
+    </a>
+  );
+};
 
 const ContactSubmissionsManager = () => {
   const { t, language } = useLanguage();
@@ -216,14 +233,7 @@ const ContactSubmissionsManager = () => {
               {selectedSubmission.attachment_url && (
                 <div>
                   <p className="text-sm font-semibold text-muted-foreground mb-2">{t('Adjunto', 'Attachment')}</p>
-                  <a
-                    href={selectedSubmission.attachment_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline"
-                  >
-                    {t('Ver adjunto', 'View attachment')}
-                  </a>
+                  <AttachmentLink path={selectedSubmission.attachment_url} />
                 </div>
               )}
               

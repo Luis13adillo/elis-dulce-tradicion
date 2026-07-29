@@ -37,12 +37,18 @@ export async function uploadReferenceImage(
 
     const compressedFile = validation.compressedFile;
 
-    // Generate unique filename
+    // Generate unique filename. The random suffix matters: parallel uploads
+    // (order-issue photos) share the same Date.now() millisecond, and
+    // upsert:false turns a name collision into a hard failure.
     const timestamp = Date.now();
-    const fileExtension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const rand = Math.random().toString(36).slice(2, 8);
+    // Sanitize the extension — it comes from the user's filename and must
+    // stay within the server-side path whitelist ([A-Za-z0-9._-]).
+    const fileExtension =
+      (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
     const filename = orderId
-      ? `orders/${orderId}_${timestamp}.${fileExtension}`
-      : `orders/temp_${timestamp}.${fileExtension}`;
+      ? `orders/${orderId}_${timestamp}_${rand}.${fileExtension}`
+      : `orders/temp_${timestamp}_${rand}.${fileExtension}`;
 
     // Upload to Supabase Storage
     const { data, error } = await supabase.storage

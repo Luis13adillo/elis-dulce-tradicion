@@ -16,6 +16,17 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// XSS protection: escape HTML special characters in user input
+function escapeHtml(text: string | undefined | null): string {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
 interface ContactSubmission {
     id: number;
     name: string;
@@ -57,32 +68,32 @@ Deno.serve(async (req) => {
       const resend = new Resend(RESEND_API_KEY);
 
       // 1. Send notification to owner
-      const ownerSubject = `New Contact Form Submission: ${submission.subject}`;
+      const ownerSubject = `New Contact Form Submission: ${submission.subject.replace(/[\r\n]/g, " ")}`;
       const ownerBodyContent = `
         <div style="background:#faf8f4;border-radius:10px;padding:24px 28px;margin:0 0 20px;border-left:4px solid #C6A649;">
           <h2 style="color:#1A1A2E;font-family:'Playfair Display',Georgia,serif;font-size:16px;font-weight:700;margin:0 0 14px;">Submission Details</h2>
           <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
             <tr>
               <td style="padding:7px 0;color:#777;font-size:13px;width:40%;border-bottom:1px solid #f0ead8;">Name:</td>
-              <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;border-bottom:1px solid #f0ead8;">${submission.name}</td>
+              <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;border-bottom:1px solid #f0ead8;">${escapeHtml(submission.name)}</td>
             </tr>
             <tr>
               <td style="padding:7px 0;color:#777;font-size:13px;border-bottom:1px solid #f0ead8;">Email:</td>
-              <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;border-bottom:1px solid #f0ead8;">${submission.email}</td>
+              <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;border-bottom:1px solid #f0ead8;">${escapeHtml(submission.email)}</td>
             </tr>
             ${submission.phone ? `
             <tr>
               <td style="padding:7px 0;color:#777;font-size:13px;border-bottom:1px solid #f0ead8;">Phone:</td>
-              <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;border-bottom:1px solid #f0ead8;">${submission.phone}</td>
+              <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;border-bottom:1px solid #f0ead8;">${escapeHtml(submission.phone)}</td>
             </tr>` : ''}
             <tr>
               <td style="padding:7px 0;color:#777;font-size:13px;border-bottom:1px solid #f0ead8;">Subject:</td>
-              <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;border-bottom:1px solid #f0ead8;">${submission.subject}</td>
+              <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;border-bottom:1px solid #f0ead8;">${escapeHtml(submission.subject)}</td>
             </tr>
             ${submission.order_number ? `
             <tr>
               <td style="padding:7px 0;color:#777;font-size:13px;border-bottom:1px solid #f0ead8;">Order Number:</td>
-              <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;border-bottom:1px solid #f0ead8;">${submission.order_number}</td>
+              <td style="padding:7px 0;color:#1A1A2E;font-size:13px;font-weight:600;border-bottom:1px solid #f0ead8;">${escapeHtml(submission.order_number)}</td>
             </tr>` : ''}
             <tr>
               <td style="padding:7px 0;color:#777;font-size:13px;border-bottom:1px solid #f0ead8;">Submitted:</td>
@@ -92,13 +103,13 @@ Deno.serve(async (req) => {
           <div style="margin-top:16px;padding-top:14px;border-top:1px solid #e8dcc8;">
             <p style="color:#777;font-size:13px;margin:0 0 8px;"><strong>Message:</strong></p>
             <div style="background:#fff;padding:12px 16px;border-left:3px solid #C6A649;border-radius:4px;font-size:14px;color:#333;line-height:1.6;">
-              ${submission.message.replace(/\n/g, '<br>')}
+              ${escapeHtml(submission.message).replace(/\n/g, '<br>')}
             </div>
           </div>
           ${submission.attachment_url ? `
           <p style="margin:12px 0 0;font-size:13px;">
             <strong style="color:#777;">Attachment:</strong>
-            <a href="${submission.attachment_url}" style="color:#C6A649;text-decoration:none;margin-left:6px;">View Attachment &rarr;</a>
+            <a href="${escapeHtml(submission.attachment_url)}" style="color:#C6A649;text-decoration:none;margin-left:6px;">View Attachment &rarr;</a>
           </p>` : ''}
         </div>
 
@@ -126,14 +137,14 @@ Deno.serve(async (req) => {
       // 2. Send auto-reply to customer
       const customerSubject = `Thank you for contacting ${FROM_NAME}`;
       const customerBodyContent = `
-        <p style="font-size:16px;color:#333;margin:0 0 8px;">Dear <strong>${submission.name}</strong>,</p>
+        <p style="font-size:16px;color:#333;margin:0 0 8px;">Dear <strong>${escapeHtml(submission.name)}</strong>,</p>
         <p style="font-size:15px;color:#555;margin:0 0 24px;">
           Thank you for reaching out to us! We've received your message and will get back to you as soon as possible.
         </p>
 
         <div style="background:#faf8f4;border-radius:10px;padding:20px 24px;margin:0 0 20px;border-left:4px solid #C6A649;">
           <p style="color:#777;font-size:13px;margin:0 0 6px;"><strong>Your Subject:</strong></p>
-          <p style="color:#1A1A2E;font-size:15px;font-weight:600;margin:0;">${submission.subject}</p>
+          <p style="color:#1A1A2E;font-size:15px;font-weight:600;margin:0;">${escapeHtml(submission.subject)}</p>
         </div>
 
         <p style="font-size:14px;color:#888;text-align:center;margin:0;">
@@ -162,7 +173,7 @@ Deno.serve(async (req) => {
              } catch (error) {
                    console.error("Error in send-contact-notification:", error);
                    return new Response(
-                           JSON.stringify({ error: error.message }),
+                           JSON.stringify({ error: (error as Error).message }),
                      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
                          );
              }

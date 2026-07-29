@@ -16,50 +16,54 @@ import { useSubmitOrderIssue } from '@/lib/hooks/useSupport';
 import { uploadReferenceImage } from '@/lib/storage';
 import { isValidImageType, isValidFileSize } from '@/lib/imageCompression';
 import { api } from '@/lib/api';
-import { useAuth } from '@/contexts/AuthContext';
 
 const OrderIssue = () => {
   const { t, language } = useLanguage();
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isSpanish = language === 'es';
-  
+
   const orderNumber = searchParams.get('orderNumber') || '';
-  
+
   const [order, setOrder] = useState<any>(null);
   const [loadingOrder, setLoadingOrder] = useState(false);
   const [formData, setFormData] = useState({
+    email: '',
     issue_category: 'Other' as 'Wrong order' | 'Quality issue' | 'Late delivery' | 'Other',
     issue_description: '',
   });
-  
+
   const [photos, setPhotos] = useState<File[]>([]);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
+  // Idempotency token: stable across retries of the same report, regenerated
+  // only after a successful submission — a retry can never create a duplicate.
+  const clientTokenRef = useRef<string>(crypto.randomUUID());
+
   const submitMutation = useSubmitOrderIssue();
-  
+
   // Load order details if order number is provided
   useEffect(() => {
     if (orderNumber) {
       loadOrder();
     }
   }, [orderNumber]);
-  
+
   const loadOrder = async () => {
     setLoadingOrder(true);
     try {
-      const orders = (await api.getAllOrders()) as any[];
-      const foundOrder = orders.find((o: any) => 
-        o.order_number?.toLowerCase() === orderNumber.trim().toLowerCase()
-      );
-      
+      // Public, rate-limited lookup that returns only customer-safe fields.
+      // (The old code called the staff-wide getAllOrders() here, which anon
+      // customers have no permission to run — the form never rendered.)
+      const foundOrder = await api.getOrderByNumber(orderNumber.trim());
+
       if (foundOrder) {
         setOrder(foundOrder);
       } else {
+        setOrder(null);
         toast.error(
           t(
             'No se encontró una orden con ese número',
@@ -141,7 +145,7 @@ const OrderIssue = () => {
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!order) {
       toast.error(
         t(
@@ -151,7 +155,17 @@ const OrderIssue = () => {
       );
       return;
     }
-    
+
+    if (!formData.email.trim() || !formData.email.includes('@')) {
+      toast.error(
+        t(
+          'Ingrese el email con el que hizo el pedido',
+          'Enter the email you used when placing the order'
+        )
+      );
+      return;
+    }
+
     if (!formData.issue_description.trim()) {
       toast.error(
         t(
@@ -161,53 +175,54 @@ const OrderIssue = () => {
       );
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
-      // Upload photos
-      let photoUrls: string[] = [];
+      // Upload photos. A failed upload ABORTS the submit — never silently
+      // drop the customer's evidence photos and report success anyway.
+      const photoPaths: string[] = [];
       if (photos.length > 0) {
         setIsUploading(true);
-        try {
-          const uploadPromises = photos.map(photo => 
-            uploadReferenceImage(photo, 'order-issues')
-          );
-          photoUrls = await Promise.all(uploadPromises);
-          setIsUploading(false);
-        } catch (error) {
-          console.error('Error uploading photos:', error);
+        const results = await Promise.all(
+          photos.map(photo => uploadReferenceImage(photo, 'order-issues'))
+        );
+        setIsUploading(false);
+        const failed = results.find(r => !r.success || !r.path);
+        if (failed) {
+          console.error('Error uploading photos:', failed.error);
           toast.error(
             t(
-              'Error al subir las fotos. Puede continuar sin ellas.',
-              'Error uploading photos. You can continue without them.'
+              'No se pudieron subir las fotos. Intente de nuevo o quítelas.',
+              'Could not upload the photos. Try again or remove them.'
             )
           );
-          setIsUploading(false);
+          setIsSubmitting(false);
+          return;
         }
+        results.forEach(r => photoPaths.push(r.path as string));
       }
-      
-      // Submit issue
+
+      // Submit issue. The server verifies order number + email and fills in
+      // the customer identity from the order row.
       const issue = await submitMutation.mutateAsync({
-        order_id: order.id,
         order_number: order.order_number,
-        customer_id: user?.id || undefined,
-        customer_name: order.customer_name,
-        customer_email: order.customer_email,
-        customer_phone: order.customer_phone,
+        email: formData.email,
         issue_category: formData.issue_category,
         issue_description: formData.issue_description,
-        photo_urls: photoUrls.length > 0 ? photoUrls : undefined,
+        photo_paths: photoPaths.length > 0 ? photoPaths : undefined,
+        client_token: clientTokenRef.current,
       });
-      
+
       if (issue) {
+        clientTokenRef.current = crypto.randomUUID();
         toast.success(
           t(
             '¡Problema reportado! Revisaremos tu caso pronto.',
             'Issue reported! We\'ll review your case soon.'
           )
         );
-        
+
         // Navigate to order tracking
         setTimeout(() => {
           navigate(`/order-tracking?orderNumber=${order.order_number}`);
@@ -215,9 +230,29 @@ const OrderIssue = () => {
       }
     } catch (error: any) {
       console.error('Error submitting order issue:', error);
+      const messages: Record<string, [string, string]> = {
+        order_not_found_or_email_mismatch: [
+          'No pudimos verificar ese email para esta orden. Use el email con el que hizo el pedido.',
+          'We couldn\'t match that email to this order. Use the email you used when placing the order.',
+        ],
+        rate_limited: [
+          'Demasiados intentos en poco tiempo. Intente de nuevo en una hora.',
+          'Too many attempts in a short time. Please try again in an hour.',
+        ],
+        validation_failed: [
+          'Revise los campos del formulario e intente nuevamente.',
+          'Please check the form fields and try again.',
+        ],
+        network_error: [
+          'Problema de conexión. Su reporte NO fue enviado — intente nuevamente.',
+          'Connection problem. Your report was NOT sent — please try again.',
+        ],
+      };
+      const known = messages[error?.message as string];
       toast.error(
-        error.message ||
-          t(
+        known
+          ? t(known[0], known[1])
+          : t(
             'Error al reportar el problema. Por favor intente nuevamente.',
             'Error reporting issue. Please try again.'
           )
@@ -316,6 +351,29 @@ const OrderIssue = () => {
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleSubmit} className="space-y-6">
+                    <div>
+                      <Label htmlFor="issue_email">
+                        {t('Email del Pedido', 'Order Email')} <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="issue_email"
+                        type="email"
+                        required
+                        value={formData.email}
+                        onChange={(e) => handleInputChange('email', e.target.value)}
+                        placeholder={t(
+                          'El email con el que hizo el pedido',
+                          'The email you used when placing the order'
+                        )}
+                      />
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {t(
+                          'Lo usamos para verificar que el pedido es tuyo.',
+                          'We use this to verify the order is yours.'
+                        )}
+                      </p>
+                    </div>
+
                     <div>
                       <Label htmlFor="issue_category">
                         {t('Categoría del Problema', 'Issue Category')} <span className="text-destructive">*</span>

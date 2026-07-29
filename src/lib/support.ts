@@ -69,214 +69,108 @@ export interface FAQFeedback {
   created_at: string;
 }
 
-// Contact Form Submission
+export interface SubmissionResult {
+  success: boolean;
+  id: number | null;
+  deduped?: boolean;
+  notification_sent?: boolean;
+}
+
+// Surface the Edge Function's JSON error body (validation details, 429, email
+// mismatch) instead of supabase-js's generic "non-2xx status code" message.
+async function invokeSubmissionFunction(
+  functionName: string,
+  body: Record<string, unknown>
+): Promise<SubmissionResult> {
+  if (!supabase) {
+    throw new Error('Supabase client not configured');
+  }
+
+  const { data, error } = await supabase.functions.invoke(functionName, { body });
+
+  if (error) {
+    let status: number | undefined;
+    let parsed: { error?: string } | null = null;
+    if (error instanceof FunctionsHttpError) {
+      status = error.context?.status;
+      try {
+        parsed = await error.context.json();
+      } catch {
+        /* body not JSON */
+      }
+    }
+    if (status === 429 || parsed?.error === 'rate_limited') {
+      throw new Error('rate_limited');
+    }
+    if (parsed?.error === 'order_not_found_or_email_mismatch') {
+      throw new Error('order_not_found_or_email_mismatch');
+    }
+    if (parsed?.error === 'validation_failed') {
+      throw new Error('validation_failed');
+    }
+    if (error instanceof FunctionsRelayError || error instanceof FunctionsFetchError) {
+      throw new Error('network_error');
+    }
+    throw new Error(parsed?.error || error.message || 'submission_failed');
+  }
+
+  const result = data as SubmissionResult;
+  if (!result?.success) {
+    throw new Error('submission_failed');
+  }
+  return result;
+}
+
+// Contact Form Submission — goes through the submit-contact Edge Function.
+// The browser has (deliberately) no write access to contact_submissions:
+// the function validates, rate-limits by real IP, dedupes on client_token,
+// inserts with the service role, and triggers the owner notification.
 export async function submitContactForm(data: {
   name: string;
   email: string;
   phone?: string;
   subject: ContactSubmission['subject'];
   message: string;
-  attachment_url?: string;
+  attachment_path?: string;
   order_number?: string;
+  client_token: string; // idempotency token — reuse across retries of the same message
   honeypot?: string; // Spam protection
-}): Promise<ContactSubmission | null> {
-  try {
-    if (!supabase) {
-      console.warn('Supabase client not configured');
-      return null;
-    }
-
-    // Honeypot check
-    if (data.honeypot && data.honeypot.trim() !== '') {
-      console.warn('Honeypot field filled - potential spam');
-      return null;
-    }
-
-    // Rate limiting check
-    const ipAddress = await getClientIP();
-    const canSubmit = await checkRateLimit(ipAddress);
-    if (!canSubmit) {
-      throw new Error('Too many submissions. Please try again later.');
-    }
-
-    // Get user agent
-    const userAgent = typeof window !== 'undefined' ? window.navigator.userAgent : '';
-
-    const { data: submission, error } = await supabase
-      .from('contact_submissions')
-      .insert({
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        subject: data.subject,
-        message: data.message,
-        attachment_url: data.attachment_url,
-        order_number: data.order_number,
-        ip_address: ipAddress,
-        user_agent: userAgent,
-        status: 'new',
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error submitting contact form:', error);
-      throw error;
-    }
-
-    // After successful insert, invoke edge function for email notifications
-    // Email failures should NOT block form submission - database is source of truth
-    try {
-      const { error: emailError } = await supabase.functions.invoke(
-        'send-contact-notification',
-        {
-          body: { submission }
-        }
-      );
-
-      if (emailError) {
-        // Log but don't throw - form submission already succeeded
-        console.error('Email notification failed:', emailError);
-      }
-    } catch (emailInvokeError) {
-      // Network/relay failures - log but don't block
-      if (emailInvokeError instanceof FunctionsRelayError ||
-        emailInvokeError instanceof FunctionsFetchError) {
-        console.error('Email function network error (will retry on next submission):', emailInvokeError);
-      } else {
-        console.error('Email notification error:', emailInvokeError);
-      }
-    }
-
-    return submission;
-  } catch (error) {
-    console.error('Error in submitContactForm:', error);
-    throw error;
-  }
+}): Promise<SubmissionResult> {
+  return invokeSubmissionFunction('submit-contact', {
+    name: data.name,
+    email: data.email,
+    phone: data.phone,
+    subject: data.subject,
+    message: data.message,
+    attachment_path: data.attachment_path,
+    order_number: data.order_number,
+    client_token: data.client_token,
+    honeypot: data.honeypot,
+  });
 }
 
-// Get Client IP (simplified - in production, use proper IP detection)
-async function getClientIP(): Promise<string> {
-  // In a real app, you'd get this from the server or use a service
-  // For now, we'll use a placeholder that will be handled server-side
-  return 'unknown';
-}
-
-// Rate Limiting Check
-async function checkRateLimit(ipAddress: string): Promise<boolean> {
-  try {
-    if (!supabase) return true;
-
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-
-    // Check existing rate limit record
-    const { data: existing } = await supabase
-      .from('contact_rate_limits')
-      .select('*')
-      .eq('ip_address', ipAddress)
-      .single();
-
-    if (existing) {
-      // Check if first submission was within the last hour
-      const firstSubmission = new Date(existing.first_submission_at);
-      const now = new Date();
-      const hoursSinceFirst = (now.getTime() - firstSubmission.getTime()) / (1000 * 60 * 60);
-
-      if (hoursSinceFirst < 1) {
-        // Within the hour - check count
-        if (existing.submission_count >= 3) {
-          return false; // Rate limit exceeded
-        }
-        // Increment count
-        await supabase
-          .from('contact_rate_limits')
-          .update({
-            submission_count: existing.submission_count + 1,
-            last_submission_at: new Date().toISOString(),
-          })
-          .eq('ip_address', ipAddress);
-      } else {
-        // Reset - more than an hour has passed
-        await supabase
-          .from('contact_rate_limits')
-          .update({
-            submission_count: 1,
-            first_submission_at: new Date().toISOString(),
-            last_submission_at: new Date().toISOString(),
-          })
-          .eq('ip_address', ipAddress);
-      }
-    } else {
-      // First submission from this IP
-      await supabase
-        .from('contact_rate_limits')
-        .insert({
-          ip_address: ipAddress,
-          submission_count: 1,
-        });
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Error checking rate limit:', error);
-    return true; // Allow on error to avoid blocking legitimate users
-  }
-}
-
-// Submit Order Issue
+// Submit Order Issue — goes through the submit-order-issue Edge Function.
+// Authorization happens server-side: the order number AND the email the
+// order was placed with must match. Customer identity fields on the stored
+// issue come from the order row, never from the browser.
 export async function submitOrderIssue(data: {
-  order_id: number;
   order_number: string;
-  customer_id?: number;
-  customer_name: string;
-  customer_email: string;
-  customer_phone?: string;
+  email: string;
   issue_category: OrderIssue['issue_category'];
   issue_description: string;
-  photo_urls?: string[];
-}): Promise<OrderIssue | null> {
-  try {
-    if (!supabase) {
-      console.warn('Supabase client not configured');
-      return null;
-    }
-
-    const { data: issue, error } = await supabase
-      .from('order_issues')
-      .insert({
-        ...data,
-        status: 'open',
-        priority: 'medium',
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error submitting order issue:', error);
-      throw error;
-    }
-
-    // Invoke edge function for email notification
-    try {
-      const { error: emailError } = await supabase.functions.invoke(
-        'send-order-issue-notification',
-        {
-          body: { issue }
-        }
-      );
-
-      if (emailError) {
-        console.error('Email notification failed:', emailError);
-      }
-    } catch (emailInvokeError) {
-      console.error('Email notification error:', emailInvokeError);
-    }
-
-    return issue;
-  } catch (error) {
-    console.error('Error in submitOrderIssue:', error);
-    throw error;
-  }
+  photo_paths?: string[];
+  client_token: string; // idempotency token — reuse across retries of the same report
+  honeypot?: string;
+}): Promise<SubmissionResult> {
+  return invokeSubmissionFunction('submit-order-issue', {
+    order_number: data.order_number,
+    email: data.email,
+    issue_category: data.issue_category,
+    issue_description: data.issue_description,
+    photo_paths: data.photo_paths,
+    client_token: data.client_token,
+    honeypot: data.honeypot,
+  });
 }
 
 // Admin Functions - Get Contact Submissions
@@ -364,7 +258,7 @@ export async function updateContactSubmissionStatus(
   try {
     if (!supabase) return false;
 
-    const updateData: any = { status };
+    const updateData: Record<string, unknown> = { status };
     if (status === 'responded') {
       updateData.responded_at = new Date().toISOString();
     }
@@ -402,7 +296,7 @@ export async function updateOrderIssueStatus(
   try {
     if (!supabase) return false;
 
-    const updateData: any = { status };
+    const updateData: Record<string, unknown> = { status };
     if (status === 'resolved' || status === 'closed') {
       updateData.resolved_at = new Date().toISOString();
     }

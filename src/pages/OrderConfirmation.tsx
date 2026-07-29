@@ -7,7 +7,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle2, Clock, MapPin, Phone, Mail, Calendar, Package, UserPlus, Share2, CalendarPlus, Search } from 'lucide-react';
+import { CheckCircle2, Clock, MapPin, Mail, Calendar, UserPlus, Share2, CalendarPlus, Search } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { useShare } from '@/hooks/useShare';
@@ -238,29 +238,11 @@ const OrderConfirmation = () => {
               </div>
 
               <div className="space-y-4 relative z-10">
-                {/* Customer Info */}
+                {/* Pickup/confirmation info. This page is reachable by anyone
+                    holding the URL, so verify-payment deliberately returns no
+                    private customer data — only the masked email it was
+                    confirmed to. */}
                 <div className="grid gap-6 md:grid-cols-2">
-                  <div className="flex items-start gap-3 p-4 rounded-2xl bg-white/5 border border-white/5 transition-colors hover:bg-white/10">
-                    <Package className="mt-1 h-5 w-5 text-[#C6A649]" />
-                    <div>
-                      <p className="text-sm font-semibold text-gray-300">{t('Cliente', 'Customer')}</p>
-                      <p className="text-white">{order.customer_name}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3 p-4 rounded-2xl bg-white/5 border border-white/5 transition-colors hover:bg-white/10">
-                    <Phone className="mt-1 h-5 w-5 text-[#C6A649]" />
-                    <div>
-                      <p className="text-sm font-semibold text-gray-300">{t('Teléfono', 'Phone')}</p>
-                      <p className="text-white">{order.customer_phone}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3 p-4 rounded-2xl bg-white/5 border border-white/5 transition-colors hover:bg-white/10">
-                    <Mail className="mt-1 h-5 w-5 text-[#C6A649]" />
-                    <div>
-                      <p className="text-sm font-semibold text-gray-300">{t('Email', 'Email')}</p>
-                      <p className="text-white">{order.customer_email}</p>
-                    </div>
-                  </div>
                   <div className="flex items-start gap-3 p-4 rounded-2xl bg-white/5 border border-white/5 transition-colors hover:bg-white/10">
                     <Calendar className="mt-1 h-5 w-5 text-[#C6A649]" />
                     <div>
@@ -270,6 +252,15 @@ const OrderConfirmation = () => {
                       </p>
                     </div>
                   </div>
+                  {order.customer_email_masked && (
+                    <div className="flex items-start gap-3 p-4 rounded-2xl bg-white/5 border border-white/5 transition-colors hover:bg-white/10">
+                      <Mail className="mt-1 h-5 w-5 text-[#C6A649]" />
+                      <div>
+                        <p className="text-sm font-semibold text-gray-300">{t('Confirmación enviada a', 'Confirmation sent to')}</p>
+                        <p className="text-white">{order.customer_email_masked}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Cake Details */}
@@ -312,10 +303,12 @@ const OrderConfirmation = () => {
                           ? t('Entrega a Domicilio', 'Delivery')
                           : t('Recoger en Tienda', 'Pickup')}
                       </p>
-                      {order.delivery_option === 'delivery' && order.delivery_address && (
+                      {order.delivery_option === 'delivery' && (
                         <p className="mt-1 text-sm text-gray-400">
-                          {order.delivery_address}
-                          {order.delivery_apartment && `, ${order.delivery_apartment}`}
+                          {t(
+                            'Entregaremos a la dirección indicada en tu pedido.',
+                            'We will deliver to the address provided with your order.'
+                          )}
                         </p>
                       )}
                     </div>
@@ -406,9 +399,12 @@ const OrderConfirmation = () => {
                         order.order_number,
                         new Date(order.date_needed),
                         order.time_needed,
+                        // verify-payment no longer exposes the delivery
+                        // address; delivery orders get a calendar entry
+                        // without a location.
                         order.delivery_option === 'pickup'
                           ? "324 W Marshall St, Norristown, PA 19401"
-                          : order.delivery_address
+                          : undefined
                       );
                       toast.success(t('Añadido al calendario', 'Added to calendar'));
                     }
@@ -439,12 +435,14 @@ const OrderConfirmation = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
-                    <p className="text-sm text-gray-300">
-                      {t('Email de la orden', 'Order email')}: <span className="text-white font-medium">{order.customer_email}</span>
-                    </p>
+                    {order.customer_email_masked && (
+                      <p className="text-sm text-gray-300">
+                        {t('Email de la orden', 'Order email')}: <span className="text-white font-medium">{order.customer_email_masked}</span>
+                      </p>
+                    )}
                     <div className="flex gap-4">
                       <Button asChild className="flex-1 min-h-[50px] rounded-full bg-[#C6A649] hover:bg-[#B59539] text-black font-bold">
-                        <Link to={`/signup?email=${encodeURIComponent(order.customer_email)}`}>
+                        <Link to="/signup">
                           {t('Crear Cuenta', 'Create Account')}
                         </Link>
                       </Button>

@@ -41,6 +41,11 @@ const Contact = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Idempotency token: stable across retries of the same message (double
+  // click, flaky network), regenerated only after a successful submission —
+  // so a retry can never create a duplicate row.
+  const clientTokenRef = useRef<string>(crypto.randomUUID());
+
   const submitMutation = useSubmitContactForm();
 
   const handleInputChange = (field: string, value: string) => {
@@ -113,23 +118,26 @@ const Contact = () => {
     setIsSubmitting(true);
 
     try {
-      // Upload attachment if present
-      let attachmentUrl: string | undefined;
+      // Upload attachment if present. An upload failure ABORTS the submit —
+      // never silently drop the customer's photo and pretend everything is
+      // fine. They can retry or remove the attachment.
+      let attachmentPath: string | undefined;
       if (attachment) {
         setIsUploading(true);
-        try {
-          attachmentUrl = await uploadReferenceImage(attachment, 'contact-attachments');
-          setIsUploading(false);
-        } catch (error) {
-          console.error('Error uploading attachment:', error);
+        const uploadResult = await uploadReferenceImage(attachment, 'contact-attachments');
+        setIsUploading(false);
+        if (!uploadResult.success || !uploadResult.path) {
+          console.error('Error uploading attachment:', uploadResult.error);
           toast.error(
             t(
-              'Error al subir el archivo. Puede continuar sin él.',
-              'Error uploading file. You can continue without it.'
+              'No se pudo subir la imagen. Intente de nuevo o quite el adjunto.',
+              'Could not upload the image. Try again or remove the attachment.'
             )
           );
-          setIsUploading(false);
+          setIsSubmitting(false);
+          return;
         }
+        attachmentPath = uploadResult.path;
       }
 
       // Submit form
@@ -139,12 +147,15 @@ const Contact = () => {
         phone: formData.phone || undefined,
         subject: formData.subject,
         message: formData.message,
-        attachment_url: attachmentUrl,
+        attachment_path: attachmentPath,
         order_number: orderNumber || undefined,
+        client_token: clientTokenRef.current,
         honeypot: formData.honeypot,
       });
 
       if (submission) {
+        // Fresh token for the next (different) message.
+        clientTokenRef.current = crypto.randomUUID();
         toast.success(
           t(
             '¡Mensaje enviado! Nos pondremos en contacto pronto.',
@@ -170,12 +181,28 @@ const Contact = () => {
       }
     } catch (error: any) {
       console.error('Error submitting contact form:', error);
+      const messages: Record<string, [string, string]> = {
+        rate_limited: [
+          'Demasiados mensajes en poco tiempo. Intente de nuevo en una hora.',
+          'Too many messages in a short time. Please try again in an hour.',
+        ],
+        validation_failed: [
+          'Revise los campos del formulario e intente nuevamente.',
+          'Please check the form fields and try again.',
+        ],
+        network_error: [
+          'Problema de conexión. Su mensaje NO fue enviado — intente nuevamente.',
+          'Connection problem. Your message was NOT sent — please try again.',
+        ],
+      };
+      const known = messages[error?.message as string];
       toast.error(
-        error.message ||
-        t(
-          'Error al enviar el mensaje. Por favor intente nuevamente.',
-          'Error sending message. Please try again.'
-        )
+        known
+          ? t(known[0], known[1])
+          : t(
+            'Error al enviar el mensaje. Por favor intente nuevamente.',
+            'Error sending message. Please try again.'
+          )
       );
     } finally {
       setIsSubmitting(false);
