@@ -3,7 +3,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/lib/i18n';
 
-type Language = 'es' | 'en';
+export type Language = 'es' | 'en';
 
 interface LanguageContextType {
   language: Language;
