@@ -88,38 +88,6 @@ export async function getOrdersByStatus(): Promise<OrderStatusBreakdown[]> {
   return api.getOrdersByStatus();
 }
 
-export async function getAverageOrderValue(
-  period: 'today' | 'week' | 'month' = 'month'
-): Promise<number> {
-  return api.getAverageOrderValue();
-}
-
-export async function getCustomerRetention(
-  period: 'week' | 'month' | 'year' = 'month'
-): Promise<CustomerRetention[]> {
-  return api.getCustomerRetention();
-}
-
-export async function getPeakOrderingTimes(
-  days: number = 30
-): Promise<PeakOrderingTime[]> {
-  return api.getPeakOrderingTimes();
-}
-
-export async function getCapacityUtilization(
-  days: number = 30
-): Promise<CapacityUtilization[]> {
-  return api.getCapacityUtilization();
-}
-
-
-/**
- * Get today's deliveries
- */
-export async function getTodayDeliveries(): Promise<any[]> {
-  return api.getTodayDeliveries();
-}
-
 /**
  * Get low stock items
  */
@@ -130,19 +98,3 @@ export async function getLowStockItems(): Promise<any[]> {
 /**
  * Generate daily sales report
  */
-
-export async function generateDailySalesReport(date: string): Promise<Blob> {
-  return api.generateDailySalesReport();
-}
-
-export async function generateInventoryReport(): Promise<Blob> {
-  return api.generateInventoryReport();
-}
-
-export async function generateCustomerActivityReport(
-  startDate: string,
-  endDate: string
-): Promise<Blob> {
-  return api.generateCustomerActivityReport();
-}
-

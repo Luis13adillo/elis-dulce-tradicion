@@ -7,7 +7,6 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { uploadReferenceImage } from '@/lib/storage';
 import { isValidImageType, isValidFileSize, isHeicFile, compressImage } from '@/lib/imageCompression';
-import { useOptimizedPricing } from '@/lib/hooks/useOptimizedPricing';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatPrice } from '@/lib/pricing';
@@ -301,20 +300,13 @@ const Order = () => {
       }))
     : FALLBACK_PREMIUM_FILLING_OPTIONS;
 
-  const { pricingBreakdown, isLoading: isCalculatingPrice } = useOptimizedPricing({
-    size: formData.cakeSize,
-    filling: formData.breadType,
-    theme: formData.theme || 'custom',
-    deliveryOption: formData.pickupType as 'pickup' | 'delivery',
-  });
-
   const getBasePrice = () => {
     const size = activeCakeSizes.find(s => s.value === formData.cakeSize);
     return size?.price || 0;
   };
 
   const getTotal = () => {
-    const base = pricingBreakdown ? pricingBreakdown.total : getBasePrice();
+    const base = getBasePrice();
     const premiumUpcharge = getPremiumFillingUpcharge();
     return base + premiumUpcharge + deliveryFee;
   };
@@ -979,7 +971,7 @@ const Order = () => {
           <div className="flex flex-col pl-2 sm:pl-4 min-w-0">
             <span className="text-[9px] sm:text-[10px] text-[#C6A649] font-black uppercase tracking-[0.25em] sm:tracking-[0.3em] mb-0.5 sm:mb-1 truncate">{t('Total Estimado', 'Estimated Total')}</span>
             <span className="text-2xl sm:text-3xl font-black text-white tracking-tighter leading-none">
-              {isCalculatingPrice ? <Loader2 className="inline animate-spin text-[#C6A649]" size={20} /> : formatPrice(getTotal())}
+              {formatPrice(getTotal())}
             </span>
           </div>
 
