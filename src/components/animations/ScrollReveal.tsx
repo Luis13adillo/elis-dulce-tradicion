@@ -31,7 +31,7 @@ const ScrollReveal = ({
       transition: {
         duration: 0.6,
         delay,
-        ease: [0.21, 1.11, 0.81, 0.99],
+        ease: [0.21, 1.11, 0.81, 0.99] as const,
       },
     },
   };

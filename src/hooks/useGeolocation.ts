@@ -24,8 +24,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
 
   const getCurrentPosition = useCallback(() => {
     if (!navigator.geolocation) {
-      const err = new Error('Geolocation is not supported') as GeolocationPositionError;
-      err.code = 0;
+      const err = Object.assign(new Error('Geolocation is not supported'), { code: 0 }) as unknown as GeolocationPositionError;
       setError(err);
       options.onError?.(err);
       return;

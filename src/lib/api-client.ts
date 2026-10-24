@@ -89,7 +89,7 @@ class ApiClient {
 
     // Inject CSRF token for state-changing requests
     let csrfHeader: string | null = null;
-    if (method !== 'GET' && method !== 'HEAD') {
+    if (method !== 'GET' && (method as string) !== 'HEAD') {
       try {
         csrfHeader = await getCsrfToken();
       } catch {
