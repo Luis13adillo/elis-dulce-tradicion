@@ -36,6 +36,7 @@ export interface PricingData {
     per_mile_rate: number;
     max_distance: number | null;
     zip_codes: string[];
+    active?: boolean;
   }>;
   taxRates: Array<{
     state: string;
@@ -172,7 +173,7 @@ export async function calculateDeliveryFee(
 export function calculateTax(
   subtotal: number,
   state: string = 'CA',
-  county?: string,
+  county: string | undefined,
   pricing: PricingData
 ): number {
   // Find the most specific tax rate: county-level first, then state-level fallback
