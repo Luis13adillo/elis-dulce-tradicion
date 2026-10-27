@@ -178,16 +178,32 @@ async function handlePaymentSucceeded(
 
     // --- New flow: pending_order_id in metadata ---
     if (pendingOrderId) {
-        const { data: result, error } = await supabase.rpc("promote_pending_order", {
+        // H3: the DB verifies amount_received, currency and PI id under the
+        // row lock before promoting; mismatches are flagged, not promoted.
+        const { data: result, error } = await supabase.rpc("promote_pending_order_verified", {
             p_pending_id: pendingOrderId,
             p_payment_intent_id: pi.id,
-            p_idempotency_key: pendingOrderId,
+            p_amount_received_cents: pi.amount_received,
+            p_currency: pi.currency,
         });
 
         if (error) {
             console.error(`promote_pending_order failed for ${pendingOrderId}:`, error);
             await sendOrphanAlert(pi, `Failed to promote pending_order ${pendingOrderId}: ${error.message}`);
             throw error;
+        }
+
+        // deno-lint-ignore no-explicit-any
+        const r = result as any;
+        if (r?.flagged) {
+            // Deterministic: a retry would mismatch again, so acknowledge
+            // (no throw) and put it in front of a human.
+            await sendOrphanAlert(
+                pi,
+                `Payment for pending_order ${pendingOrderId} (order ${r.order_number ?? "?"}) was NOT promoted: ` +
+                `${r.reason}. Details: ${JSON.stringify(r.details)}. Review in Stripe and the dashboard; refund or fix manually.`,
+            );
+            return;
         }
 
         // deno-lint-ignore no-explicit-any
@@ -322,6 +338,12 @@ async function handlePaymentFailed(
 
         // deno-lint-ignore no-explicit-any
         const pending = rowJson as any;
+        if (pending?.skipped) {
+            // H1: the order was already paid via another attempt. No
+            // "payment failed" emails, no failed_payments row.
+            console.log(`payment_failed for ${pi.id} ignored: pending_order ${pendingOrderId} already promoted`);
+            return;
+        }
         if (pending?.customer_email) {
             // Customer-facing email with retry link
             await invokeFunction(supabase, "send-payment-failed-customer", {
