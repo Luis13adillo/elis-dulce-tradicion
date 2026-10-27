@@ -126,8 +126,11 @@ export function GalleryManager() {
 
     setIsUploading(true);
     try {
-      const url = await uploadReferenceImage(file, `gallery/${Date.now()}-${file.name}`);
-      setFormData({ ...formData, image_url: url });
+      const result = await uploadReferenceImage(file, `gallery/${Date.now()}-${file.name}`);
+      if (!result.success || !result.url) {
+        throw new Error(result.error || 'Upload failed');
+      }
+      setFormData({ ...formData, image_url: result.url });
       toast.success(
         isSpanish ? 'Imagen subida exitosamente' : 'Image uploaded successfully'
       );
