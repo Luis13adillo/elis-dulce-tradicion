@@ -389,3 +389,16 @@ Deno.test({
         });
     },
 });
+
+Deno.test({
+    name: "H4: status 'expired' is refused even if expires_at is in the future; no Stripe call",
+    ...T,
+    fn: async () => {
+        const routes = [...dbRoutes(pendingRow({ status: "expired", payment_intent_id: "pi_old" })), stripeCreateRoute()];
+        await withMockFetch(routes, async (calls) => {
+            const res = await handler(request({ pending_order_id: PENDING_ID }));
+            assertEquals(res.status, 410);
+            assertEquals(callsTo(calls, "api.stripe.com").length, 0);
+        });
+    },
+});

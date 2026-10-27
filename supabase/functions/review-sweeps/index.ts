@@ -14,6 +14,12 @@
 //     off/shadow they resolve to passed/ANALYSIS_FAILED so the customer's
 //     holding-page re-check releases them to checkout.
 //
+//  C. Expired PaymentIntents (H4): rows prune_expired_pending_orders marked
+//     'expired' that still carry a payment_intent_id get that PI canceled in
+//     Stripe (idempotency key expire_cancel_<pending>_<pi>) and stamped with
+//     payment_intent_canceled_at / payment_intent_cancel_status. A PI that
+//     already succeeded is NOT touched — the owner gets an alert instead.
+//
 // The 7-day hold expiry itself is handled by prune_expired_pending_orders
 // (status → expired, image_review_status → review_expired) — not here.
 
@@ -21,6 +27,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { Resend } from "npm:resend@^4.0.0";
 import { buildEmailHtml, formatDate } from "../_shared/emailTemplates.ts";
+import { Stripe } from "npm:stripe@^14.0.0";
+import { cancelExpiredPaymentIntent, isFinalOutcome } from "../_shared/expiredPaymentIntents.ts";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -63,6 +71,8 @@ Deno.serve(async (req) => {
         mode,
         reminders_sent: 0,
         stuck_resolved: 0,
+        expired_pis_canceled: 0,
+        expired_pis_paid_late: 0,
         errors: [] as string[],
     };
 
@@ -153,6 +163,49 @@ Deno.serve(async (req) => {
                 .select("id")
                 .maybeSingle();
             if (claimed) results.stuck_resolved += 1;
+        }
+    }
+
+    // ---------------- Sweep C: cancel PIs on expired pending rows ----------
+    const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY");
+    if (!STRIPE_SECRET_KEY) {
+        results.errors.push("expired PI sweep skipped: STRIPE_SECRET_KEY not set");
+    } else {
+        const stripe = new Stripe(STRIPE_SECRET_KEY, {
+            apiVersion: "2023-10-16",
+            httpClient: Stripe.createFetchHttpClient(),
+        });
+        const piApi = {
+            retrieve: (id: string) => stripe.paymentIntents.retrieve(id),
+            cancel: (id: string, params: { cancellation_reason: "abandoned" }, options: { idempotencyKey: string }) =>
+                stripe.paymentIntents.cancel(id, params, options),
+        };
+        const { data: expired, error: expErr } = await supabase
+            .from("pending_orders")
+            .select("id, order_number, payment_intent_id, total_amount, customer_email")
+            .eq("status", "expired")
+            .not("payment_intent_id", "is", null)
+            .is("payment_intent_canceled_at", null)
+            .limit(50);
+        if (expErr) results.errors.push(`expired PI query: ${expErr.message}`);
+        for (const row of expired ?? []) {
+            try {
+                const outcome = await cancelExpiredPaymentIntent(piApi, row.id, row.payment_intent_id);
+                if (!isFinalOutcome(outcome)) continue;
+                await supabase
+                    .from("pending_orders")
+                    .update({ payment_intent_canceled_at: new Date().toISOString(), payment_intent_cancel_status: outcome })
+                    .eq("id", row.id)
+                    .is("payment_intent_canceled_at", null);
+                if (outcome === "canceled") results.expired_pis_canceled += 1;
+                if (outcome === "succeeded_late") {
+                    results.expired_pis_paid_late += 1;
+                    console.error(`EXPIRED PENDING ORDER PAID: ${row.order_number} (${row.payment_intent_id}) — needs owner review`);
+                    await sendExpiredPaidAlert(row);
+                }
+            } catch (e) {
+                results.errors.push(`expired PI ${row.order_number}: ${(e as Error).message}`);
+            }
         }
     }
 
@@ -274,4 +327,20 @@ function escapeHtml(text: string | undefined | null): string {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#x27;");
+}
+
+// deno-lint-ignore no-explicit-any
+async function sendExpiredPaidAlert(row: any) {
+    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+    if (!RESEND_API_KEY) return;
+    const OWNER_EMAIL = Deno.env.get("OWNER_EMAIL") || "owner@elisbakery.com";
+    const FROM_EMAIL = Deno.env.get("FROM_EMAIL") || "orders@elisbakery.com";
+    const FROM_NAME = Deno.env.get("FROM_NAME") || "Eli's Bakery";
+    const resend = new Resend(RESEND_API_KEY);
+    await resend.emails.send({
+        from: `${FROM_NAME} <${FROM_EMAIL}>`,
+        to: OWNER_EMAIL,
+        subject: `Review: expired order ${row.order_number} was paid`,
+        html: `<p>Pending order <strong>${row.order_number}</strong> had expired, but its Stripe payment <code>${row.payment_intent_id}</code> succeeded. Check the date and capacity, then honor or refund it.</p>`,
+    });
 }
