@@ -17,6 +17,10 @@ jobs:
           node-version: '22'
           cache: 'npm'
       - run: npm install
+      - name: Typecheck
+        run: |
+          npx tsc -p tsconfig.app.json --noEmit
+          npx tsc -p tsconfig.node.json --noEmit
       - run: npm run test:frontend
 
   # E2E job temporarily disabled: the e2e/*.spec.ts files are stale
