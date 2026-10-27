@@ -91,7 +91,10 @@ export async function handler(req: Request): Promise<Response> {
                 );
             }
 
-            if (new Date(pending.expires_at).getTime() < Date.now()) {
+            // H4: an expired row must never get a (new or reused) PI, even if
+            // a staff edit pushed expires_at forward after the prune marked it.
+            if (pending.status === "expired"
+                || new Date(pending.expires_at).getTime() < Date.now()) {
                 return new Response(
                     JSON.stringify({ error: "This order has expired. Please start a new order." }),
                     { status: 410, headers: { ...corsHeaders, "Content-Type": "application/json" } }
