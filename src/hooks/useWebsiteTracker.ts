@@ -30,7 +30,7 @@ export const useWebsiteTracker = () => {
             // Track clicks on buttons or links
             const closest = target.closest('button, a');
             if (closest) {
-                const label = closest.getAttribute('aria-label') || closest.innerText || closest.getAttribute('href');
+                const label = closest.getAttribute('aria-label') || (closest as HTMLElement).innerText || closest.getAttribute('href');
                 if (label) {
                     api.trackEvent('click', {
                         tag: closest.tagName,
