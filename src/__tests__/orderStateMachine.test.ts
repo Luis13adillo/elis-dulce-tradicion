@@ -51,7 +51,7 @@ describe('Order State Machine', () => {
 
   describe('validateTransition', () => {
     it('should validate payment requirement for confirmation', () => {
-      const unpaidOrder = { ...mockOrder, payment_status: 'pending' };
+      const unpaidOrder = { ...mockOrder, payment_status: 'pending' as const };
       const result = validateTransition(
         'pending',
         'confirmed',
