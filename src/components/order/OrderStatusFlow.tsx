@@ -60,6 +60,9 @@ export const OrderStatusFlow = ({
     confirmed: { es: 'Confirmado', en: 'Confirmed' },
     in_progress: { es: 'En Proceso', en: 'In Progress' },
     ready: { es: 'Listo', en: 'Ready' },
+    // PLACEHOLDER labels: reword
+    out_for_delivery: { es: 'out_for_delivery', en: 'out_for_delivery' },
+    delivered: { es: 'delivered', en: 'delivered' },
     completed: { es: 'Completado', en: 'Completed' },
     cancelled: { es: 'Cancelado', en: 'Cancelled' },
   };

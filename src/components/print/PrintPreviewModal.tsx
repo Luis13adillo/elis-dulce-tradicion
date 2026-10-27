@@ -35,12 +35,12 @@ export function PrintPreviewModal({ order, isOpen, onClose, onCancelOrder }: Pri
     const { hasRole } = useAuth();
 
     const handlePrintInvoice = useReactToPrint({
-        content: () => invoiceRef.current,
+        contentRef: invoiceRef,
         documentTitle: order ? `Invoice-${order.order_number}` : 'Invoice',
     });
 
     const handlePrintReceipt = useReactToPrint({
-        content: () => receiptRef.current,
+        contentRef: receiptRef,
         documentTitle: order ? `Ticket-${order.order_number}` : 'Ticket',
     });
 
@@ -308,16 +308,14 @@ export function PrintPreviewModal({ order, isOpen, onClose, onCancelOrder }: Pri
                                 const { toast } = await import('sonner');
 
                                 const issue = await submitOrderIssue({
-                                  order_id: order.id,
                                   order_number: order.order_number,
-                                  customer_name: order.customer_name || 'Unknown',
-                                  customer_email: order.customer_email || '',
-                                  customer_phone: order.customer_phone,
+                                  email: order.customer_email || '',
+                                  client_token: crypto.randomUUID(),
                                   issue_category: issueCategory,
                                   issue_description: issueDescription.trim(),
                                 });
 
-                                if (issue) {
+                                if (issue.success) {
                                   toast.info('Sending issue notifications...');
                                   const { success } = await api.sendOrderIssueNotification(issue);
                                   if (success) {

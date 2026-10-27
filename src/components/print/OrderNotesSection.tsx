@@ -49,14 +49,14 @@ export function OrderNotesSection({ orderId }: OrderNotesSectionProps) {
     try {
       const { api } = await import('@/lib/api');
       const { toast } = await import('sonner');
-      const { success, data, error } = await api.addOrderNote(orderId, newNoteText);
+      const { success, data } = await api.addOrderNote(orderId, newNoteText);
 
       if (success && data) {
         setNotes((prev) => [data, ...prev]);
         setNewNoteText('');
         toast.success('Note added');
       } else {
-        toast.error(error || 'Failed to add note');
+        toast.error('Failed to add note');
       }
     } catch (err) {
       console.error('Error adding note:', err);

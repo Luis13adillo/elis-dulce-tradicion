@@ -244,8 +244,9 @@ export function calculateTimeMetrics(order: OrderData): {
 /**
  * XState Machine Definition
  */
-export const orderStateMachine = createMachine<OrderStateContext, OrderStateEvent>(
+export const orderStateMachine = createMachine(
   {
+    types: {} as { context: OrderStateContext; events: OrderStateEvent },
     id: 'orderStatus',
     initial: 'pending',
     context: {
@@ -425,46 +426,46 @@ export const orderStateMachine = createMachine<OrderStateContext, OrderStateEven
       onConfirm: assign({
         order: ({ context }) => ({
           ...context.order,
-          status: 'confirmed',
+          status: 'confirmed' as const,
         }),
       }),
       onStart: assign({
         order: ({ context }) => ({
           ...context.order,
-          status: 'in_progress',
+          status: 'in_progress' as const,
         }),
       }),
       onMarkReady: assign({
         order: ({ context }) => ({
           ...context.order,
-          status: 'ready',
+          status: 'ready' as const,
           ready_at: new Date().toISOString(),
         }),
       }),
       onDispatch: assign({
         order: ({ context }) => ({
           ...context.order,
-          status: 'out_for_delivery',
+          status: 'out_for_delivery' as const,
           dispatched_at: new Date().toISOString(),
         }),
       }),
       onMarkDelivered: assign({
         order: ({ context }) => ({
           ...context.order,
-          status: 'delivered',
+          status: 'delivered' as const,
           delivered_at: new Date().toISOString(),
         }),
       }),
       onComplete: assign({
         order: ({ context }) => ({
           ...context.order,
-          status: 'completed',
+          status: 'completed' as const,
         }),
       }),
       onCancel: assign({
         order: ({ context }) => ({
           ...context.order,
-          status: 'cancelled',
+          status: 'cancelled' as const,
         }),
       }),
       onAdminOverride: assign({
