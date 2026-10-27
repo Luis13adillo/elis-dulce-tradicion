@@ -23,6 +23,7 @@ import SizeStep, { validateSizeStep, getSizeSummary } from '@/components/order/s
 import FlavorStep, { validateFlavorStep, getFlavorSummary } from '@/components/order/steps/FlavorStep';
 import DetailsStep, { validateDetailsStep, getDetailsSummary } from '@/components/order/steps/DetailsStep';
 import ContactStep, { validateContactStep, getContactSummary } from '@/components/order/steps/ContactStep';
+import { buildPremiumFillingSizes } from '@/lib/premiumFillings';
 import {
   FALLBACK_CAKE_SIZES,
   FALLBACK_BREAD_TYPES,
@@ -640,6 +641,9 @@ const Order = () => {
         total_amount: getTotal(),
         user_id: user?.id || null,
         premium_filling_upcharge: getPremiumFillingUpcharge(),
+        // H5: the server prices the upcharge from this map; the number above
+        // is display-only and ignored by create_pending_order_secure.
+        premium_filling_sizes: buildPremiumFillingSizes(selectedFillings, activeFillings, premiumFillingSizes),
         allergies: allergies.trim() || null,
         bread_type: selectedBread?.label || formData.breadType,
         bread_type_value: formData.breadType,
