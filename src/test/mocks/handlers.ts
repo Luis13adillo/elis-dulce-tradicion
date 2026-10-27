@@ -16,7 +16,7 @@ export const handlers = [
     return HttpResponse.json({
       id: 1,
       order_number: 'ORD-2024-001',
-      ...body,
+      ...(body as Record<string, unknown>),
       status: 'pending',
       created_at: new Date().toISOString(),
     });

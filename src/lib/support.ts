@@ -365,15 +365,13 @@ export async function submitFAQFeedback(
   try {
     if (!supabase) return false;
 
-    const ipAddress = await getClientIP();
-
     const { error } = await supabase
       .from('faq_feedback')
       .insert({
         faq_id,
         is_helpful,
         feedback_text,
-        ip_address: ipAddress,
+        ip_address: null,
       });
 
     if (error) {

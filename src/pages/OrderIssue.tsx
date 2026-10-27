@@ -104,7 +104,7 @@ const OrderIssue = () => {
         return;
       }
       
-      if (!isValidFileSize(file, 5 * 1024 * 1024)) {
+      if (!isValidFileSize(file)) {
         toast.error(
           t(
             'El archivo es demasiado grande. Tamaño máximo: 5MB',

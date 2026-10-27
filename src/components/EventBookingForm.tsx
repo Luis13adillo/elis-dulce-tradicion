@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,8 @@ import { useSubmitContactForm } from '@/lib/hooks/useSupport';
 const EventBookingForm = () => {
     const { t } = useLanguage();
     const submitMutation = useSubmitContactForm();
+    // Idempotency token: reused across retries of the same inquiry, rotated after success.
+    const clientTokenRef = useRef<string>(crypto.randomUUID());
 
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [formData, setFormData] = useState({
@@ -56,7 +58,9 @@ ${formData.message}
                 phone: formData.phone || undefined,
                 subject: 'Custom Request',
                 message: fullMessage,
+                client_token: clientTokenRef.current,
             });
+            clientTokenRef.current = crypto.randomUUID();
 
             setIsSubmitted(true);
             toast.success(t('¡Solicitud enviada con éxito!', 'Inquiry sent successfully!'));

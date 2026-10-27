@@ -3,7 +3,6 @@
  * Handles all pricing calculations for cake orders
  */
 
-import { api } from './api';
 
 export interface PricingBreakdown {
   basePrice: number;
@@ -23,7 +22,6 @@ export interface OrderDetails {
   deliveryOption: 'delivery' | 'pickup';
   deliveryAddress?: string;
   zipCode?: string;
-  promoCode?: string;
 }
 
 export interface PricingData {
@@ -36,6 +34,7 @@ export interface PricingData {
     per_mile_rate: number;
     max_distance: number | null;
     zip_codes: string[];
+    active?: boolean;
   }>;
   taxRates: Array<{
     state: string;
@@ -44,37 +43,6 @@ export interface PricingData {
   }>;
 }
 
-let cachedPricing: PricingData | null = null;
-let cacheTimestamp: number = 0;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-
-/**
- * Fetch current pricing from API
- */
-export async function fetchCurrentPricing(): Promise<PricingData> {
-  const now = Date.now();
-  
-  // Return cached data if still valid
-  if (cachedPricing && (now - cacheTimestamp) < CACHE_DURATION) {
-    return cachedPricing;
-  }
-
-  try {
-    const data = await api.getCurrentPricing();
-    cachedPricing = data;
-    cacheTimestamp = now;
-    return data;
-  } catch (error) {
-    console.error('Error fetching pricing:', error);
-    
-    // Return cached data if available, even if expired
-    if (cachedPricing) {
-      return cachedPricing;
-    }
-    
-    throw error;
-  }
-}
 
 /**
  * Calculate base cake price
@@ -172,7 +140,7 @@ export async function calculateDeliveryFee(
 export function calculateTax(
   subtotal: number,
   state: string = 'CA',
-  county?: string,
+  county: string | undefined,
   pricing: PricingData
 ): number {
   // Find the most specific tax rate: county-level first, then state-level fallback
@@ -203,112 +171,6 @@ export function calculateTax(
 }
 
 /**
- * Validate and apply promo code
- */
-export async function applyPromoCode(
-  code: string,
-  subtotal: number
-): Promise<{ discount: number; valid: boolean; message?: string }> {
-  try {
-    const promoData = await api.validatePromoCode(code, subtotal);
-    
-    if (!promoData.valid) {
-      return {
-        discount: 0,
-        valid: false,
-        message: promoData.message || 'Invalid promo code',
-      };
-    }
-    
-    let discount = 0;
-    
-    if (promoData.discount_type === 'percentage') {
-      discount = subtotal * (parseFloat(promoData.discount_value.toString()) / 100);
-      
-      // Apply max discount if set
-      if (promoData.max_discount_amount) {
-        const maxDiscount = parseFloat(promoData.max_discount_amount.toString());
-        discount = Math.min(discount, maxDiscount);
-      }
-    } else if (promoData.discount_type === 'fixed') {
-      discount = parseFloat(promoData.discount_value.toString());
-      // Don't allow discount to exceed subtotal
-      discount = Math.min(discount, subtotal);
-    }
-    
-    return {
-      discount,
-      valid: true,
-    };
-  } catch (error) {
-    console.error('Error applying promo code:', error);
-    return {
-      discount: 0,
-      valid: false,
-      message: 'Error validating promo code',
-    };
-  }
-}
-
-/**
- * Calculate total order price with breakdown
- */
-export async function calculateTotal(
-  orderDetails: OrderDetails,
-  pricing?: PricingData
-): Promise<PricingBreakdown> {
-  // Fetch pricing if not provided
-  const currentPricing = pricing || await fetchCurrentPricing();
-  
-  // Calculate base price
-  const basePrice = calculateCakePrice(orderDetails.size, currentPricing);
-  
-  // Calculate add-ons
-  const fillingCost = calculateFillingCost(orderDetails.filling, currentPricing);
-  const themeCost = calculateThemeCost(orderDetails.theme, currentPricing);
-  
-  // Calculate subtotal (before delivery and tax)
-  const subtotal = basePrice + fillingCost + themeCost;
-  
-  // Calculate delivery fee
-  let deliveryFee = 0;
-  if (orderDetails.deliveryOption === 'delivery' && orderDetails.deliveryAddress && orderDetails.zipCode) {
-    deliveryFee = await calculateDeliveryFee(
-      orderDetails.deliveryAddress,
-      orderDetails.zipCode,
-      currentPricing
-    );
-  }
-  
-  // Calculate tax (on subtotal + delivery)
-  const taxableAmount = subtotal + deliveryFee;
-  const tax = calculateTax(taxableAmount, 'CA', undefined, currentPricing);
-  
-  // Apply promo code if provided
-  let discount = 0;
-  if (orderDetails.promoCode) {
-    const promoResult = await applyPromoCode(orderDetails.promoCode, taxableAmount + tax);
-    if (promoResult.valid) {
-      discount = promoResult.discount;
-    }
-  }
-  
-  // Calculate total
-  const total = taxableAmount + tax - discount;
-  
-  return {
-    basePrice,
-    fillingCost,
-    themeCost,
-    deliveryFee,
-    tax,
-    subtotal,
-    discount,
-    total: Math.max(0, total), // Ensure total is never negative
-  };
-}
-
-/**
  * Format price for display
  */
 export function formatPrice(amount: number): string {
@@ -316,12 +178,4 @@ export function formatPrice(amount: number): string {
     style: 'currency',
     currency: 'USD',
   }).format(amount);
-}
-
-/**
- * Clear pricing cache (useful after admin updates)
- */
-export function clearPricingCache(): void {
-  cachedPricing = null;
-  cacheTimestamp = 0;
 }

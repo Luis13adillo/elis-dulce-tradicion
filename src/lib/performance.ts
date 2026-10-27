@@ -28,9 +28,6 @@ function sendToAnalytics(metric: Metric) {
     case 'CLS':
       metrics.cls = metric.value;
       break;
-    case 'FID':
-      metrics.fid = metric.value;
-      break;
     case 'FCP':
       metrics.fcp = metric.value;
       break;
