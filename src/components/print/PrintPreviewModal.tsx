@@ -304,7 +304,6 @@ export function PrintPreviewModal({ order, isOpen, onClose, onCancelOrder }: Pri
                               setIssueSubmitting(true);
                               try {
                                 const { submitOrderIssue } = await import('@/lib/support');
-                                const { api } = await import('@/lib/api');
                                 const { toast } = await import('sonner');
 
                                 const issue = await submitOrderIssue({
@@ -316,13 +315,8 @@ export function PrintPreviewModal({ order, isOpen, onClose, onCancelOrder }: Pri
                                 });
 
                                 if (issue.success) {
-                                  toast.info('Sending issue notifications...');
-                                  const { success } = await api.sendOrderIssueNotification(issue);
-                                  if (success) {
-                                    toast.success('Issue reported & notifications sent');
-                                  } else {
-                                    toast.success('Issue reported, but notification email failed');
-                                  }
+                                  // The submit-order-issue Edge Function sends notifications itself.
+                                  toast.success('Issue reported');
                                 } else {
                                   toast.error('Failed to create issue record');
                                 }
