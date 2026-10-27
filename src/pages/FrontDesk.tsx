@@ -19,6 +19,7 @@ import { OrderScheduler } from '@/components/dashboard/OrderScheduler';
 import { PrintPreviewModal } from '@/components/print/PrintPreviewModal';
 import TodayScheduleSummary from '@/components/dashboard/TodayScheduleSummary';
 import { FullScreenOrderAlert } from '@/components/kitchen/FullScreenOrderAlert';
+import { useUnacceptedOrderAlarm } from '@/hooks/useUnacceptedOrderAlarm';
 import { NotificationPanel } from '@/components/kitchen/NotificationPanel';
 import CancelOrderModal from '@/components/order/CancelOrderModal';
 import { FrontDeskInventory } from '@/components/kitchen/FrontDeskInventory';
@@ -57,6 +58,9 @@ const FrontDesk = () => {
     activityFeed,
     triggerTestAlert,
   } = useOrdersFeed(undefined, { soundEnabled: isSoundEnabled });
+
+  // Keep beeping while any paid order is still unaccepted (status 'pending').
+  useUnacceptedOrderAlarm(orders, isSoundEnabled);
 
   // Notification State
   const { markAsRead, markAllAsRead, isUnread } = useNotificationState();
