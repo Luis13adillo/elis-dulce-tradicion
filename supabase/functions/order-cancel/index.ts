@@ -131,7 +131,12 @@ Deno.serve(async (req) => {
         const policyRow = Array.isArray(policy) ? policy[0] : policy;
         refundPercentage = Number(policyRow?.refund_percentage ?? 0);
     }
-    refundAmount = Math.max(0, Math.min(refundAmount, Number(order.total_amount)));
+    // Never request more than is still refundable (total minus what Stripe
+    // already refunded). The DB CHECK on refunded_cents is the hard backstop.
+    const alreadyRefunded = Number(order.refunded_cents ?? 0) / 100;
+    const refundable = Math.max(0, Number(order.total_amount) - alreadyRefunded);
+    if (!Number.isFinite(refundAmount)) refundAmount = 0;
+    refundAmount = Math.max(0, Math.min(refundAmount, refundable));
 
     // ---------- transition status (state machine enforced in DB) ----------
     const fullReason = reasonDetails ? `${reason}: ${reasonDetails}` : reason;
@@ -162,6 +167,14 @@ Deno.serve(async (req) => {
     let refundStatus: "pending" | "processed" | "failed" | "not_applicable" =
         refundAmount > 0 ? "pending" : "not_applicable";
     let stripeRefundId: string | null = null;
+    let refundError: string | null = null;
+
+    if (refundAmount > 0 && !order.stripe_payment_id) {
+        // Nothing to refund against — don't leave refund_status 'pending' forever.
+        refundStatus = "failed";
+        refundError = "Order has no Stripe payment to refund. Refund manually.";
+        await supabase.from("orders").update({ refund_status: "failed" }).eq("id", orderId);
+    }
 
     if (refundAmount > 0 && order.stripe_payment_id) {
         try {
@@ -177,10 +190,17 @@ Deno.serve(async (req) => {
                         cancelled_by_user_id: userId,
                     },
                 },
-                { idempotencyKey: `refund-order-${orderId}` },
+                // Amount in the key: a retry of the same request replays, a
+                // different amount is a distinct (partial) refund request.
+                { idempotencyKey: `refund-order-${orderId}-${Math.round(refundAmount * 100)}` },
             );
             stripeRefundId = refund.id;
-            refundStatus = refund.status === "succeeded" ? "processed" : "pending";
+            // Final state (and refunded_cents) comes from the charge.refunded
+            // webhook; failed/canceled refunds surface immediately.
+            refundStatus = refund.status === "succeeded"
+                ? "processed"
+                : (refund.status === "failed" || refund.status === "canceled") ? "failed" : "pending";
+            if (refundStatus === "failed") refundError = `Stripe refund ${refund.status}`;
             await supabase
                 .from("orders")
                 .update({
@@ -191,6 +211,7 @@ Deno.serve(async (req) => {
         } catch (refundErr) {
             console.error("Stripe refund failed:", refundErr);
             refundStatus = "failed";
+            refundError = (refundErr as { message?: string })?.message ?? "Stripe refund failed";
             await supabase.from("orders").update({ refund_status: "failed" }).eq("id", orderId);
             // continue — cancellation already succeeded; refund failure surfaces to admin via refund_status
         }
@@ -232,6 +253,8 @@ Deno.serve(async (req) => {
             refundPercentage,
             refundStatus,
             stripeRefundId,
+            // Real error for the admin UI instead of a silent success.
+            error: refundError,
         },
     });
 });

@@ -369,25 +369,41 @@ async function handlePaymentFailed(
 }
 
 // -------------------------------------------------------------------------
-// charge.refunded — mark order refunded
+// charge.refunded — record the refund (M5)
 // -------------------------------------------------------------------------
+// apply_stripe_refund stores Stripe's cumulative amount_refunded in
+// orders.refunded_cents (DB-capped at the order total), sets payment_status
+// partially_refunded/refunded and refund_status='processed'. Any DB error is
+// thrown so the event is marked failed and Stripe retries — it used to be
+// logged and acknowledged, losing the refund state.
 async function handleChargeRefunded(
     charge: Stripe.Charge,
     supabase: ReturnType<typeof createClient>,
 ) {
-    const piId = charge.payment_intent as string | null;
-    if (!piId) return;
+    const piId = typeof charge.payment_intent === "string"
+        ? charge.payment_intent
+        : (charge.payment_intent as { id?: string } | null)?.id ?? null;
+    if (!piId) {
+        console.warn(`charge.refunded without payment_intent: ${charge.id}`);
+        return;
+    }
 
-    const { error } = await supabase
-        .from("orders")
-        .update({
-            payment_status: charge.refunded ? "refunded" : "partially_refunded",
-            refund_amount: charge.amount_refunded / 100,
-            updated_at: new Date().toISOString(),
-        })
-        .eq("stripe_payment_id", piId);
-
-    if (error) console.error("Refund update failed:", error);
+    const { data, error } = await supabase.rpc("apply_stripe_refund", {
+        p_payment_intent_id: piId,
+        p_amount_refunded_cents: charge.amount_refunded,
+    });
+    if (error) {
+        console.error(`apply_stripe_refund failed for ${piId}:`, error);
+        throw new Error(`apply_stripe_refund failed: ${error.message}`);
+    }
+    // deno-lint-ignore no-explicit-any
+    const result = data as any;
+    if (!result?.found) {
+        // Not one of our orders (or a legacy charge). Acknowledge, but loudly.
+        console.warn(`charge.refunded for unknown PI ${piId} (charge ${charge.id}, ${charge.amount_refunded}c)`);
+        return;
+    }
+    console.log(`Refund recorded on order ${result.order_number}: ${result.refunded_cents}/${result.total_cents}c${result.full ? " (full)" : ""}`);
 }
 
 // -------------------------------------------------------------------------
